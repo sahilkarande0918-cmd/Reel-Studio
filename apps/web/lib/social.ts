@@ -40,7 +40,23 @@ export type InsightMetric = {
   period?: string;
   as_of?: string;
 };
+export type ReelMedia = {
+  id: string;
+  caption: string | null;
+  media_type: string | null;
+  media_product_type: string | null;
+  timestamp: string | null;
+  permalink: string | null;
+  like_count: number | null;
+  comments_count: number | null;
+  insights: Record<string, number | null>;
+  unavailable: string[];
+};
+export type FeedbackRow = { post_id: string; permalink: string | null; title: string; duration_s: number; style: string; mode: string; views: number | null; reach: number; interactions: number; engagement: number; avg_watch_s: number | null };
+export type FeedbackGroup = { group: string; posts: number; engagement: number };
+export type FeedbackSummary = { enough: boolean; posts: number; message?: string; ideal_duration_s?: number; by_duration?: FeedbackGroup[]; by_style?: FeedbackGroup[]; by_mode?: FeedbackGroup[]; top?: FeedbackRow[]; findings?: string[]; recommendations?: string[] | null };
 export type AccountInsights = {
+  media?: ReelMedia[];
   metrics: InsightMetric[];
   unavailable: string[];
   updated_at: string | null;

@@ -122,6 +122,10 @@ def run_publish(ctx: JobContext) -> dict:
     return {"publish_id": pid, "platform_post_id": post_id}
 
 
+REEL_METRICS = ("views", "reach", "likes", "comments", "shares", "saved", "total_interactions",
+                "ig_reels_avg_watch_time", "ig_reels_video_view_total_time")
+
+
 def run_insights(ctx: JobContext) -> dict:
     db = service_client()
     account = (
@@ -164,7 +168,30 @@ def run_insights(ctx: JobContext) -> dict:
                         )
         except RuntimeError as exc:
             unavailable.append(f"{metric}: {exc}")
+    ctx.stage("instagram_media", 0.5, "Fetching recent Reels and their insights")
+    media = []
+    try:
+        listed = adapter.request("GET", f"{account['platform_user_id']}/media", limit=25,
+                                 fields="id,caption,media_type,media_product_type,timestamp,permalink,like_count,comments_count")
+        for m in listed.get("data", []):
+            ctx.check_cancel()
+            entry = {k: m.get(k) for k in ("id", "caption", "media_type", "media_product_type", "timestamp", "permalink",
+                                           "like_count", "comments_count")}
+            entry["insights"], entry["unavailable"] = {}, []
+            # Reels support these per-media metrics; each is requested alone so one unsupported metric
+            # never hides the others.
+            for metric in REEL_METRICS if m.get("media_product_type") == "REELS" else ("reach", "saved", "shares"):
+                try:
+                    data = adapter.request("GET", f"{m['id']}/insights", metric=metric).get("data", [])
+                    if data and data[0].get("values"):
+                        entry["insights"][metric] = data[0]["values"][0].get("value")
+                except RuntimeError as exc:
+                    entry["unavailable"].append(f"{metric}: {exc}")
+            media.append(entry)
+    except RuntimeError as exc:
+        unavailable.append(f"media: {exc}")
     values = {
+        "media": media,
         "account_id": account["id"],
         "organization_id": account["organization_id"],
         "metrics": metrics,

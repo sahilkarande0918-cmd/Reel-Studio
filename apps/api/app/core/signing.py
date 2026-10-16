@@ -8,6 +8,7 @@ import time
 
 from app.core.config import get_settings
 
+
 def _shared_key() -> bytes:
     settings = get_settings()
     secret = settings.token_encryption_key or settings.supabase_secret_key

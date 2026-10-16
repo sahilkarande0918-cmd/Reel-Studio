@@ -12,12 +12,12 @@ import traceback
 from datetime import UTC, datetime, timedelta
 
 from app.core.db import service_client
-from app.workers.jobs import Cancelled, JobContext, Permanent
 from app.workers.analyze import run_analyze
+from app.workers.generate import run_generate
+from app.workers.jobs import Cancelled, JobContext, Permanent
+from app.workers.publish import run_insights, run_publish
 from app.workers.render import run_render
 from app.workers.transcribe import run_transcribe
-from app.workers.publish import run_insights, run_publish
-from app.workers.generate import run_generate
 
 log = logging.getLogger("worker")
 HANDLERS = {

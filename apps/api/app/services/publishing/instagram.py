@@ -9,7 +9,7 @@ import httpx
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 
-SCOPES = ["instagram_business_basic", "instagram_business_content_publish"]
+SCOPES = ["instagram_business_basic", "instagram_business_content_publish", "instagram_business_manage_insights"]
 GRAPH = "https://graph.instagram.com"
 
 

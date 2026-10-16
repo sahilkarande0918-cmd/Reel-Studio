@@ -112,7 +112,8 @@ def score_window(c: Candidate, s0: Sentence, s1: Sentence, extras: dict, weights
     ra = ranks(s1.pause_after) if ranks else _clip01(s1.pause_after / 1.2)
     f["pause_rank_before"], f["pause_rank_after"] = round(rb, 3), round(ra, 3)
     boundary = rb * 0.4 + ra * 0.4 + (0.2 if f["opener"] else 0.0)
-    length = 1 - abs(c.duration_s - IDEAL_S) / (MAX_S - IDEAL_S)
+    ideal = extras.get("ideal_s") or IDEAL_S  # learned from this workspace's published reels when available
+    length = 1 - abs(c.duration_s - ideal) / (MAX_S - MIN_S) * 2
     voice = _clip01(0.5 + 0.25 * extras.get("level_z", 0) + 0.25 * (extras.get("variation_z", 1) - 1))
     wps = extras.get("words_per_s", 2.5)
     pace = _clip01(1 - abs(wps - 2.6) / 2.0)
@@ -140,6 +141,8 @@ def score_window(c: Candidate, s0: Sentence, s1: Sentence, extras: dict, weights
         c.reasons.append(f"Mentions {extras['spoken_screen_ids']} identifiers visible on screen")
     if extras.get("typing_samples", 0) >= 6:
         c.reasons.append("Code is being typed or changed on screen")
+    if extras.get("ideal_s") and abs(c.duration_s - extras["ideal_s"]) <= 5:
+        c.reasons.append(f"Close to the length your audience engages with most ({extras['ideal_s']:.0f} s)")
     if voice >= 0.6:
         c.reasons.append("Livelier delivery than the rest of the class")
 

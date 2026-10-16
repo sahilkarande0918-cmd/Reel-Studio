@@ -8,6 +8,7 @@ from pathlib import Path
 
 from app.core.db import service_client, transcript_words
 from app.core.storage import recording_dir, source_path
+from app.services import feedback
 from app.services.highlights import audio_features, candidates, llm
 from app.services.screen_analysis import activity, ocr, reframe
 from app.services.transcription import glossary, whisper
@@ -93,6 +94,7 @@ def run_analyze(ctx: JobContext) -> dict:
     terms = set(glossary.BUILTIN) | {tok for _, tok in seen}
     sents = candidates.sentences(fixed)
     ranker = candidates.pause_ranker(sents)
+    learned_ideal = feedback.ideal_duration(rec["organization_id"])
     cands = []
     for a, b in candidates.windows(sents):
         s0, s1 = sents[a], sents[b]
@@ -109,6 +111,7 @@ def run_analyze(ctx: JobContext) -> dict:
             "tech_terms": sum(1 for w in span if w["corrected_text"].strip(".,?!") in terms),
             "spoken_screen_ids": len(spoken_ids),
             "pause_ranks": ranker,
+            "ideal_s": learned_ideal,
         }
         candidates.score_window(c, s0, s1, extras, candidates.DEFAULT_WEIGHTS)
         c.features.update(

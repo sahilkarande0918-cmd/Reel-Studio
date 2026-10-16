@@ -12,6 +12,7 @@ from app.core.access import get_owned, require_role
 from app.core.auth import User, current_user
 from app.core.config import get_settings
 from app.core.db import service_client
+from app.services import feedback
 from app.services.publishing import instagram, tokens
 
 router = APIRouter()
@@ -161,19 +162,29 @@ def callback(body: CallbackBody, user: User = Depends(current_user)) -> dict:
         raise HTTPException(502, str(exc)) from None
 
 
+@router.post("/social/accounts/{account_id}/disconnect")
+def disconnect(account_id: UUID, user: User = Depends(current_user)) -> dict:
+    """Forget the stored token. Scheduled posts for this account fail safely until it is reconnected."""
+    account = get_owned("social_accounts", str(account_id), user, write=True)
+    db = service_client()
+    db.table("social_credentials").delete().eq("account_id", account["id"]).execute()
+    db.table("social_accounts").update({"status": "disconnected"}).eq("id", account["id"]).execute()
+    return {"id": account["id"], "status": "disconnected"}
+
+
 @router.get("/social/accounts/{account_id}/insights")
 def insights(account_id: UUID, user: User = Depends(current_user)) -> dict:
     get_owned("social_accounts", str(account_id), user)
     rows = (
         service_client()
         .table("platform_metrics")
-        .select("metrics,unavailable,updated_at")
+        .select("metrics,unavailable,media,updated_at")
         .eq("account_id", str(account_id))
         .execute()
         .data
     )
     return (
-        rows[0] if rows else {"metrics": [], "unavailable": ["No insights fetched yet"], "updated_at": None}
+        rows[0] if rows else {"metrics": [], "media": [], "unavailable": ["No insights fetched yet"], "updated_at": None}
     )
 
 
@@ -196,3 +207,29 @@ def refresh_insights(account_id: UUID, user: User = Depends(current_user)) -> di
         .data[0]
     )
     return {"job_id": row["id"]}
+
+
+@router.get("/feedback")
+def get_feedback(organization_id: UUID, user: User = Depends(current_user)) -> dict:
+    """Per-reel performance rows (live) and the last stored learning for this workspace."""
+    require_role(str(organization_id), user)
+    rows = feedback.collect(str(organization_id))
+    stored = (service_client().table("performance_feedback").select("ideal_duration_s,summary,updated_at")
+              .eq("organization_id", str(organization_id)).execute().data)
+    return {"rows": rows, "stored": stored[0] if stored else None, "min_posts": feedback.MIN_POSTS}
+
+
+@router.post("/feedback")
+def run_feedback(body: ConnectBody, user: User = Depends(current_user)) -> dict:
+    """Learn from published reels; with too little data nothing is stored and the reason is returned."""
+    org = str(body.organization_id)
+    require_role(org, user, write=True)
+    summary = feedback.learn(feedback.collect(org))
+    if not summary["enough"]:
+        return {"summary": summary, "stored": False}
+    summary["recommendations"] = feedback.explain(summary)
+    service_client().table("performance_feedback").upsert({
+        "organization_id": org, "ideal_duration_s": summary["ideal_duration_s"], "summary": summary,
+        "updated_at": datetime.now(UTC).isoformat(),
+    }).execute()
+    return {"summary": summary, "stored": True}
