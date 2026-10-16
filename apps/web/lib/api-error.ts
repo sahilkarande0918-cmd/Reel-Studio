@@ -6,8 +6,11 @@ export function apiErrorMessage(body: unknown, status: number): string {
     if (Array.isArray(detail)) {
       const messages = detail.flatMap((item) => {
         if (!item || typeof item !== "object" || typeof item.msg !== "string") return [];
-        const field = Array.isArray(item.loc) ? item.loc.filter((part: unknown) => typeof part === "string" && part !== "body").join(" · ") : "";
-        return [field ? `${field}: ${item.msg}` : item.msg];
+        // e.g. ["body","storyboard","scenes",1] → "Scene 2"; other fields keep their name
+        const loc = Array.isArray(item.loc) ? item.loc.filter((part: unknown) => part !== "body") : [];
+        const scene = loc.indexOf("scenes");
+        const field = scene >= 0 && typeof loc[scene + 1] === "number" ? `Scene ${loc[scene + 1] + 1}` : loc.filter((part: unknown) => typeof part === "string").join(" · ");
+        return [field ? `${field}: ${item.msg.replace(/^Value error, /, "")}` : item.msg];
       });
       if (messages.length) return messages.join(". ");
     }

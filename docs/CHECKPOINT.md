@@ -42,8 +42,11 @@ commits only as `sahilkarande0918-cmd`, only Supabase `adjwycjsxtxvjockxtan`, ne
   rendered **1080×1920 H.264+AAC 28.17 s**; frames show uppercase captions and code-following crop.
 - Style presets compile for all four (`compile_html`), Signature/Energy verified in real renders.
 - Vercel production deploy READY for `41d1917`. Production backend restarted on new code; tunnel up.
-- **Not verified:** repeated-code fix on a new Mode B generation; Topic Studio edit-script re-render through the UI;
-  audio fades audible check; analytics/feedback with real data; any Instagram API call with the Business account.
+- Topic Studio edit-script → re-record → render verified via UI (42.27 s MP4). Repeated-code: new generation still repeated
+  (4/5); stricter gate + repair gives 3/5 distinct live — partial; editing covers the rest.
+- Instagram connect attempt by owner returned "Invalid redirect_uri": `.env` value is correct; the Meta app's Business
+  login settings must list it exactly, and `INSTAGRAM_CLIENT_ID` must be the Instagram app ID. Owner to fix in Meta.
+- **Not verified:** audio fades audible check; analytics/feedback with real data; any Instagram API call with the Business account.
 
 ## 4. Pending owner actions
 1. Instagram Business OAuth in a private window (Publish → Connect Instagram → log in with the Business account).

@@ -14,7 +14,9 @@
 | Migration 20261017050000 | local + **production** (db push, ref verified) | ✅ applied |
 | Vercel production deploy `41d1917` | production | ✅ READY |
 | Instagram OAuth / publish / insights with Business account | — | ⏳ blocked on owner OAuth; **not verified** |
-| Topic Studio "edit script → re-record" via UI; audio fades audible | — | ⏳ not run |
+| Topic Studio "edit script → re-record" via UI (scene 2 code edited) | local stack | ✅ 1080×1920 H.264+AAC 42.27 s, edited code in timeline/video; invalid code rejected before render |
+| Repeated-code gate, live Ollama (JSON vs XML, temperature 0) | local | 🟡 before: 2 distinct examples / 5 scenes; after stricter gate + repair: 3 / 5 (71 s). Still repetitive; script editing covers it |
+| Audio fades audible check | — | ⏳ not run |
 | Dark UI at 1440 px and 375 px (dashboard, topic, recording, brand, publish, editor) | local | ✅ visually inspected |
 
 > **Latest checkpoint (2026-10-17, after the Codex handoff): read [CHECKPOINT.md](CHECKPOINT.md) first.** Mode B now works end to end (JSON vs XML → 46.8 s 1080×1920 MP4, plays and downloads in the UI); repeated-code prompt fix not yet re-verified on a new video. Instagram Business OAuth still pending; nothing published. YouTube postponed (D-035). HEAD at checkpoint start: `fe984a0`.
