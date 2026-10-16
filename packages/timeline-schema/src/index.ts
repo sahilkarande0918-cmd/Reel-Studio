@@ -132,6 +132,10 @@ export const CaptionStyle = z.object({
   safeBottom: px.default(1650),
 });
 
+/** Creative direction applied by the compiler: Focus (clean, code-first), Energy (bold captions, quick cuts),
+ * Story (cinematic type, slow fades and push-ins), Signature (branded boxed captions and lower third). */
+export const StylePreset = z.enum(["focus", "energy", "story", "signature"]);
+
 export const RenderSettings = z.object({
   quality: z.enum(["draft", "looks", "delivery"]).default("looks"),
 });
@@ -150,6 +154,7 @@ export const Composition = z
     tracks: z.array(Track),
     brand: Brand,
     captionStyle: CaptionStyle,
+    stylePreset: StylePreset.default("focus"),
     renderSettings: RenderSettings,
   })
   .superRefine((c, ctx) => {

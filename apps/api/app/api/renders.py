@@ -27,6 +27,7 @@ class RenderRequest(BaseModel):
     quality: Literal["draft", "looks", "delivery"] = "looks"
     # None → the organisation's default kit (if any); "none" → render without branding
     brand_kit_id: str | None = None
+    style: Literal["focus", "energy", "story", "signature"] = "focus"
 
 
 def _brand_kit(org_id: str, kit_id: str | None) -> dict | None:
@@ -100,6 +101,7 @@ def render_highlight(highlight_id: str, body: RenderRequest, user: User = Depend
         except ValueError as e:
             raise HTTPException(422, f"Brand kit logo: {e}") from e
     doc = timeline.build(h, rec, words, render_id, body.quality, kit=kit, logo_src=logo[0] if logo else None)
+    doc["stylePreset"] = body.style
     digest = timeline.timeline_hash(doc)
 
     previous = (

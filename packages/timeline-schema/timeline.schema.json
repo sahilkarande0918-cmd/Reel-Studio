@@ -746,6 +746,16 @@
         }
       }
     },
+    "stylePreset": {
+      "default": "focus",
+      "type": "string",
+      "enum": [
+        "focus",
+        "energy",
+        "story",
+        "signature"
+      ]
+    },
     "renderSettings": {
       "type": "object",
       "properties": {

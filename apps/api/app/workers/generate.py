@@ -60,6 +60,7 @@ def run_generate(ctx: JobContext) -> dict:
         logo_src=logo[0] if logo else None,
         quality=row["settings"].get("quality", "looks"),
     )
+    doc["stylePreset"] = row["settings"].get("style", "focus")
     db.table("render_jobs").upsert(
         {
             "id": rid,

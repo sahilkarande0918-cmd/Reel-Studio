@@ -18,6 +18,7 @@ router = APIRouter()
 class GenerateRequest(TopicRequest):
     quality: Literal["draft", "looks", "delivery"] = "looks"
     brand_kit_id: str | None = None
+    style: Literal["focus", "energy", "story", "signature"] = "focus"
     # An edited storyboard skips the LLM; it is syntax-checked here and narrated/rendered as written.
     storyboard: Storyboard | None = None
 

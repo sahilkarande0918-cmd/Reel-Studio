@@ -5,6 +5,7 @@ import { Clapperboard, Download, Film } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { apiFetch, useBackend } from "@/lib/backend";
+import { StylePicker, type StylePreset } from "./style-picker";
 import { createClient } from "@/lib/supabase/client";
 
 type Render = {
@@ -38,6 +39,7 @@ export function Renders({ highlightId, projectId, selected, canEdit }: { highlig
   const backend = useBackend();
   const base = backend.data?.state === "online" ? backend.data.url : null;
   const [quality, setQuality] = useState<keyof typeof QUALITY>("looks");
+  const [style, setStyle] = useState<StylePreset>("focus");
   const [kitChoice, setKitChoice] = useState<string>(""); // "" = organisation default, "none" = no branding
   const kits = useQuery({
     queryKey: ["brand-kit-names", projectId],
@@ -99,7 +101,7 @@ export function Renders({ highlightId, projectId, selected, canEdit }: { highlig
     const r = await apiFetch(base, `/highlights/${highlightId}/render`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ quality, brand_kit_id: kitChoice || null }),
+      body: JSON.stringify({ quality, brand_kit_id: kitChoice || null, style }),
     });
     if (!r.ok) setError((await r.json()).detail ?? `Render refused (${r.status})`);
     qc.invalidateQueries({ queryKey: key });
@@ -118,13 +120,13 @@ export function Renders({ highlightId, projectId, selected, canEdit }: { highlig
   return (
     <div className="space-y-3 border-t border-line pt-4">
       <div className="flex flex-wrap items-center gap-3 text-[13px]">
-        <h3 className="mr-auto text-[15px]">Export</h3>
+        <h3 className="mr-auto text-[15px] font-semibold">Export reel</h3>
         {canEdit && (
           <>
             <label className="text-muted">
               Brand{" "}
               <select value={kitChoice} onChange={(e) => setKitChoice(e.target.value)}
-                className="ml-1 max-w-[180px] rounded-[4px] bg-surface-2 px-2 py-1.5 text-ink outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                className="ml-1 max-w-[180px] rounded-lg border border-line bg-[var(--bg)] px-2 py-1.5 text-ink outline-none focus-visible:ring-2 focus-visible:ring-accent">
                 <option value="">{defaultKit ? `${defaultKit.name} (default)` : "Default (none set)"}</option>
                 {kits.data?.filter((k) => !k.is_default).map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}
                 <option value="none">No branding</option>
@@ -133,17 +135,18 @@ export function Renders({ highlightId, projectId, selected, canEdit }: { highlig
             <label className="text-muted">
               Quality{" "}
               <select value={quality} onChange={(e) => setQuality(e.target.value as keyof typeof QUALITY)}
-                className="ml-1 rounded-[4px] bg-surface-2 px-2 py-1.5 text-ink outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                className="ml-1 rounded-lg border border-line bg-[var(--bg)] px-2 py-1.5 text-ink outline-none focus-visible:ring-2 focus-visible:ring-accent">
                 {Object.entries(QUALITY).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
             </label>
             <button type="button" onClick={render} disabled={!selected || busy || !base}
-              className="flex items-center gap-1.5 rounded-[4px] bg-accent px-3 py-1.5 font-semibold text-accent-ink hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50">
+              className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 font-semibold text-accent-ink hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50">
               <Film size={14} aria-hidden /> Render MP4
             </button>
           </>
         )}
       </div>
+      {canEdit && <StylePicker value={style} onChange={setStyle} name="render-style" />}
       {!selected && <p className="text-[13px] text-muted">Select this highlight to render it.</p>}
       {selected && !base && <p className="text-[13px] text-muted">Rendering needs the processing backend online.</p>}
       {error && <p className="text-[13px] text-danger">{error}</p>}

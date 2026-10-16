@@ -197,11 +197,15 @@ def compile_html(doc: dict) -> str:
     chip = rgba(bg, 0.85)
     states = word_states(preset, text, accent, ink, chip, shadow)
 
-    media_html, cameras, overlays, code_sequences, fx = [], [], [], [], []
+    media_html, cameras, overlays, code_sequences, fx, pushes = [], [], [], [], [], []
+
+    look = STYLES[doc.get("stylePreset", "focus")]
 
     def transition(item: dict, selector: str, start: float, end: float) -> None:
-        if item.get("transition", "none") != "none":
-            fx.append({"sel": selector, "s": round(start, 3), "e": round(end, 3), "kind": item["transition"]})
+        kind = item.get("transition", "none")
+        kind = look["transition"] if kind == "none" else kind  # an explicit editor choice wins
+        if kind != "none":
+            fx.append({"sel": selector, "s": round(start, 3), "e": round(end, 3), "kind": kind})
 
     for idx, item in enumerate(items):
         start, duration = item["start"], item["duration"]
@@ -217,7 +221,9 @@ def compile_html(doc: dict) -> str:
                     c["t"] = round(c["t"] + start, 3)
                 cameras.append({"win": f"#win-{idx}", "cam": f"#cam-{idx}", "keys": cams})
                 transition(item, f"#win-{idx}", start, start + duration)
-                media = (f'<div id="win-{idx}" class="win clip" data-start="{start}" data-duration="{duration}">'
+                if look["push"]:
+                    pushes.append({"sel": f"#cam-{idx} video", "s": start, "d": duration})
+                media = (f'<div id="win-{idx}" class="win">'  # untimed: the <video> inside carries the timing
                          f'<div id="cam-{idx}" class="cam" style="width:{asset.get("width", w)}px;'
                          f'height:{asset.get("height", h)}px">{media}</div></div>')
             media_html.append(media)
@@ -275,6 +281,10 @@ def compile_html(doc: dict) -> str:
     bw, cw = FONT_FILES[body_font][1], FONT_FILES[code_font][1]
     logo_img = f'<img class="logo" src="{logo_src}" alt="" />' if logo_src else ""
 
+    lower_third = ""
+    if look["lower_third"] and (handle or brand.get("name")):
+        lower_third = (f'<div id="lower" class="clip" data-start="{lead}" data-duration="{clip_d}">'
+                       f'<i></i><b>{html.escape(brand.get("name") or "")}</b><span>{handle}</span></div>')
     cards = []
     if intro.get("enabled") and lead > 0:
         cards.append(
@@ -336,6 +346,7 @@ def compile_html(doc: dict) -> str:
       .boxed .page {{ inset: auto 0; top: 50%; transform: translateY(-50%); padding: 22px 18px; border-radius: 24px;
                       background: {rgba(bg, 0.82)}; }}
       .boxed .w {{ text-shadow: none; }}
+{look["css"].format(accent=accent, bg=bg, text=text, fs=round(fs * 1.12), body=body_font)}
       .card {{ position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
                gap: 36px; padding: 0 90px; background: {bg}; text-align: center; }}
       .card .logo {{ max-width: 520px; max-height: 300px; object-fit: contain; }}
@@ -352,7 +363,8 @@ def compile_html(doc: dict) -> str:
     <div id="root" data-composition-id="main" data-start="0" data-width="{w}" data-height="{h}" data-duration="{dur}">
       {"".join(media_html)}
       {"".join(overlays)}
-      <div id="caps"{' class="boxed"' if preset == "boxed" else ""}>{"".join(page_html)}</div>
+      <div id="caps" class="{"boxed " if preset == "boxed" else ""}look-{doc.get("stylePreset", "focus")}">{"".join(page_html)}</div>
+      {lower_third}
       {mark}
       {"".join(cards)}
     </div>
@@ -362,6 +374,8 @@ def compile_html(doc: dict) -> str:
       const WORDS = {json.dumps(word_times)};
       const S = {json.dumps(states)};
       const FX = {json.dumps(fx)};
+      const PUSH = {json.dumps(pushes)};
+      const TD = {look["duration"]};
       const tl = gsap.timeline({{ paused: true }});
       CAMERAS.forEach(track => track.keys.forEach((k, i) => {{
         const win = {{ y: k.win[0], height: k.win[1] }}, cam = {{ x: k.cam[0], y: k.cam[1], scale: k.cam[2] }};
@@ -383,10 +397,11 @@ def compile_html(doc: dict) -> str:
       }});
       const FROM = {{ fade: {{ opacity: 0 }}, slide: {{ opacity: 0, x: 160 }}, zoom: {{ opacity: 0, scale: 0.86 }} }};
       FX.forEach(({{ sel, s, e, kind }}) => {{
-        const d = Math.min(0.4, (e - s) / 2);
+        const d = Math.min(TD, (e - s) / 2);
         tl.fromTo(sel, FROM[kind], {{ opacity: 1, x: 0, scale: 1, duration: d, ease: "power2.out" }}, s);
         tl.to(sel, {{ ...FROM[kind], duration: d, ease: "power2.in" }}, e - d);
       }});
+      PUSH.forEach(({{ sel, s, d }}) => tl.fromTo(sel, {{ scale: 1 }}, {{ scale: 1.06, duration: d, ease: "none" }}, s));
       if (document.querySelector("#intro")) {{
         tl.fromTo("#intro .logo", {{ opacity: 0, scale: 0.9 }}, {{ opacity: 1, scale: 1, duration: 0.5, ease: "power2.out" }}, 0.05);
         tl.fromTo("#intro .bar", {{ scaleX: 0 }}, {{ scaleX: 1, duration: 0.45, ease: "power2.out" }}, 0.2);
@@ -403,6 +418,26 @@ def compile_html(doc: dict) -> str:
   </body>
 </html>
 """
+
+
+# Creative style presets (schema `stylePreset`). CSS is formatted with the brand colours.
+STYLES = {
+    "focus": {"transition": "none", "duration": 0.4, "push": False, "lower_third": False, "css": ""},
+    "energy": {"transition": "zoom", "duration": 0.25, "push": False, "lower_third": False, "css": (
+        "      .look-energy .w {{ text-transform: uppercase; letter-spacing: 0.01em; font-size: {fs}px;"
+        " -webkit-text-stroke: 2px rgba(0,0,0,.55); paint-order: stroke fill; }}\n"
+        "      .look-energy .line {{ gap: 0 14px; }}")},
+    "story": {"transition": "fade", "duration": 0.7, "push": True, "lower_third": False, "css": (
+        "      .look-story .w {{ letter-spacing: 0.02em; text-shadow: 0 2px 18px rgba(0,0,0,.9); }}\n"
+        "      .look-story .page {{ gap: 14px; }}")},
+    "signature": {"transition": "slide", "duration": 0.45, "push": False, "lower_third": True, "css": (
+        "      .look-signature .page {{ border-left: 10px solid {accent}; }}\n"
+        "      #lower {{ position: absolute; left: 48px; right: 48px; bottom: 120px; display: flex; align-items: center; gap: 18px;"
+        " padding: 20px 28px; border-radius: 20px; background: rgba(0,0,0,.55); }}\n"
+        "      #lower i {{ width: 10px; align-self: stretch; border-radius: 5px; background: {accent}; }}\n"
+        "      #lower b {{ font: 600 36px/1.1 \"{body}\", sans-serif; color: {text}; }}\n"
+        "      #lower span {{ margin-left: auto; font: 500 32px/1 \"{body}\", sans-serif; color: {accent}; }}")},
+}
 
 
 def brand_ink(hex_color: str) -> str:

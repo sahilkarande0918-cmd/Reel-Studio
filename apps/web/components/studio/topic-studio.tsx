@@ -8,6 +8,7 @@ import { useState } from "react";
 import { apiErrorMessage, apiFetch, useBackend } from "@/lib/backend";
 import { friendlyError } from "@/lib/friendly-error";
 import { useProjectJobs } from "@/lib/realtime";
+import { StylePicker, type StylePreset } from "./style-picker";
 import { createClient } from "@/lib/supabase/client";
 
 type Scene = { title: string; narration: string; code: string; code_language: "json" | "xml" | "python" | "text" };
@@ -49,6 +50,7 @@ export function TopicStudio({ projectId, canEdit }: { projectId: string; canEdit
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Storyboard | null>(null);
+  const [style, setStyle] = useState<StylePreset>("focus");
   const generations = useQuery<Generation[]>({
     queryKey: ["generations", projectId, base], enabled: !!base,
     queryFn: async () => responseJson(await apiFetch(base!, `/projects/${projectId}/generations`)),
@@ -86,7 +88,7 @@ export function TopicStudio({ projectId, canEdit }: { projectId: string; canEdit
   function generate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const v = new FormData(event.currentTarget);
-    void start({ topic: topic.trim(), audience: v.get("audience"), language: "en", tone: v.get("tone"), difficulty: v.get("difficulty"), voice: v.get("voice"), duration_s: Number(v.get("duration_s")), quality: v.get("quality"), brand_kit_id: v.get("brand_kit_id") || null });
+    void start({ topic: topic.trim(), audience: v.get("audience"), language: "en", tone: v.get("tone"), difficulty: v.get("difficulty"), voice: v.get("voice"), duration_s: Number(v.get("duration_s")), quality: v.get("quality"), brand_kit_id: v.get("brand_kit_id") || null, style });
   }
   function renderEdited() {
     if (!latest?.settings || !draft) return;
@@ -102,15 +104,21 @@ export function TopicStudio({ projectId, canEdit }: { projectId: string; canEdit
           <fieldset disabled={!canEdit || submitting} className="mt-4 space-y-5 disabled:opacity-70">
             <label className="block"><span className="sr-only">Topic</span><textarea value={topic} onChange={(e) => setTopic(e.target.value)} name="topic" minLength={3} maxLength={500} required rows={3} placeholder="Explain JSON vs XML with a simple example. Show how the same data looks in both formats." className="studio-input resize-y !rounded-xl !p-4 !text-[17px] !leading-7" /></label>
             <div className="flex flex-wrap gap-2">{["JSON vs XML", "Python lists vs tuples", "How HTTP requests work"].map((example) => <button key={example} type="button" onClick={() => setTopic(example)} className="rounded-full border border-line px-3 py-1.5 text-[12px] text-muted transition-colors hover:border-accent hover:text-accent">{example}</button>)}</div>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <StylePicker value={style} onChange={setStyle} />
+            <div className="grid gap-4 sm:grid-cols-3">
+              <label className="studio-label">Voice (English)<select name="voice" className="studio-input"><option value="af_heart">Heart · warm female</option><option value="af_bella">Bella · bright female</option><option value="am_adam">Adam · calm male</option></select></label>
+              <label className="studio-label">Duration<select name="duration_s" defaultValue="45" className="studio-input"><option value="30">30 seconds</option><option value="45">45 seconds</option><option value="60">60 seconds</option></select></label>
+              <label className="studio-label">Brand kit<select name="brand_kit_id" className="studio-input"><option value="">Workspace default</option>{kits.data?.map((kit) => <option key={kit.id} value={kit.id}>{kit.name}{kit.is_default ? " (default)" : ""}</option>)}<option value="none">No branding</option></select></label>
+            </div>
+            <details className="group rounded-xl border border-line px-4 py-3">
+              <summary className="cursor-pointer list-none text-[13px] font-medium text-muted group-open:text-ink">Advanced settings <span className="text-[11.5px]">· audience, level, tone, quality</span></summary>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <label className="studio-label">Audience<input name="audience" defaultValue="Beginners learning to code" required maxLength={120} className="studio-input" /></label>
               <label className="studio-label">Level<select name="difficulty" className="studio-input"><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></label>
               <label className="studio-label">Tone<select name="tone" className="studio-input"><option value="clear">Clear & focused</option><option value="conversational">Conversational</option><option value="energetic">Energetic</option></select></label>
-              <label className="studio-label">Voice (English)<select name="voice" className="studio-input"><option value="af_heart">Heart · warm female</option><option value="af_bella">Bella · bright female</option><option value="am_adam">Adam · calm male</option></select></label>
-              <label className="studio-label">Duration<select name="duration_s" defaultValue="45" className="studio-input"><option value="30">30 seconds</option><option value="45">45 seconds</option><option value="60">60 seconds</option></select></label>
               <label className="studio-label">Quality<select name="quality" defaultValue="looks" className="studio-input"><option value="draft">Draft · fastest</option><option value="looks">Standard</option><option value="delivery">Best</option></select></label>
-              <label className="studio-label sm:col-span-2 lg:col-span-3">Brand kit<select name="brand_kit_id" className="studio-input"><option value="">Workspace default</option>{kits.data?.map((kit) => <option key={kit.id} value={kit.id}>{kit.name}{kit.is_default ? " (default)" : ""}</option>)}<option value="none">No branding</option></select></label>
             </div>
+            </details>
           </fieldset>
           <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5">
             <span className="flex items-center gap-1.5 text-[12px] text-muted"><Mic size={14} aria-hidden /> Runs on your own machine · 1080×1920 MP4</span>
@@ -118,7 +126,7 @@ export function TopicStudio({ projectId, canEdit }: { projectId: string; canEdit
           </div>
           {!canEdit && <p className="mt-3 text-[12px] text-muted">You have view access. An editor can generate videos.</p>}
           {!base && <p className="mt-3 text-[12px] text-muted">{backend.isLoading ? "Connecting to the processing machine…" : "The processing machine is offline. Your project is saved; generate when it is back online."}</p>}
-          {error && <p role="alert" className="mt-3 rounded-lg bg-[#f6e3e1] px-3 py-2 text-[13px] text-danger">{error}</p>}
+          {error && <p role="alert" className="mt-3 rounded-lg bg-danger/10 ring-1 ring-danger/25 px-3 py-2 text-[13px] text-danger">{error}</p>}
         </form>
 
         <section className="studio-panel overflow-hidden">
@@ -126,7 +134,7 @@ export function TopicStudio({ projectId, canEdit }: { projectId: string; canEdit
           {latest && !failed && <ol className="grid grid-cols-4 gap-1 border-b border-line px-5 py-4" aria-label="Generation progress">{STEPS.map((s, i) => {
             const done = step > i || (i === 3 && step === 4); const now = step === i && busy;
             return <li key={s.key} className="flex flex-col items-center gap-1.5 text-center">
-              <span className={`grid h-8 w-8 place-items-center rounded-full transition-colors ${done ? "bg-success text-white" : now ? "bg-accent text-white" : "bg-surface-2 text-muted"}`}>{now ? <LoaderCircle size={15} className="animate-spin" aria-hidden /> : done ? <Check size={15} aria-hidden /> : <s.icon size={15} aria-hidden />}</span>
+              <span className={`grid h-8 w-8 place-items-center rounded-full transition-colors ${done ? "bg-success/15 text-success" : now ? "bg-accent text-accent-ink" : "bg-surface-2 text-muted"}`}>{now ? <LoaderCircle size={15} className="animate-spin" aria-hidden /> : done ? <Check size={15} aria-hidden /> : <s.icon size={15} aria-hidden />}</span>
               <span className={`text-[11px] ${done || now ? "font-semibold text-ink" : "text-muted"}`}>{s.label}</span>
             </li>;
           })}</ol>}
@@ -183,7 +191,7 @@ function StoryboardEditor({ board, onChange }: { board: Storyboard; onChange: (b
 
 function FriendlyFailure({ raw }: { raw: string }) {
   const f = friendlyError(raw);
-  return <div role="alert" className="m-5 rounded-xl bg-[#f6e3e1] p-4 text-[13px]">
+  return <div role="alert" className="m-5 rounded-xl bg-danger/10 ring-1 ring-danger/25 p-4 text-[13px]">
     <p className="font-semibold text-danger">{f.title}</p><p className="mt-1 leading-5 text-ink/80">{f.hint}</p>
     <details className="mt-2 text-[11.5px] text-muted"><summary className="cursor-pointer">Technical details</summary><p className="mt-1 break-words font-mono">{raw.slice(0, 600)}</p></details>
   </div>;
