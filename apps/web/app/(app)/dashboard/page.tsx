@@ -39,13 +39,13 @@ export default async function DashboardPage() {
 
       <div className="grid gap-4 md:grid-cols-2">
         {[
-          { href: "/recordings", icon: Mic, title: "Recording → Reels", body: "Upload a class. We transcribe the Hinglish, find the best 30–60 s moments and frame them for phones." },
-          { href: "/topics", icon: Code2, title: "Topic → Video", body: "Type a topic like “JSON vs XML”. Get a narrated 45 s explainer with animated code and captions." },
-        ].map(({ href, icon: Icon, title, body }) => <Link key={href} href={href} className="group relative overflow-hidden rounded-2xl bg-[var(--rail)] p-6 text-[var(--rail-ink)] transition-transform duration-200 hover:-translate-y-0.5">
-          <Icon size={26} strokeWidth={1.6} className="text-[var(--rail-muted)]" aria-hidden />
-          <h2 className="mt-6 text-[22px] font-semibold tracking-[-.03em]">{title}</h2>
-          <p className="mt-2 max-w-[46ch] text-[13.5px] leading-6 text-[var(--rail-muted)]">{body}</p>
-          <span className="mt-5 inline-flex items-center gap-2 text-[13px] font-semibold">{canEdit ? "Start" : "Open"} <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" aria-hidden /></span>
+          { href: "/recordings", icon: Mic, cta: "Upload recording", title: "Recording → Reels", body: "Upload a class. We transcribe the Hinglish, find the best 30–60 s moments and frame them for phones." },
+          { href: "/topics", icon: Code2, cta: "Create from topic", title: "Topic → Video", body: "Type a topic like “JSON vs XML”. Get a narrated 45 s explainer with animated code and captions." },
+        ].map(({ href, icon: Icon, cta, title, body }) => <Link key={href} href={href} className="studio-panel group relative flex items-start gap-5 overflow-hidden p-6 transition-[border-color,transform] duration-200 hover:-translate-y-0.5 hover:border-accent/60">
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-accent/12 text-accent ring-1 ring-accent/25"><Icon size={22} strokeWidth={1.8} aria-hidden /></span>
+          <span className="min-w-0"><h2 className="text-[19px] font-semibold tracking-[-.02em]">{title}</h2>
+          <p className="mt-1.5 max-w-[50ch] text-[13.5px] leading-6 text-muted">{body}</p>
+          <span className="mt-4 inline-flex items-center gap-2 text-[13px] font-semibold text-accent">{canEdit ? cta : "Open"} <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" aria-hidden /></span></span>
         </Link>)}
       </div>
 
@@ -83,7 +83,7 @@ export default async function DashboardPage() {
                 const live = ["queued", "running"].includes(job.status);
                 const href = job.job_type === "insights" ? "/analytics" : job.job_type === "publish" ? "/publishing" : job.project_id ? `/projects/${job.project_id}` : "/projects";
                 return <li key={job.id}><Link href={href} className="-mx-2 flex gap-3 rounded-lg px-2 py-2.5 hover:bg-surface-2">
-                  <span aria-hidden className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${job.status === "failed" ? "bg-danger" : live ? "animate-pulse bg-accent" : job.status === "succeeded" ? "bg-success" : "bg-line"}`} />
+                  <span aria-hidden className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${job.status === "failed" ? "bg-danger" : live ? "animate-pulse bg-signal" : job.status === "succeeded" ? "bg-success" : "bg-line"}`} />
                   <span className="min-w-0 flex-1">
                     <span className="flex justify-between gap-2 text-[13px] font-semibold"><span className="truncate">{JOB_LABEL[job.job_type] ?? job.job_type}</span><span className="shrink-0 text-[11px] font-normal text-muted">{ago(job.created_at)}</span></span>
                     <span className="block truncate text-[12px] text-muted">{(job.projects as unknown as { name: string } | null)?.name ?? "Workspace"} · {job.status === "failed" ? "failed" : live ? `${Math.round(job.progress * 100)}%` : job.status}</span>

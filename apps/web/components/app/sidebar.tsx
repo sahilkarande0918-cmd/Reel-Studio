@@ -33,8 +33,8 @@ function Nav({ path }: { path: string }) {
       <ul className="space-y-0.5">{g.items.map(({ href, label, icon: Icon }) => {
         const active = path === href || path.startsWith(href + "/");
         return <li key={href}><Link href={href} aria-current={active ? "page" : undefined}
-          className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[13.5px] transition-colors ${active ? "bg-[var(--rail-active)] font-semibold text-[var(--rail-ink)]" : "text-[var(--rail-muted)] hover:bg-[var(--rail-active)]/60 hover:text-[var(--rail-ink)]"}`}>
-          <Icon size={17} strokeWidth={1.8} aria-hidden />{label}
+          className={`relative flex items-center gap-3 rounded-lg px-3 py-2 text-[13.5px] transition-colors ${active ? "bg-[var(--rail-active)] font-medium text-[var(--rail-ink)] before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[3px] before:rounded-full before:bg-accent" : "text-[var(--rail-muted)] hover:bg-[var(--rail-active)]/70 hover:text-[var(--rail-ink)]"}`}>
+          <Icon size={17} strokeWidth={1.8} className={active ? "text-accent" : ""} aria-hidden />{label}
         </Link></li>;
       })}</ul>
     </div>)}
@@ -45,7 +45,7 @@ function Workspace({ orgs, org }: { orgs: Org[]; org: Org }) {
   return <form action={switchWorkspace}>
     <label className="sr-only" htmlFor="org-switch">Workspace</label>
     <select id="org-switch" name="org" defaultValue={org.id} onChange={(e) => e.currentTarget.form?.requestSubmit()}
-      className="w-full rounded-lg border border-[var(--rail-active)] px-3 py-2.5 text-[13px] font-semibold">
+      className="w-full rounded-lg border border-line px-3 py-2.5 text-[13px] font-medium">
       {orgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
     </select>
     <Link href="/onboarding" className="mt-2 flex items-center gap-1 px-1 text-[11px] text-[var(--rail-muted)] hover:text-[var(--rail-ink)]"><Plus size={12} aria-hidden /> New workspace</Link>
@@ -54,18 +54,31 @@ function Workspace({ orgs, org }: { orgs: Org[]; org: Org }) {
 
 function Account({ email, org }: { email: string; org: Org }) {
   return <div className="flex items-center gap-2.5 border-t border-[var(--rail-active)] pt-4">
-    <span aria-hidden className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[var(--rail-active)] text-[12px] font-semibold">{email.slice(0, 1).toUpperCase()}</span>
+    <span aria-hidden className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-surface-3 text-[12px] font-semibold text-accent">{email.slice(0, 1).toUpperCase()}</span>
     <div className="min-w-0 flex-1"><span className="block truncate text-[12px]">{email}</span><span className="text-[10px] capitalize text-[var(--rail-muted)]">{org.role}</span></div>
     <form action={signOut}><button type="submit" aria-label="Sign out" title="Sign out" className="rounded-md p-2 text-[var(--rail-muted)] hover:bg-[var(--rail-active)] hover:text-[var(--rail-ink)]"><LogOut size={15} aria-hidden /></button></form>
   </div>;
 }
 
 const Logo = () => <Link href="/dashboard" className="flex items-center gap-2.5 text-[18px] font-semibold tracking-[-.04em]">
-  <span className="grid h-8 w-8 place-items-center rounded-lg bg-[var(--rail-ink)] text-[var(--rail)]"><Aperture size={19} strokeWidth={1.8} aria-hidden /></span>Reel Studio
+  <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent text-accent-ink"><Aperture size={19} strokeWidth={1.8} aria-hidden /></span>Reel Studio
 </Link>;
+
+/** Icon-only rail so the editor workspace gets the full width. */
+function Rail({ path }: { path: string }) {
+  return <aside className="studio-rail sticky top-0 hidden h-svh w-[60px] shrink-0 flex-col items-center gap-1 py-3 md:flex">
+    <Link href="/dashboard" aria-label="Reel Studio dashboard" className="mb-3 grid h-9 w-9 place-items-center rounded-lg bg-accent text-accent-ink"><Aperture size={19} strokeWidth={1.8} aria-hidden /></Link>
+    {GROUPS.flatMap((g) => g.items).map(({ href, label, icon: Icon }) => {
+      const active = path === href || path.startsWith(href + "/");
+      return <Link key={href} href={href} title={label} aria-label={label} aria-current={active ? "page" : undefined}
+        className={`grid h-10 w-10 place-items-center rounded-lg transition-colors ${active ? "bg-[var(--rail-active)] text-accent" : "text-[var(--rail-muted)] hover:bg-[var(--rail-active)] hover:text-[var(--rail-ink)]"}`}><Icon size={18} strokeWidth={1.8} aria-hidden /></Link>;
+    })}
+  </aside>;
+}
 
 export function Sidebar({ orgs, org, email }: { orgs: Org[]; org: Org; email: string }) {
   const path = usePathname();
+  if (path.startsWith("/editor/")) return <Rail path={path} />;
   return <>
     <aside className="studio-rail hidden w-[236px] shrink-0 flex-col gap-6 px-4 py-5 md:sticky md:top-0 md:flex md:h-svh md:overflow-y-auto">
       <div className="px-1"><Logo /></div>

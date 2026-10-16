@@ -25,8 +25,12 @@ export function ProjectPreview({ projectId, mode }: { projectId: string; mode: s
       return `${base!.replace(/\/$/, "")}${urls.thumb}`;
     },
   });
-  return <div className="relative flex h-36 items-center justify-between overflow-hidden bg-surface-2 px-5">
-    <div><span className="studio-eyebrow">{mode === "topic" ? "Topic studio" : "Recording studio"}</span><p className="mt-2 max-w-[18ch] text-[12px] leading-5 text-muted">{mode === "topic" ? "Script · Voice · Code" : "Transcript · Highlights · Reels"}</p>{thumbnail.data && <span className="studio-pill mt-3 !bg-surface">Latest export</span>}</div>
-    {thumbnail.data ? <div className="relative h-full w-24 shrink-0"><Image src={thumbnail.data} alt="Latest rendered reel" fill sizes="96px" unoptimized className="object-cover object-center" /></div> : mode === "topic" ? <Code2 size={40} strokeWidth={1} className="shrink-0 text-accent" aria-hidden /> : <AudioLines size={40} strokeWidth={1} className="shrink-0 text-accent" aria-hidden />}
+  const Icon = mode === "topic" ? Code2 : AudioLines;
+  return <div className="relative flex h-40 items-center justify-center overflow-hidden border-b border-line bg-[var(--canvas)]">
+    {thumbnail.data ? <>
+      <Image src={thumbnail.data} alt="" fill sizes="400px" unoptimized aria-hidden className="scale-110 object-cover opacity-30 blur-xl" />
+      <div className="relative h-[136px] w-[77px] overflow-hidden rounded-lg shadow-[0_8px_24px_rgba(0,0,0,.6)] ring-1 ring-white/10"><Image src={thumbnail.data} alt="Latest rendered reel" fill sizes="80px" unoptimized className="object-cover" /></div>
+    </> : <div className="flex flex-col items-center gap-2 text-muted"><Icon size={30} strokeWidth={1.3} className="text-accent/80" aria-hidden /><span className="text-[11px]">{mode === "topic" ? "No video rendered yet" : "No reel exported yet"}</span></div>}
+    <span className="absolute left-3 top-3 rounded-md bg-black/55 px-2 py-1 text-[10.5px] font-medium text-white/85 backdrop-blur">{mode === "topic" ? "Topic → Video" : "Recording → Reels"}</span>
   </div>;
 }

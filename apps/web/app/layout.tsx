@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import { Archivo, JetBrains_Mono } from "next/font/google";
+import { Archivo, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
+const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 const archivo = Archivo({ variable: "--font-archivo", subsets: ["latin"], weight: ["400", "600"] });
 // Monospace is only for real code (editor fragments, code blocks).
 const code = JetBrains_Mono({ variable: "--font-code", subsets: ["latin"], weight: ["400"] });
@@ -14,7 +15,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${archivo.variable} ${code.variable} h-full`}>
+    <html lang="en" suppressHydrationWarning className={`${archivo.variable} ${inter.variable} ${code.variable} h-full`}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: "document.documentElement.classList.add('js')" }} />
       </head>

@@ -17,7 +17,7 @@ export default async function ProjectPage({ params }: PageProps<"/projects/[id]"
       <div>
         <Link href={topic ? "/topics" : "/recordings"} className="inline-flex items-center gap-1 text-[13px] font-semibold text-muted hover:text-ink"><ChevronLeft size={15} aria-hidden />{topic ? "Topic Studio" : "Recordings"}</Link>
         <div className="mt-2 flex flex-wrap items-center gap-3">
-          <span className="grid h-10 w-10 place-items-center rounded-xl bg-[var(--rail)] text-[var(--rail-ink)]">{topic ? <Code2 size={19} aria-hidden /> : <Mic size={19} aria-hidden />}</span>
+          <span className="grid h-10 w-10 place-items-center rounded-xl bg-accent/12 text-accent ring-1 ring-accent/25">{topic ? <Code2 size={19} aria-hidden /> : <Mic size={19} aria-hidden />}</span>
           <h1 className="studio-heading">{project.name}</h1>
           <span className={`studio-pill ${statusTone(project.status)}`}>{project.status.replaceAll("_", " ")}</span>
         </div>

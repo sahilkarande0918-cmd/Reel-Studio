@@ -35,6 +35,7 @@
   --color-accent-ink: var(--accent-ink);
   --color-danger: var(--danger);
   --color-success: var(--success);
+  --color-signal: var(--signal, #67e8f9);
   --font-sans: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-code), ui-monospace, monospace;
   --text-small: var(--step-small);
@@ -146,50 +147,59 @@ body {
   }
 }
 
-/* App workspace (light). Inlined: the Turbopack Tailwind loader drops local @imports. */
-/* Hallmark · workspace: production desk · evergreen, ivory, ink.
- * Pre-emit critique: Philosophy 4, Hierarchy 4, Execution 4, Specificity 4, Restraint 5, Variety 4. */
+/* App workspace: cinematic dark. Inlined: the Turbopack Tailwind loader drops local @imports.
+ * One warm accent (amber, a studio tally light) for primary actions; cyan only as a small "live" signal. */
 .studio-app {
-  --bg: #f4f5ef;
-  --surface: #ffffff;
-  --surface-2: #edf0e8;
-  --surface-3: #dfe7db;
-  --ink: #202e28;
-  --muted: #626e65;
-  --line: #dce2d8;
-  --accent: #215d48;
-  --accent-ink: #ffffff;
-  --danger: #b33835;
-  --success: #287b50;
-  --rail: #173e31;
-  --rail-ink: #f5f6ee;
-  --rail-muted: #b6cbbd;
-  --rail-active: #2b5643;
-  --canvas: #172820;
-  --canvas-ink: #eff4e9;
-  color-scheme: light;
+  --bg: #0d0f14;
+  --surface: #191d27;
+  --surface-2: #1f2430;
+  --surface-3: #272d3a;
+  --ink: #f5f5f7;
+  --muted: #a1a1aa;
+  --line: #292d38;
+  --accent: #f2b544;
+  --accent-ink: #1a1306;
+  --signal: #67e8f9;
+  --danger: #f87171;
+  --success: #86efac;
+  --rail: #12151c;
+  --rail-ink: #f5f5f7;
+  --rail-muted: #a1a1aa;
+  --rail-active: #1f2430;
+  --canvas: #08090c;
+  --canvas-ink: #f5f5f7;
+  color-scheme: dark;
   color: var(--ink);
   background: var(--bg);
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: "cv11", "ss01";
+  min-height: 100svh;
 }
-.studio-app { min-height: 100svh; }
 .studio-app button, .studio-app a, .studio-app select { -webkit-tap-highlight-color: transparent; }
 .studio-app button:not(:disabled), .studio-app select { cursor: pointer; }
 .studio-app button:disabled { cursor: not-allowed; }
 .studio-app h1, .studio-app h2, .studio-app h3 { overflow-wrap: anywhere; }
-.studio-app .studio-panel { border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
-.studio-app .studio-input { width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); padding: 10px 12px; color: var(--ink); font-size: 14px; }
-.studio-app .studio-label { display: grid; gap: 7px; color: var(--muted); font-size: 12px; font-weight: 600; }
-.studio-app .studio-button { display: inline-flex; justify-content: center; align-items: center; gap: 8px; border-radius: 8px; padding: 11px 16px; background: var(--accent); color: var(--accent-ink); font-size: 13px; font-weight: 600; white-space: nowrap; transition: filter 150ms, transform 150ms; }
-.studio-app .studio-button:hover { filter: brightness(1.12); }
-.studio-app .studio-button:active { transform: translateY(1px); }
-.studio-app .studio-button:disabled { opacity: .45; }
-.studio-app .studio-button-secondary { background: var(--surface-2); color: var(--ink); }
-.studio-app .studio-eyebrow { color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; }
-.studio-app .studio-heading { font-size: clamp(26px, 2.5vw, 36px); font-weight: 600; letter-spacing: -.045em; line-height: 1.2; }
-.studio-app .studio-pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 5px; background: var(--surface-2); color: var(--muted); padding: 4px 8px; font-size: 11px; font-weight: 600; }
-.studio-app .studio-rail { background: var(--rail); color: var(--rail-ink); }
-.studio-app .studio-rail .text-muted { color: var(--rail-muted); }
-.studio-app .studio-rail select { color-scheme: dark; background: var(--rail-active); color: var(--rail-ink); }
-.studio-app .studio-rail a:focus-visible, .studio-app .studio-rail button:focus-visible { outline-color: var(--rail-ink); }
+.studio-app ::selection { background: var(--accent); color: var(--accent-ink); }
+.studio-app :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.studio-app .studio-panel { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.studio-app .studio-input { width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 9px; background: var(--bg); padding: 10px 12px; color: var(--ink); font-size: 14px; transition: border-color 150ms; }
+.studio-app .studio-input:hover { border-color: #3a404e; }
+.studio-app .studio-input:focus { border-color: var(--accent); outline: none; }
+.studio-app .studio-input::placeholder { color: #6b6f7a; }
+.studio-app .studio-label { display: grid; gap: 7px; color: var(--muted); font-size: 12px; font-weight: 500; }
+.studio-app .studio-button { display: inline-flex; justify-content: center; align-items: center; gap: 8px; border-radius: 9px; padding: 10px 16px; background: var(--accent); color: var(--accent-ink); font-size: 13px; font-weight: 600; white-space: nowrap; transition: filter 150ms, transform 150ms, background-color 150ms; }
+.studio-app .studio-button:hover:not(:disabled) { filter: brightness(1.08); }
+.studio-app .studio-button:active:not(:disabled) { transform: translateY(1px); }
+.studio-app .studio-button:disabled { opacity: .4; }
+.studio-app .studio-button-secondary { background: var(--surface-2); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); }
+.studio-app .studio-button-secondary:hover:not(:disabled) { background: var(--surface-3); filter: none; }
+.studio-app .studio-eyebrow { color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
+.studio-app .studio-heading { font-size: clamp(24px, 2.2vw, 32px); font-weight: 600; letter-spacing: -.03em; line-height: 1.2; }
+.studio-app .studio-pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 6px; background: var(--surface-2); color: var(--muted); padding: 3px 8px; font-size: 11px; font-weight: 500; }
+.studio-app .studio-rail { background: var(--rail); color: var(--rail-ink); border-right: 1px solid var(--line); }
+.studio-app .studio-rail select { color-scheme: dark; background: var(--surface); color: var(--rail-ink); }
 .studio-app progress { accent-color: var(--accent); }
+.studio-app select option { background: var(--surface); }
+.studio-app ::-webkit-scrollbar { width: 10px; height: 10px; }
+.studio-app ::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 10px; border: 2px solid transparent; background-clip: padding-box; }
 @media (prefers-reduced-motion: reduce) { .studio-app * { scroll-behavior: auto !important; transition: none !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; } }
