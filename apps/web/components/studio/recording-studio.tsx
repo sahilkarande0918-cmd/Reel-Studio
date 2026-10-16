@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useProjectJobs } from "@/lib/realtime";
 import { JobProgress } from "./job-progress";
@@ -55,6 +56,18 @@ export function RecordingStudio({ projectId, canEdit }: { projectId: string; can
     qc.invalidateQueries({ queryKey: ["jobs", projectId] });
   };
 
+  const progress = useQuery({
+    queryKey: ["recording-progress", projectId],
+    queryFn: async () => {
+      const sb = createClient();
+      const [h, r] = await Promise.all([
+        sb.from("highlight_candidates").select("id", { count: "exact", head: true }).eq("project_id", projectId).eq("status", "selected"),
+        sb.from("render_jobs").select("id").eq("project_id", projectId).eq("status", "ready").order("created_at", { ascending: false }).limit(1).maybeSingle(),
+      ]);
+      return { selected: (h.count ?? 0) > 0, renderId: r.data?.id as string | undefined };
+    },
+    refetchInterval: 10000,
+  });
   const latestJob = jobs.data?.[0];
   const rec = recording.data?.rec;
   const tr = recording.data?.transcript;
@@ -65,13 +78,18 @@ export function RecordingStudio({ projectId, canEdit }: { projectId: string; can
 
   return (
     <div className="space-y-6">
-      <ol aria-label="Recording workflow" className="studio-panel grid grid-cols-2 gap-3 p-4 text-[12px] md:grid-cols-4">
+      <ol aria-label="Recording workflow" className="studio-panel grid grid-cols-3 gap-3 p-4 text-[12px] md:grid-cols-6">
         {[
-          ["01", "Upload recording", !!rec && rec.status !== "failed"],
-          ["02", "Transcribe", !!tr],
-          ["03", "Find highlights", jobs.data?.some((j) => j.job_type === "analyze" && j.status === "succeeded")],
-          ["04", "Review & export", false],
-        ].map(([step, label, done]) => <li key={String(step)} className="flex items-center gap-3"><span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-[10px] ${done ? "bg-accent text-accent-ink" : "bg-surface-2 text-muted"}`}>{step}</span><span className={done ? "font-semibold" : "text-muted"}>{label}</span></li>)}
+          ["Upload", !!rec && rec.status !== "failed", null],
+          ["Analyze", !!tr && jobs.data?.some((j) => j.job_type === "analyze" && j.status === "succeeded"), null],
+          ["Select", !!progress.data?.selected, null],
+          ["Edit", !!progress.data?.renderId, progress.data?.renderId ? `/editor/${progress.data.renderId}` : null],
+          ["Export", !!progress.data?.renderId, null],
+          ["Publish", false, progress.data?.renderId ? "/publishing" : null],
+        ].map(([label, done, href], i) => {
+          const body = <><span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-[11px] font-semibold ${done ? "bg-accent text-accent-ink" : "bg-surface-2 text-muted"}`}>{i + 1}</span><span className={done ? "font-semibold" : "text-muted"}>{label as string}</span></>;
+          return <li key={String(label)}>{href ? <Link href={href as string} className="flex items-center gap-2.5 rounded-lg hover:text-accent">{body}</Link> : <span className="flex items-center gap-2.5">{body}</span>}</li>;
+        })}
       </ol>
       {(!rec || rec.status === "failed") && canEdit && (
         <>

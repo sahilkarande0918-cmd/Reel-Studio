@@ -42,9 +42,12 @@ def quality_issues(board: Storyboard, request: TopicRequest) -> list[str]:
     if not 0.75 * target <= words <= 1.3 * target:
         issues.append(f"Narration has {words} words in total; write {round(target)} (±20%) across the scenes, "
                       f"about {round(target / max(len(board.scenes), 4))} per scene.")
-    codes = [s.code.strip() for s in board.scenes]
-    if len(set(codes)) == 1:  # some repetition is acceptable; one example for the whole video is not
-        issues.append("Every scene shows the same code. Give the scenes their own examples.")
+    codes = [" ".join(s.code.split()) for s in board.scenes]
+    if len(set(codes)) < max(2, -(-len(codes) * 3 // 5)):  # at least 60 % of scenes need their own example
+        repeated = [i + 1 for i, c in enumerate(codes) if codes.count(c) > 1]
+        issues.append(f"Scenes {repeated} repeat the same code. Give each of those scenes a different example that "
+                      "matches its narration: e.g. a nested object or list, the same data in the other format, "
+                      "or a short python snippet using json or xml.etree.")
     if sum(s.code_language == "text" for s in board.scenes) > 1:
         issues.append("Use json, xml or python code in all but at most one scene.")
     generic = [s.title for s in board.scenes if s.title.strip().lower() in _LABELS]
@@ -95,7 +98,7 @@ def generate_storyboard(request: TopicRequest | dict) -> Storyboard:
         {"role": "user", "content": json.dumps(request.model_dump()) +
          f"\nUse approximately {words} total spoken words across all scenes (target {request.duration_s}s)."},
     ]
-    last_error = ""
+    last_error, fallback = "", None
     for attempt in range(3):
         response = httpx.post(
             f"{settings.ollama_url}/api/chat",
@@ -111,6 +114,8 @@ def generate_storyboard(request: TopicRequest | dict) -> Storyboard:
                 raise ValueError("Storyboard response is too large")
             board = Storyboard.model_validate_json(unwrap_fence(content))
             issues = quality_issues(board, request)
+            if issues and all("repeat the same code" in i for i in issues):
+                fallback = board  # usable lesson; only the examples repeat
             if issues:
                 raise ValueError(" ".join(issues))
             return board
@@ -122,6 +127,8 @@ def generate_storyboard(request: TopicRequest | dict) -> Storyboard:
                  "exactly one valid document in that scene's code_language (JSON and XML never share a scene). "
                  "Problems: " + last_error},
             ])
+    if fallback:  # ponytail: better a video with repeated examples than none; the script stays editable
+        return fallback
     raise ValueError("Local model could not produce a valid storyboard: " + last_error)
 
 

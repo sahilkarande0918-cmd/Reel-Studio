@@ -127,3 +127,18 @@ Metrics → `platform_metrics` snapshots → normalized → feature comparison �
 
 See `docs/DEPLOYMENT.md`. Vercel builds `apps/web` only. The local API + worker run on the owner's
 machine and are exposed through a free HTTPS tunnel.
+
+## Editor, presets and feedback (final run, 2026-10-17)
+```
+render_jobs.timeline ──copy──► timeline_drafts (RLS autosave)
+        │                              │ edits: packages/timeline-schema/src/edit.ts (pure, tested)
+        │                              ▼
+        │          POST /renders/{id}/preview → compose.compile_html + preview runtime → iframe srcdoc
+        │                                         (<base> = signed /renders/{id}/p/{exp}/{sig}/ folder)
+        └──────────► POST /renders/{id}/edit → new render_jobs row (parent_render_id) → render worker
+                                               → Hyperframes → apply_fades (ffmpeg) → ffprobe verify
+stylePreset (focus|energy|story|signature) → compose.STYLES (transitions, caption CSS, push-in, lower third)
+Instagram insights worker → platform_metrics.metrics + .media (per-reel insights)
+feedback.collect/learn (≥3 published reels with reach) → performance_feedback.ideal_duration_s
+        → analyze worker extras["ideal_s"] → candidates.score_window length term + reason text
+```
