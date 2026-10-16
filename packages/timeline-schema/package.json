@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./edit": "./src/edit.ts",
     "./timeline.schema.json": "./timeline.schema.json"
   },
   "scripts": {
