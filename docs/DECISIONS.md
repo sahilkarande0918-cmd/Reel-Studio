@@ -146,3 +146,29 @@ scheduling → Instagram analytics and AI feedback → end-to-end testing and su
 API, Shorts) is postponed until explicitly requested; existing YouTube configuration names stay but no YouTube code is
 added. Billing, complex admin and non-essential optimisation are postponed. The PS and master prompt are unchanged.
 
+## D-036 — Dark cinematic UI, amber accent (no purple)
+Owner direction 2026-10-17: premium dark editing-software look with Inter. The suggested purple primary was rejected by the
+owner ("should not look AI"); a single warm amber (#F2B544) is the primary action colour, cyan (#67E8F9) only marks live/
+processing states. Tokens live in `apps/web/app/globals.css` (inlined: the Turbopack Tailwind loader dropped local `@import`s,
+which is why Codex's light theme never actually loaded).
+
+## D-037 — Editor preview = export compiler + small runtime
+The editor never re-implements rendering in React. `POST /renders/{id}/preview` compiles the draft with `compose.compile_html`
+and injects a ~40-line runtime (clip visibility, GSAP seek, media sync) — the part Hyperframes does at render time. The page
+loads as iframe `srcdoc` with `<base>` = a signed render-folder URL, so Dev Tunnels' HTML interstitial is avoided and media/
+fonts authorise themselves. Edits render as a new `render_jobs` row (`parent_render_id`); finished renders are immutable.
+
+## D-038 — Drafts through RLS, renders through the API
+`timeline_drafts` is written directly by editors under RLS so autosave works while the GPU machine is offline; rendering and
+preview go through the API, which validates the timeline (JSON Schema + cross-field rules) before touching disk.
+
+## D-039 — Style presets in the compiler
+`stylePreset` (focus/energy/story/signature) is part of the canonical timeline and changes the compiled composition
+(default transitions and timing, caption CSS, push-in, lower third). An explicit per-item transition always wins.
+
+## D-040 — Feedback only from real, sufficient data
+Feedback uses only reels published from Reel Studio whose Instagram insights include reach, requires ≥3, and stores just
+the learned ideal length (fed to highlight scoring) plus findings. The local LLM may phrase recommendations from the
+computed numbers only; with it offline the measured findings are shown alone. Audio fades are applied to the mix with an
+ffmpeg volume expression after rendering (ponytail: per-source fades would need Hyperframes element-volume animation).
+

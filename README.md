@@ -1,46 +1,62 @@
 # Reel Studio
 
-**The AI video studio built for technical educators.**
-Turn recorded programming classes and one-line topic prompts into branded, ready-to-publish 9:16 reels — with Hinglish-aware transcription, correctly spelled technical terms, and reframing that follows the code instead of cropping the centre.
+**The AI video studio for technical educators.**
+Turn recorded programming classes and one-line topics into branded, ready-to-publish 9:16 reels, with Hinglish-aware transcription, correctly spelled technical terms and framing that follows the code instead of cropping the centre.
 
-> Hackathon PS4 · Status: **early development (Phase 00)** — nothing below is claimed as working until it is marked ✅ in [docs/PHASES.md](docs/PHASES.md) and [docs/TEST_STATUS.md](docs/TEST_STATUS.md).
+Live app: https://reel-studio-taupe.vercel.app · Hackathon PS4 · Runs at **₹0** (open-source models on our own GPU machine, free tiers only).
 
-## The problem
-Institutes have hundreds of hours of recorded classes and no editor. Generic tools mangle code-mixed Hinglish, misspell `useEffect` and `@Autowired`, and centre-crop screen shares until the code is unreadable.
-
-## What we are building
+## What it does
 | Mode | Input | Output |
 |------|-------|--------|
-| **Recording → Reels** | Long screen-share class recording | Ranked 30–60 s highlights that start and end on complete thoughts, reframed to 9:16 around the active code/cursor/diagram, with word-synced captions and brand kit |
-| **Topic → Video** | A topic like `JSON vs XML` | ~45 s explainer: script, code that types and changes on screen, local voiceover, captions, branding |
+| **Recording → Reels** | A long screen-share class recording | Ranked 30–60 s highlights that start and end on complete thoughts, smart 9:16 crop that follows the active code, word-synced Hinglish captions, brand kit |
+| **Topic → Video** | A topic such as `JSON vs XML` | ~45 s explainer: AI script and storyboard (editable), animated code cards, local voiceover, synced captions, branding |
 
-Both modes share one timeline editor, one renderer (Hyperframes), scheduling/publishing to Instagram and YouTube, analytics, and a feedback loop into highlight ranking.
+Both modes share:
+- **Creative editor**: multitrack timeline (video, audio, captions, text, code), split, trim, move, duplicate, caption word editing, overlays, fades, transitions, crop framing, brand kits, undo/redo, autosaved drafts. The preview is produced by the same compiler as the export.
+- **Style presets**: Focus, Energy, Story and Signature change the rendered MP4 (transitions, caption typography, push-ins, branded lower third).
+- **Instagram publishing**: official Instagram API with Instagram Login, encrypted tokens, publish now or schedule, a queue with calendar, safe retries and duplicate prevention.
+- **Analytics and AI feedback**: real per-reel Instagram insights, comparison and trend charts. Once at least 3 published reels have metrics, local-LLM recommendations and a learned ideal length feed back into highlight scoring.
 
 ## Architecture
-Next.js on Vercel ↔ Supabase (Auth, Postgres + RLS, Realtime, Storage) ↔ local FastAPI + GPU worker over a free HTTPS tunnel. Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+```
+Browser (Next.js 16 on Vercel)  ──►  Supabase (Auth, Postgres + RLS, Realtime)
+        │                                  ▲
+        └── signed HTTPS (Microsoft Dev Tunnel) ──► FastAPI + durable worker on a local GPU machine
+                                                   faster-whisper · OpenCV · RapidOCR · Ollama (Qwen2.5-VL)
+                                                   Kokoro TTS · Hyperframes renderer · FFmpeg
+```
+One canonical timeline (Zod schema → JSON Schema) is produced by both AI pipelines, edited in the editor, previewed and rendered by a single Python compiler into a Hyperframes composition, then verified with ffprobe. Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), decisions in [docs/DECISIONS.md](docs/DECISIONS.md).
 
 | Layer | Stack |
 |-------|-------|
-| Frontend | Next.js (App Router), React, TypeScript, Tailwind, Radix, Zustand, TanStack Query |
-| Backend | Python 3.11, FastAPI, Pydantic, durable job worker |
-| AI / media | faster-whisper, WhisperX, OpenCV, PySceneDetect, local OCR, Ollama, Kokoro TTS, FFmpeg |
-| Rendering | Hyperframes (HTML → MP4), `@hyperframes/player` for in-editor preview |
-| Data | Supabase Postgres, Auth, Realtime, Storage |
-
-Everything runs at **₹0**: open-source models on local hardware, free tiers only.
+| Frontend | Next.js 16 (App Router), React 19, TypeScript, Tailwind v4, TanStack Query, Lucide |
+| Backend | Python 3.11, FastAPI, Pydantic, Supabase-backed durable job queue |
+| AI / media | faster-whisper (Hinglish model), OpenCV, RapidOCR, Ollama `qwen2.5vl:7b`, Kokoro TTS, FFmpeg |
+| Rendering | Hyperframes 0.8.164 (local), GSAP, bundled OFL fonts |
+| Data | Supabase Postgres + RLS, Auth, Realtime |
 
 ## Repository layout
 ```
-apps/web                  Next.js frontend
-apps/api                  FastAPI backend + worker
-packages/timeline-schema  canonical timeline (Zod → JSON Schema)
-packages/video-templates  timeline → Hyperframes composition compiler
-supabase/migrations       SQL + RLS
-docs/                     architecture, phases, decisions, handoff
+apps/web                  Next.js app (studios, editor, publishing, analytics)
+apps/api                  FastAPI API + worker (transcribe, analyze, generate, render, publish, insights)
+packages/timeline-schema  canonical timeline (Zod → JSON Schema) and pure editor operations
+supabase/migrations       schema, RLS policies, explicit grants
+docs/                     checkpoint, phases, decisions, test status, deployment
 ```
 
-## Getting started
-Setup instructions land with Phase 01. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) and [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md).
+## Demo flow (5 minutes)
+1. **Dashboard**: real projects, renders, jobs and upcoming posts.
+2. **Topic Studio**: type "JSON vs XML", choose a style, generate. Watch Script → Voiceover → Render progress, edit the script and re-render, then download the MP4 and SRT/VTT.
+3. **Recordings**: open a class recording. Search the transcript (corrected terms are underlined), review ranked highlights with reasons, adjust the crop, render.
+4. **Editor**: open the reel, split and trim, change a caption word, add a text overlay, switch to the Signature style, render, and download the new MP4.
+5. **Publish** (after the Instagram Business account is connected): pick the reel, add a caption and hashtags, schedule it, and watch the queue.
+6. **Analytics**: refresh from Instagram, compare reels, run AI feedback.
+
+## Running locally
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) and [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md). In short: `pnpm install`, `pnpm --filter web dev`, and on the GPU machine `cd apps/api && python -m app.serve --tunnel devtunnel` (API, worker and tunnel together; Ollama must be running).
+
+## What was tested, and how
+Every claim is recorded in [docs/TEST_STATUS.md](docs/TEST_STATUS.md), which marks whether a test used **synthetic recordings**, the owner's **real physics class**, or **production**. Instagram publishing and insights are not claimed as verified until real authorised API responses confirm them.
 
 ## Team
 | GitHub |
@@ -51,7 +67,7 @@ Setup instructions land with Phase 01. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.
 | [@SK999CodingWorld](https://github.com/SK999CodingWorld) |
 
 ## Acknowledgements
-Built on [Hyperframes](https://github.com/heygen-com/hyperframes) (Apache-2.0), [faster-whisper](https://github.com/SYSTRAN/faster-whisper) (MIT), [WhisperX](https://github.com/m-bain/whisperX) (BSD-2), [PySceneDetect](https://github.com/Breakthrough/PySceneDetect) (BSD-3), [Ollama](https://github.com/ollama/ollama) (MIT), [Kokoro](https://github.com/hexgrad/kokoro) (Apache-2.0), FFmpeg, OpenCV and Supabase. Full inventory: [docs/THIRD_PARTY_LICENSES.md](docs/THIRD_PARTY_LICENSES.md).
+Built on [Hyperframes](https://github.com/heygen-com/hyperframes) (Apache-2.0), [faster-whisper](https://github.com/SYSTRAN/faster-whisper) (MIT), [Ollama](https://github.com/ollama/ollama) (MIT), [Kokoro](https://github.com/hexgrad/kokoro) (Apache-2.0), RapidOCR, FFmpeg, OpenCV, GSAP and Supabase. Full inventory: [docs/THIRD_PARTY_LICENSES.md](docs/THIRD_PARTY_LICENSES.md).
 
 ## Licence
 MIT — see [LICENSE](LICENSE).

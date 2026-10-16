@@ -1,3 +1,22 @@
+> **Final-run checkpoint (2026-10-17): read [CHECKPOINT.md](CHECKPOINT.md) first.** Dark UI redesign, style presets, multitrack editor (verified on Mode A and Mode B renders), Instagram disconnect/insights/analytics/AI feedback code are done; Instagram Business OAuth and any real post are pending the owner.
+
+## Final run — UI, editor, presets, Instagram/analytics code (2026-10-17)
+| Test | Data | Result |
+|---|---|---|
+| API pytest + ruff | unit | ✅ 90 passed, 6 skipped (integration), ruff clean |
+| timeline-schema vitest (incl. editor ops split/trim/move/duplicate/remove) | unit | ✅ 12 passed |
+| Web lint, tsc, `next build` | — | ✅ |
+| Editor on Mode B render (split, caption word, text overlay, Signature) → MP4 | local stack, generated topic video | ✅ 1080×1920 H.264+AAC 46.77 s, edits visible in frames |
+| Editor on Mode A render (split/delete video + captions, Energy) → MP4 | local stack, **synthetic** recording | ✅ 1080×1920 H.264+AAC 28.17 s, crop + uppercase captions in frames |
+| Mode A compose lint (nested timed video) | synthetic | ❌ found → fixed (untimed wrapper) → ✅ lint 0 errors |
+| Style presets compile (4) | generated timeline | ✅ |
+| Feedback learning (insufficient data / ideal length) | unit | ✅ 2 tests |
+| Migration 20261017050000 | local + **production** (db push, ref verified) | ✅ applied |
+| Vercel production deploy `41d1917` | production | ✅ READY |
+| Instagram OAuth / publish / insights with Business account | — | ⏳ blocked on owner OAuth; **not verified** |
+| Topic Studio "edit script → re-record" via UI; audio fades audible | — | ⏳ not run |
+| Dark UI at 1440 px and 375 px (dashboard, topic, recording, brand, publish, editor) | local | ✅ visually inspected |
+
 > **Latest checkpoint (2026-10-17, after the Codex handoff): read [CHECKPOINT.md](CHECKPOINT.md) first.** Mode B now works end to end (JSON vs XML → 46.8 s 1080×1920 MP4, plays and downloads in the UI); repeated-code prompt fix not yet re-verified on a new video. Instagram Business OAuth still pending; nothing published. YouTube postponed (D-035). HEAD at checkpoint start: `fe984a0`.
 
 > **Final checkpoint (2026-10-17):** Read [CODEX_TO_CLAUDE_HANDOFF.md](CODEX_TO_CLAUDE_HANDOFF.md) first. It supersedes historical status below. Mode B pipeline/UI implemented but live generation fails on fenced model JSON; full editor and YouTube unfinished. Instagram reaches Reel Studio-IG but awaits the separate Business-account login/consent. Never connect/convert the personal account or publish without explicit approval. Production deployed at 7419b77; two new migrations applied. Final backend: 76 pass, 6 skip, 1 known xfail; DB: 52 pass; final frontend build passes. Owner requested checkpoint only, no more features.
