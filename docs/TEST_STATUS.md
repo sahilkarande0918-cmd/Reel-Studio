@@ -13,7 +13,9 @@
 | Feedback learning (insufficient data / ideal length) | unit | ✅ 2 tests |
 | Migration 20261017050000 | local + **production** (db push, ref verified) | ✅ applied |
 | Vercel production deploy `41d1917` | production | ✅ READY |
-| Instagram OAuth / publish / insights with Business account | — | ⏳ blocked on owner OAuth; **not verified** |
+| Instagram OAuth with Business account (owner, private window) | **production** | ✅ @career.with.purpose (BUSINESS, id 17841466046205321), not the personal account; scopes basic, content_publish, manage_insights (+comments, messages); token stored encrypted |
+| Live read-only Instagram calls (/me, /media, account insights reach+views) | **production**, real API | ✅ identity matches stored id; 0 media; reach/views 0 (new account). `/{id}/permissions` returns error 100 for Instagram Login tokens (callback already falls back) |
+| Instagram publish | — | ⏳ awaiting owner approval of one test post |
 | Topic Studio "edit script → re-record" via UI (scene 2 code edited) | local stack | ✅ 1080×1920 H.264+AAC 42.27 s, edited code in timeline/video; invalid code rejected before render |
 | Repeated-code gate, live Ollama (JSON vs XML, temperature 0) | local | 🟡 before: 2 distinct examples / 5 scenes; after stricter gate + repair: 3 / 5 (71 s). Still repetitive; script editing covers it |
 | Audio fades audible check | — | ⏳ not run |

@@ -13,7 +13,7 @@ commits only as `sahilkarande0918-cmd`, only Supabase `adjwycjsxtxvjockxtan`, ne
 | UI redesign | ✅ cinematic dark theme (owner direction 2026-10-17: Inter, #0D0F14 / #12151C / #191D27, **amber #F2B544 primary — no purple at owner's request**, cyan only for live states). Screens: Dashboard, Projects, Recordings, Topic Studio, Editor, Brand Kits, Glossary, Publish, Analytics, Settings. Desktop + mobile checked |
 | Style presets | ✅ Focus / Energy / Story / Signature in timeline `stylePreset`, applied by `compose.py` (verified in rendered MP4s) |
 | 06 Editor | ✅ `/editor/[renderId]`; verified on Mode B and Mode A renders (see §3) |
-| 07 Instagram | 🟡 code complete (connect, encrypted tokens, renewal, disconnect, publish now/schedule, queue, calendar, retries, dedupe, permalink). **Business account not connected yet → nothing published** |
+| 07 Instagram | 🟡 **Business account connected and verified live** (@career.with.purpose, IG user 17841466046205321, BUSINESS, token encrypted, expires 2026-12-15; media list + account insights calls succeed). Code complete (connect, encrypted tokens, renewal, disconnect, publish now/schedule, queue, calendar, retries, dedupe, permalink). **nothing published yet** (awaiting owner approval of one test post; production workspace has no rendered video yet) |
 | 08 Analytics + AI feedback | 🟡 code complete (per-reel insights, comparison, trend chart, feedback ≥3 reels, LLM explanation, learned ideal length → highlight scoring). **No real Instagram data yet** |
 | 09 Submission | 🟡 README rewritten; final E2E on production pending Instagram |
 
