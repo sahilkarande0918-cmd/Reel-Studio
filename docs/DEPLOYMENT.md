@@ -1,4 +1,4 @@
-> **IDE switch checkpoint (2026-10-17): read [IDE_HANDOFF.md](IDE_HANDOFF.md) first.** Real Instagram publishing verified (@career.with.purpose, media 18111030863186503, https://www.instagram.com/reel/DekyGWcDEAl/); editor, style presets and dark UI done. Next: production E2E in the owner's account (Topic → Generate → Edit → Render → Download).
+> **Pre-compaction checkpoint (2026-10-17): read [CHECKPOINT.md](CHECKPOINT.md) first.** Latest: homepage + 61 s Hyperframes tour, sin1 speed pass, Topic JSON import, Instagram delivery copy, silent-render guard, self-restarting engine (HEAD `b2b1c38` + docs). Backlog A/B/C (context-aware editing, caption personalities, clip collections) is NOT implemented.
 
 > **Latest checkpoint (2026-10-17, after the Codex handoff): read [CHECKPOINT.md](CHECKPOINT.md) first.** Mode B now works end to end (JSON vs XML → 46.8 s 1080×1920 MP4, plays and downloads in the UI); repeated-code prompt fix not yet re-verified on a new video. Instagram Business OAuth still pending; nothing published. YouTube postponed (D-035). HEAD at checkpoint start: `fe984a0`.
 
@@ -116,5 +116,6 @@ stills; served statically by Vercel (verified video/mp4 with byte ranges). `prox
 Start the processing engine with `apps/api/start-engine.cmd` (double-click), not from an editor/agent terminal: it runs
 hidden, independent of any session, restarts the whole engine 5 s after it stops, and refuses to start a second copy.
 Inside, `app.serve` now restarts a crashed tunnel or worker within 10 s (watchdog). Log:
-`%LOCALAPPDATA%eel-studio\logs\engine.log`. The engine still needs the laptop awake and online; set Windows to never
+`%LOCALAPPDATA%
+eel-studio\logs\engine.log`. The engine still needs the laptop awake and online; set Windows to never
 sleep while plugged in during demos. Auto-start at login is optional (Task Scheduler → run `start-engine.cmd` at log on).

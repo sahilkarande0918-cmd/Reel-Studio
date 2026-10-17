@@ -7,7 +7,7 @@ Two modes, one pipeline: **Recording → Reels** (class recording → 30–60 s 
 Repo: https://github.com/sahilkarande0918-cmd/Reel-Studio (public, `main`).
 
 ## Mandatory reading order (new or compacted session)
-0. **`docs/IDE_HANDOFF.md`** then **`docs/CHECKPOINT.md`** — latest state, priorities (Instagram only; YouTube postponed) and next steps.
+0. **`docs/CHECKPOINT.md`**, then **`docs/IDE_HANDOFF.md`** and **`docs/CURRENT_TASK.md`** (backlog A/B/C) — latest state, rules, next steps.
 1. `CLAUDE.md` (this file)
 2. `docs/MASTER_PROMPT.md` (+ `docs/MASTER_PROMPT_SUPABASE_ADDENDUM.md`)
 3. `docs/ORIGINAL_PS.md`
@@ -22,6 +22,11 @@ Repo: https://github.com/sahilkarande0918-cmd/Reel-Studio (public, `main`).
 12. Only the source files relevant to the current task.
 
 Trust repo docs and git history over remembered assumptions.
+
+## Current next work
+Backlog A/B/C in `docs/CURRENT_TASK.md` (approved, NOT implemented): context-aware AI editing, five caption personalities
+(Minimal, Creator, Cinematic, Learning, Brand) affecting rendered MP4s, AI clip collections. Start the engine with
+`apps/api/start-engine.cmd` (also a Windows logon task).
 
 ## Non-negotiable rules
 - **₹0 cost.** No paid APIs, hosting, render cloud or storage. Never enable billing. Hyperframes cloud/Lambda rendering is off-limits; render locally.

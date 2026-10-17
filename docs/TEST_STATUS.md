@@ -1,4 +1,14 @@
-> **IDE switch checkpoint (2026-10-17): read [IDE_HANDOFF.md](IDE_HANDOFF.md) first.** Real Instagram publishing verified (@career.with.purpose, media 18111030863186503, https://www.instagram.com/reel/DekyGWcDEAl/); editor, style presets and dark UI done. Next: production E2E in the owner's account (Topic → Generate → Edit → Render → Download).
+> **Pre-compaction checkpoint (2026-10-17): read [CHECKPOINT.md](CHECKPOINT.md) first.** Latest: homepage + 61 s Hyperframes tour, sin1 speed pass, Topic JSON import, Instagram delivery copy, silent-render guard, self-restarting engine (HEAD `b2b1c38` + docs). Backlog A/B/C (context-aware editing, caption personalities, clip collections) is NOT implemented.
+
+## Pre-compaction checks (2026-10-17)
+| Test | Data | Result |
+|---|---|---|
+| Topic JSON import → Record & render (local, new project) | sample file | ✅ 5 scenes imported, generation used file settings, render 1080×1920 53.3 s with voice |
+| Automation-engineer Reel on Instagram | **production, real API** | ✅ published once (media 17988096129063525); Instagram-served file has AAC audio (mean −17.3 dB) |
+| Silent-render guard | published render vs muted copy | ✅ passes at −1.5 dB peak; muted copy rejected |
+| Engine watchdog / single instance / logon task | local machine | ✅ killed worker restarted ~10 s; duplicate start refused; task registered, result 0 |
+| Instagram delivery copy | automation render | ✅ H.264 High 4.1, 3.49 Mbit/s, AAC 48 kHz stereo |
+| API pytest · ruff · schema vitest · web lint + tsc | — | ✅ 90 passed (6 skipped) · clean · 12 passed · clean |
 
 ## Speed pass (2026-10-17)
 | Test | Data | Result |

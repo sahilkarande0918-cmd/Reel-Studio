@@ -1,4 +1,4 @@
-> **IDE switch checkpoint (2026-10-17): read [IDE_HANDOFF.md](IDE_HANDOFF.md) first.** Real Instagram publishing verified (@career.with.purpose, media 18111030863186503, https://www.instagram.com/reel/DekyGWcDEAl/); editor, style presets and dark UI done. Next: production E2E in the owner's account (Topic → Generate → Edit → Render → Download).
+> **Pre-compaction checkpoint (2026-10-17): read [CHECKPOINT.md](CHECKPOINT.md) first.** Latest: homepage + 61 s Hyperframes tour, sin1 speed pass, Topic JSON import, Instagram delivery copy, silent-render guard, self-restarting engine (HEAD `b2b1c38` + docs). Backlog A/B/C (context-aware editing, caption personalities, clip collections) is NOT implemented.
 
 ## Status at IDE switch (2026-10-17)
 00–05 ✅ · UI redesign ✅ · style presets ✅ · 06 editor ✅ · 07 Instagram ✅ publish verified (scheduling not yet verified live) ·

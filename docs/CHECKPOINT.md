@@ -1,99 +1,83 @@
-> **IDE switch checkpoint (2026-10-17): read [IDE_HANDOFF.md](IDE_HANDOFF.md) first.** Real Instagram publishing verified (@career.with.purpose, media 18111030863186503, https://www.instagram.com/reel/DekyGWcDEAl/); editor, style presets and dark UI done. Next: production E2E in the owner's account (Topic → Generate → Edit → Render → Download).
+# Reel Studio — checkpoint (2026-10-17, before compaction)
 
-# Reel Studio — latest checkpoint (2026-10-17, Claude, final development run)
+**Read first after compaction**, then `docs/IDE_HANDOFF.md` (full detail), `docs/CURRENT_TASK.md` (backlog), `AGENTS.md`,
+`CLAUDE.md`. Requirements are unchanged in `docs/ORIGINAL_PS.md` and `docs/MASTER_PROMPT.md` (never edit them).
+Earlier checkpoint text is in git history.
 
-**Read this first after compaction.** It supersedes older status lines in other docs (not the requirements).
-`ORIGINAL_PS.md` and `MASTER_PROMPT.md` are unchanged. Owner rules: ₹0, no AI attribution or co-author trailers,
-commits only as `sahilkarande0918-cmd`, only Supabase `adjwycjsxtxvjockxtan`, never disable RLS, no secrets in git,
-**YouTube postponed**, never connect/publish to personal `@sahil_karande`, no real post without explicit approval.
+## 1. Objective
+Hackathon PS4 "Reel Studio": an AI video studio for technical educators and institutes.
+- **Mode A, Recording → Reels**: class recording → Hinglish transcript with corrected technical terms → ranked, explained
+  30–60 s highlights → code-aware 9:16 crop → synced captions → brand kit → editor → MP4 → Instagram.
+- **Mode B, Topic → Video**: topic (or imported JSON script) → editable AI storyboard → animated code cards → Kokoro voiceover →
+  synced captions → ~45 s 1080×1920 MP4.
+- Shared: multitrack editor, Hyperframes renderer, Instagram publishing/scheduling, analytics + AI feedback.
 
-## Speed pass (2026-10-17)
-- Cause of slow clicks: Vercel functions ran in iad1 (US East) while Supabase is in ap-southeast-1 (Singapore), ~200 ms per
-  database round trip, several per page, plus no loading UI. Fix: `apps/web/vercel.json` `regions: ["sin1"]` (+ `preferredRegion`
-  in the root layout), verified live `x-vercel-id: bom1::sin1::…`; `app/(app)/loading.tsx` skeleton; engine discovery probes
-  tunnel and same-machine in parallel and remembers the winner (`lib/backend.ts`).
-- Uploads: ownership checked once per upload (not per 8 MB chunk), progress written every 64 MB. Instagram: container status
-  polled every 3 s at first (was 10 s). Renders: `--workers 8` (measured 111 s vs 123 s for a 28 s Mode A reel; capture-bound,
-  GPU encoding gave no meaningful gain).
-- Not measured: authenticated page timings on production (needs the owner's login); expected saving ≈ 0.2 s × database
-  round trips per page.
+## 2. Owner rules (non-negotiable)
+₹0 cost · no AI authors/co-authors/trailers, commits only as `sahilkarande0918-cmd` · Supabase only `adjwycjsxtxvjockxtan`
+(never the owner's SaaS project, never disable RLS, explicit grants) · **YouTube and billing postponed** · **never publish a
+real Reel without explicit approval of account, video and caption** · never the personal `@sahil_karande` · no secrets or
+private media in git · no ngrok · keep verified features working · use the existing stack (Next.js, FastAPI, Supabase,
+Ollama, OpenCV, Hyperframes).
 
-## Homepage redesign + 60-second Hyperframes tour (2026-10-17)
-- **Homepage** (`apps/web/app/page.tsx`, `components/landing/{site-nav,hero-visual,tour-player,hinglish-compare,legal-page}.tsx`):
-  forest/ivory editorial design (Fraunces + DM Sans, the owner's theme commits `714b8e2`/`d174ff1`); sticky nav; hero with a
-  real class frame, the real crop keyframes of render 023ff36c and the rendered reel; embedded tour; how it works; real
-  Hinglish corrections (AbortController/AbortError via on-screen OCR, useEffect via glossary, from the synthetic lecture's
-  transcript) next to the source frames; reframing demo; both modes; editor + brand kits; the verified Instagram publish
-  (link to the real permalink, no invented stats); CTA; footer; new `/privacy` and `/terms`. Old landing components and
-  Wikimedia archive images removed. `proxy.ts` now lets `/landing/*`, media files, `/privacy`, `/terms` through.
-- **Tour** (`marketing/tutorial/`): `capture.mjs` (real app screens + target boxes via the Chrome bundled with
-  Hyperframes, local stack, synthetic data), `narrate.py` (Kokoro via `hyperframes tts` + faster-whisper word timings),
-  `build.py` (Hyperframes composition: camera moves, cursor, rings, karaoke captions, synthesized UI sounds, real reels),
-  then `hyperframes lint` (0 errors) and `hyperframes render --fps 30 --quality high`. All composition and rendering is
-  Hyperframes; FFmpeg/ffprobe were used only for probing and for extracting stills/short loops for the web page.
-  Output 1920×1080, 30 fps, H.264 + AAC 48 kHz stereo, **61.4 s**, 17.3 MB, peak −1.9 dB; WebVTT captions generated from
-  the same word timings. Served from `apps/web/public/landing/` (Vercel static, faststart). `build/` is git-ignored;
-  `.gitignore` exempts only `apps/web/public/landing/*.mp4`.
-- Rebuild: local stack + web running → `node marketing/tutorial/capture.mjs` (env HF_NODE_MODULES, CHROME, EMPTY_PROJECT)
-  → `python marketing/tutorial/narrate.py` → `python marketing/tutorial/build.py` → `hyperframes render marketing/tutorial/build/project
-  --fps 30 --quality high --video-frame-format png -o marketing/tutorial/build/reel-studio-tour.mp4` → copy MP4 + VTT to `apps/web/public/landing/`.
-- Fixes found on the way: editor text invisible on the forest theme (style preset names, media cards) → fixed; narration
-  aligner rejected scenes with hallucinated zero-length words → now drops them; landing MP4s were excluded by `*.mp4`.
-- Verified: lint, tsc, `next build`, API pytest 90 passed; full-page screenshots at 1440 and 390 px (no horizontal
-  overflow); tour plays locally and **on the deployed site** (headless Chrome: playing, 1920×1080, 61.4 s; live file
-  byte-identical to the render). The in-app browser pane blocks that media request itself (ERR_BLOCKED_BY_CLIENT), not the site.
-
-## 1. Phase status
-| Phase | Status |
+## 3. Status
+| Area | Status |
 |---|---|
-| 00–04 | ✅ (synthetic + owner's real physics class on production) |
-| 05 Topic → Video | ✅ end to end; editable script (re-record and render), plain-language errors, progress stepper, code without ligatures |
-| UI redesign | ✅ cinematic dark theme (owner direction 2026-10-17: Inter, #0D0F14 / #12151C / #191D27, **amber #F2B544 primary — no purple at owner's request**, cyan only for live states). Screens: Dashboard, Projects, Recordings, Topic Studio, Editor, Brand Kits, Glossary, Publish, Analytics, Settings. Desktop + mobile checked |
-| Style presets | ✅ Focus / Energy / Story / Signature in timeline `stylePreset`, applied by `compose.py` (verified in rendered MP4s) |
-| 06 Editor | ✅ `/editor/[renderId]`; verified on Mode B and Mode A renders (see §3) |
-| 07 Instagram | ✅ publish verified; scheduling not yet verified live. **Business account connected and verified live** (@career.with.purpose, IG user 17841466046205321, BUSINESS, token encrypted, expires 2026-12-15; media list + account insights calls succeed). **First owner-approved Reel published 2026-10-17**: media 18111030863186503, https://www.instagram.com/reel/DekyGWcDEAl/ (physics class top highlight, 44.5 s). Code complete (connect, encrypted tokens, renewal, disconnect, publish now/schedule, queue, calendar, retries, dedupe, permalink). publishing verified end to end on production |
-| 08 Analytics + AI feedback | 🟡 insights refresh verified with the real API (account + per-reel metrics stored; values 0 right after posting). AI feedback needs ≥3 published reels with reach — not yet exercised on real data |
-| 09 Submission | 🟡 README rewritten; production E2E in the owner account + submission materials pending |
+| Phases 00–05 (foundation, auth, ASR, highlights, render, Topic→Video) | ✅ (synthetic + owner's real physics class on production) |
+| UI | ✅ forest-green/ivory editorial theme (owner commits `714b8e2`, `d174ff1`; Fraunces + DM Sans); editor dark panels fixed `fd47089` |
+| Homepage | ✅ redesigned (`999abb8`, `31adb26`) with embedded **61.4 s Hyperframes tour** (`bb693e0`), `/privacy`, `/terms` |
+| Style presets | ✅ Focus / Energy / Story / Signature (timeline `stylePreset`, compiler) |
+| 06 Editor | ✅ `/editor/[renderId]`, verified on Mode A and Mode B renders |
+| Topic JSON import | ✅ `88a1176` "Import script (JSON)" in Topic Studio → Script & storyboard section; sample `samples/what-is-an-automation-engineer.json` |
+| 07 Instagram | ✅ OAuth (@career.with.purpose), **3 real Reels published by/with the owner**, queue, retries, dedupe, delivery copy + real error text (`51f72b7`). Future-scheduled publish not yet verified live |
+| 08 Analytics + AI feedback | 🟡 real insights refresh verified; AI feedback needs ≥3 reels with reach (not exercised yet) |
+| Performance | ✅ Vercel functions in `sin1` next to Supabase (`5528a7c`), loading skeleton, parallel engine discovery, faster uploads/IG polling, 8 render workers |
+| Engine uptime | ✅ watchdog in `app.serve` + `apps/api/start-engine.cmd/.ps1` + Windows task "Reel Studio Engine" at logon (`6cf530a`, `b2b1c38`) |
+| 09 Submission | 🟡 README done; production E2E in the owner account + submission materials pending |
 
-## 2. Architecture additions this run
-- `packages/timeline-schema/src/edit.ts` (+ `edit.test.ts`): pure split/trim/move/duplicate/remove/update keeping invariants.
-- Schema: `transition` (none/fade/slide/zoom) on visual items, `fadeIn/fadeOut` on media, `box` on text, `stylePreset`.
-- `apps/api/app/api/editor.py`: `POST /renders/{id}/preview` (validate → `preview.write_preview` = compiler HTML + seek runtime),
-  `GET /renders/{id}/p/{exp}/{sig}/{file}` (signed folder so relative media/fonts load), `POST /renders/{id}/edit`
-  (new render, `parent_render_id`, assets hard-linked), `POST /renders/{id}/brand` (kit → snapshot + logo file).
-- Editor UI `apps/web/components/editor/*`: preview is an iframe `srcdoc` with `<base>` = signed folder; postMessage clock.
-- Drafts: `timeline_drafts` (RLS, editors write directly → autosave works with the backend offline).
-- Render worker: `apply_fades` (ffmpeg volume expression after render). Compose fix: video wrapper `win-*` is untimed
-  (Hyperframes lint `video_nested_in_timed_element` had made **Mode A renders fail** with Codex's compositor).
-- Instagram: scope `instagram_business_manage_insights` added; `POST /social/accounts/{id}/disconnect`; insights worker
-  stores recent media + per-reel metrics in `platform_metrics.media`.
-- Feedback: `apps/api/app/services/feedback.py`, `GET/POST /feedback`, table `performance_feedback`; analyze worker passes
-  `extras["ideal_s"]` to `candidates.score_window`.
-- Migration `20261017050000_timeline_drafts.sql` (drafts, `render_jobs.parent_render_id`, `platform_metrics.media`,
-  `performance_feedback`) — **applied to production** (`supabase db push --linked`, ref verified) and local.
+Published Reels: physics `18111030863186503` https://www.instagram.com/reel/DekyGWcDEAl/ · maths (owner) ·
+automation engineer `17988096129063525` https://www.instagram.com/reel/DelT2zXm_Bt/ (3rd automatic attempt succeeded after a
+tunnel blip and a transient Instagram processing ERROR; audio verified present, the owner had the Reel muted).
 
-## 3. Verified this run (actually run)
-- Backend pytest 90 passed / 6 skipped; ruff clean. Timeline-schema vitest 12 passed. Web lint + tsc clean; `next build` ok.
-- Mode B editor (local stack): JSON vs XML render → split caption, edited word "EDITED", text overlay, Signature style →
-  rendered **1080×1920 H.264+AAC 46.77 s**; frames show overlay, lower third, edited caption, `</name>` without ligature.
-- Mode A editor (local stack, synthetic React-hooks lecture): split + delete video and captions → 28.17 s, Energy style →
-  rendered **1080×1920 H.264+AAC 28.17 s**; frames show uppercase captions and code-following crop.
-- Style presets compile for all four (`compile_html`), Signature/Energy verified in real renders.
-- Vercel production deploy READY for `41d1917`. Production backend restarted on new code; tunnel up.
-- Topic Studio edit-script → re-record → render verified via UI (42.27 s MP4). Repeated-code: new generation still repeated
-  (4/5); stricter gate + repair gives 3/5 distinct live — partial; editing covers the rest.
-- Instagram connect attempt by owner returned "Invalid redirect_uri": `.env` value is correct; the Meta app's Business
-  login settings must list it exactly, and `INSTAGRAM_CLIENT_ID` must be the Instagram app ID. Owner to fix in Meta.
-- **Not verified:** audio fades audible check; analytics/feedback with real data; any Instagram API call with the Business account.
+## 4. Architecture (detail in IDE_HANDOFF §3, §7)
+Next.js 16 (Vercel, sin1) ↔ Supabase (Auth, Postgres+RLS, Realtime; ap-southeast-1) ↔ FastAPI + durable worker on the owner's
+RTX 5050 laptop via Microsoft Dev Tunnel `https://j96sqlp6-8000.inc1.devtunnels.ms`. One canonical timeline (Zod
+`packages/timeline-schema` → JSON Schema → Python validation) → one compiler `apps/api/app/services/rendering/compose.py`
+→ Hyperframes 0.8.164 CLI → ffprobe-verified MP4 (silent-render guard `2b5b02c`). Editor preview = same compiler HTML +
+seek runtime (`services/rendering/preview.py`). AI: faster-whisper (Hinglish CT2), OpenCV change maps, RapidOCR, Ollama
+`qwen2.5vl:7b`, Kokoro via `hyperframes tts`.
 
-## 4. Pending owner actions
-1. ~~Instagram OAuth~~ done. ~~First test post~~ done (approved and published).
-2. Approve any further real post (each one) — needed for scheduling verification and AI feedback (≥3 reels with reach).
+### Highlight selection today (`services/highlights/candidates.py`, `workers/analyze.py`)
+Sentences from word timings (pause split 0.9 s) → windows of 30–60 s → `score_window` weighted sum: boundary 0.35
+(speaker-relative pause percentiles before/after + opener words like "toh", "ab"), length 0.10 (closeness to 45 s or the
+learned ideal from `performance_feedback`), voice 0.15 (energy level/variation), pace 0.10, screen 0.15 (typing/screen
+change), technical 0.15 (glossary terms + on-screen identifiers that are spoken) → human-readable reasons → "strict" pool
+needs both pause ranks ≥ 0.6 (relaxed if < 3 survive) → `select` top-k with ≤ 35 % overlap → local LLM judge (standalone /
+educational scores, title, summary) → `highlight_candidates` rows with features, reasons and crop keyframes.
+No semantic topic segmentation, no explicit "complete explanation" check and no collections yet (see backlog A/C).
 
-## 5. Runtime
-Production backend `python -m app.serve --tunnel devtunnel` (:8000 → https://j96sqlp6-8000.inc1.devtunnels.ms). Local
-test stack :8001 against local Supabase; web dev :3000. **Running `next build` while `next dev` runs leaves the dev server
-serving stale CSS — restart dev with a clean `.next`.** Restart API+worker together after backend changes.
+### Captions today
+Word-timed caption items in the timeline; `compose.paginate` (maxCharsPerLine/maxLines) → per-word GSAP states. Presets
+`highlight-word | karaoke | boxed`, font size, chars/line, position (safeTop/safeBottom), body/code fonts, from brand kits or
+the editor; style presets add caption CSS (Energy uppercase/stroke, Story spacing, Signature accent bar + lower third).
+SRT/VTT via `services/rendering/captions.py`. The five "personalities" of backlog B do not exist yet.
 
-## 6. Next steps
-See `IDE_HANDOFF.md` §12. First: production E2E in the owner's account (Topic → Generate → Edit → Render → Download).
+## 5. Approved backlog — NOT YET IMPLEMENTED OR VERIFIED
+`docs/CURRENT_TASK.md` §Backlog: **A** context-aware AI editing, **B** five AI caption personalities (Minimal, Creator,
+Cinematic, Learning, Brand) that change the rendered MP4, **C** AI clip collections (a series from one recording with titles
+grounded in the lecture). Do not start before the owner's continuation prompt.
+
+## 6. Known issues / unverified
+Topic storyboards can still repeat example code (3 of 5 distinct live) · audio fades not checked audibly · future-scheduled
+publish not verified · AI feedback not exercised · editor is desktop-first · authenticated page timings on production not
+measured · Instagram processing can return a transient ERROR (worker retries) · `next build` while `next dev` runs leaves the
+dev server's CSS stale (restart dev with a clean `apps/web/.next`).
+
+## 7. Running state at checkpoint
+Production engine via `start-engine.cmd` (:8000 + tunnel + worker, watchdog; logs `%LOCALAPPDATA%\reel-studio\logs`),
+logon task registered. Local test stack :8001 (local Supabase in Docker, `upload-owner@test.local`), web dev :3000, Ollama
+:11434. Vercel production READY on `b2b1c38` (plus this docs commit).
+
+## 8. Resume after compaction
+1. Read this file, `docs/IDE_HANDOFF.md`, `docs/CURRENT_TASK.md`, `AGENTS.md`; run `git status`, `git log --oneline -15`.
+2. Engine: `curl http://127.0.0.1:8000/health`; if down, double-click `apps/api/start-engine.cmd`.
+3. Implement backlog A → B → C as the owner's prompt specifies; render real MP4s to verify; update docs; commit; push.

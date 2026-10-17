@@ -2,6 +2,7 @@
 
 > **Start here:** read `docs/IDE_HANDOFF.md` (complete current state, rules, commands, next task), then `docs/CHECKPOINT.md`.
 > Never publish a real Reel without the owner's explicit approval of account, video and caption. YouTube is postponed.
+> Backlog A/B/C in `docs/CURRENT_TASK.md` (context-aware editing, caption personalities, clip collections) is approved but not implemented.
 
 Applies to any coding agent or human working in this repository. `CLAUDE.md` holds the full
 session workflow; this file holds the shared engineering rules (no conflicting duplicates).

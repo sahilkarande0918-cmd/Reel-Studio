@@ -1,3 +1,5 @@
+> **Pre-compaction checkpoint (2026-10-17): read [CHECKPOINT.md](CHECKPOINT.md) first.** Latest: homepage + 61 s Hyperframes tour, sin1 speed pass, Topic JSON import, Instagram delivery copy, silent-render guard, self-restarting engine (HEAD `b2b1c38` + docs). Backlog A/B/C (context-aware editing, caption personalities, clip collections) is NOT implemented.
+
 # Reel Studio — IDE-independent handoff (2026-10-17)
 
 For any agent (Cursor, Antigravity, Claude, Codex) or human continuing this project without the chat history.
@@ -12,6 +14,31 @@ Projects. The three UI fonts are self-hosted with OFL notices, so builds require
 action was triggered during this UI work. See the latest entry in `docs/TEST_STATUS.md` for verification.
 
 ---
+
+## Latest changes (after the homepage), 2026-10-17
+- Speed: Vercel `regions: ["sin1"]` (`apps/web/vercel.json`) + `preferredRegion`; `app/(app)/loading.tsx`; parallel engine
+  discovery remembered per session (`lib/backend.ts`); uploads check ownership once and persist progress every 64 MB;
+  Instagram container polled every 3 s; renders with `--workers 8`.
+- Topic Studio "Import script (JSON)" (`components/studio/topic-studio.tsx`): accepts a full generate request or a bare
+  `{title, scenes}` storyboard; sample `samples/what-is-an-automation-engineer.json`.
+- Publishing: cached Instagram delivery copy `instagram.mp4` (H.264 High 4.1, 3.5 Mbit/s CBR, 2 s GOP, AAC 48 kHz) served at
+  `/renders/{id}/file/instagram`; Instagram's own status text kept on ERROR.
+- Render: fails verification if a timeline with narration/unmuted media renders silent (peak < −45 dBFS).
+- Engine: `app.serve` watchdog restarts tunnel/worker within 10 s; `apps/api/start-engine.cmd` (detached, single instance,
+  outer restart loop, logs in `%LOCALAPPDATA%\reel-studio\logs`); Windows task "Reel Studio Engine" runs it 30 s after logon.
+
+## Backlog — approved by the owner, NOT YET IMPLEMENTED OR VERIFIED (start only on the owner's next prompt)
+### Feature A — Context-aware AI editing
+Upgrade highlight detection (`services/highlights/candidates.py`, `workers/analyze.py`, `services/highlights/llm.py`) so clips
+are complete, self-contained educational explanations: semantic context (what concept is being explained and where that
+explanation starts/ends), complete sentence boundaries, educational value, strong opening and closing, and explainable
+scoring shown to the user (per-component scores + reasons). Reuse the existing local LLM (Ollama) and scoring architecture.
+### Feature B — AI caption personalities
+Five selectable caption styles — **Minimal, Creator, Cinematic, Learning, Brand** — selectable in the studios and editor and
+applied by the compiler (`compose.py`) so they change the actual rendered MP4, not only the preview.
+### Feature C — AI clip collections
+Group related highlights from one recording into a coherent educational Reel series (ordering, shared theme), with
+AI-generated series/episode titles based strictly on the lecture's actual content (transcript), no invented claims.
 
 ## Speed pass (2026-10-17)
 - Cause of slow clicks: Vercel functions ran in iad1 (US East) while Supabase is in ap-southeast-1 (Singapore), ~200 ms per

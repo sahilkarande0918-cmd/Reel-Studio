@@ -1,4 +1,17 @@
-> **IDE switch checkpoint (2026-10-17): read [IDE_HANDOFF.md](IDE_HANDOFF.md) first.** Real Instagram publishing verified (@career.with.purpose, media 18111030863186503, https://www.instagram.com/reel/DekyGWcDEAl/); editor, style presets and dark UI done. Next: production E2E in the owner's account (Topic → Generate → Edit → Render → Download).
+> **Pre-compaction checkpoint (2026-10-17): read [CHECKPOINT.md](CHECKPOINT.md) first.** Next: backlog A → B → C below.
+
+## Backlog — approved by the owner, NOT YET IMPLEMENTED OR VERIFIED (start only on the owner's next prompt)
+### Feature A — Context-aware AI editing
+Upgrade highlight detection (`services/highlights/candidates.py`, `workers/analyze.py`, `services/highlights/llm.py`) so clips
+are complete, self-contained educational explanations: semantic context (what concept is being explained and where that
+explanation starts/ends), complete sentence boundaries, educational value, strong opening and closing, and explainable
+scoring shown to the user (per-component scores + reasons). Reuse the existing local LLM (Ollama) and scoring architecture.
+### Feature B — AI caption personalities
+Five selectable caption styles — **Minimal, Creator, Cinematic, Learning, Brand** — selectable in the studios and editor and
+applied by the compiler (`compose.py`) so they change the actual rendered MP4, not only the preview.
+### Feature C — AI clip collections
+Group related highlights from one recording into a coherent educational Reel series (ordering, shared theme), with
+AI-generated series/episode titles based strictly on the lecture's actual content (transcript), no invented claims.
 
 ## Done since IDE switch: homepage redesign + 61 s Hyperframes tour (see IDE_HANDOFF.md top).
 
