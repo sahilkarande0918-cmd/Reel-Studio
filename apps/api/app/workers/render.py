@@ -4,6 +4,7 @@
 import json
 import logging
 import os
+import re
 import shutil
 import subprocess
 import time
@@ -92,7 +93,19 @@ def apply_fades(out: Path, doc: dict) -> None:
     tmp.replace(out)
 
 
-def verify(path: Path, expected_s: float, width: int, height: int) -> dict:
+def peak_db(path: Path) -> float:
+    """Loudest audio sample in dBFS (-inf for digital silence), measured by ffmpeg's volumedetect."""
+    out = subprocess.run(["ffmpeg", "-v", "info", "-nostats", "-i", str(path), "-map", "0:a:0", "-af", "volumedetect",
+                          "-f", "null", "-"], capture_output=True, text=True, encoding="utf-8", timeout=300).stderr
+    m = re.search(r"max_volume: (-?inf|-?[\d.]+) dB", out)
+    return float(m.group(1)) if m else float("-inf")
+
+
+def expects_sound(doc: dict) -> bool:
+    return any(i["type"] in ("audio", "video") and i.get("volume", 1) > 0 for t in doc["tracks"] for i in t["items"])
+
+
+def verify(path: Path, expected_s: float, width: int, height: int, audible: bool = False) -> dict:
     """The output must be what the timeline asked for: size, duration (±0.1 s), H.264 + audio."""
     info = media.probe(path)
     v = next(s for s in info["streams"] if s["codec_type"] == "video")
@@ -106,6 +119,9 @@ def verify(path: Path, expected_s: float, width: int, height: int) -> dict:
         problems.append(f"duration {dur:.3f}s vs {expected_s:.3f}s")
     if v["codec_name"] != "h264" or not has_audio:
         problems.append(f"codec {v['codec_name']}, audio={has_audio}")
+    # A narrated or recorded timeline must not export silent (e.g. media not found by the renderer).
+    if audible and has_audio and (peak := peak_db(path)) < -45:
+        problems.append(f"no audible sound (peak {peak} dB) although the timeline has narration/audio")
     if problems:
         raise Permanent("Rendered file failed verification: " + "; ".join(problems))
     return {"duration_s": dur, "width": v["width"], "height": v["height"], "fps": num / den}
@@ -164,7 +180,7 @@ def run_render(ctx: JobContext) -> dict:
         ctx.stage("verify", 0.95, "Verifying the MP4")
         out = project / "out.mp4"
         apply_fades(out, doc)
-        meta = verify(out, doc["duration"], doc["width"], doc["height"])
+        meta = verify(out, doc["duration"], doc["width"], doc["height"], audible=expects_sound(doc))
         thumb = project / "thumb.jpg"
         subprocess.run(
             [
