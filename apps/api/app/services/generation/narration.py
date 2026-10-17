@@ -35,13 +35,12 @@ def align_words(script: str, measured: list[dict], duration_s: float) -> list[di
     """
     expected = script.split()
     normalize = lambda word: re.sub(r"[^\w]", "", word).casefold()  # noqa: E731
-    detected = [w for w in measured if str(w.get("raw_text", "")).strip()]
+    def plausible(w: dict) -> bool:  # zero-length or out-of-range words are recogniser hallucinations
+        s, e = float(w["start_s"]), float(w["end_s"])
+        return math.isfinite(s + e) and 0 <= s < e <= duration_s + .05
+    detected = [w for w in measured if str(w.get("raw_text", "")).strip() and plausible(w)]
     if not expected or not detected:
         raise ValueError("Could not align narration: no measured words")
-    for w in detected:
-        s, e = float(w["start_s"]), float(w["end_s"])
-        if not math.isfinite(s + e) or s < 0 or e <= s or e > duration_s + .05:
-            raise ValueError("Invalid measured speech alignment times")
     matcher = SequenceMatcher(None, [normalize(w) for w in expected],
                               [normalize(w["raw_text"]) for w in detected], autojunk=False)
     # (text, start, end) with None times for script words the recogniser missed
