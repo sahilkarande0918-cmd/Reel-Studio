@@ -14,12 +14,16 @@ const TUNNEL_HEADERS = { "X-Tunnel-Skip-AntiPhishing-Page": "true" };
 const SAME_MACHINE = "http://127.0.0.1:8000";
 
 async function health(url: string) {
-  const r = await fetch(`${url.replace(/\/$/, "")}/health`, { headers: TUNNEL_HEADERS, signal: AbortSignal.timeout(6000) });
+  const r = await fetch(`${url.replace(/\/$/, "")}/health`, { headers: TUNNEL_HEADERS, signal: AbortSignal.timeout(5000) });
   if (!r.ok) throw new Error(`Health check returned ${r.status}.`);
   return (await r.json()).capabilities ?? {};
 }
 
-/** Finds the local processing API: explicit env override, else the URL it last heartbeated to Supabase. */
+const REMEMBER = "rs-backend-url";
+
+/** Finds the local processing API: explicit env override, else the URL it last heartbeated to Supabase.
+ * Candidates (tunnel and same-machine) are probed in parallel and the first healthy one wins, so a route that
+ * hangs (e.g. a TLS-intercepted tunnel) never delays the other. The winner is remembered for the session. */
 async function discover(): Promise<BackendStatus> {
   let url = process.env.NEXT_PUBLIC_API_URL || "";
   if (!url) {
@@ -34,18 +38,30 @@ async function discover(): Promise<BackendStatus> {
       return { state: "offline", reason: `Last seen ${new Date(data.last_seen_at).toLocaleString()}.` };
     url = data.url;
   }
-  for (const candidate of url === SAME_MACHINE ? [url] : [url, SAME_MACHINE]) {
-    try {
-      return { state: "online", url: candidate, capabilities: await health(candidate) };
-    } catch {
-      // try the next route
-    }
+  const candidates = [...new Set([url, SAME_MACHINE])];
+  try {
+    return await Promise.any(candidates.map(async (candidate) => {
+      const capabilities = await health(candidate);
+      try { sessionStorage.setItem(REMEMBER, candidate); } catch { /* storage unavailable */ }
+      return { state: "online" as const, url: candidate, capabilities };
+    }));
+  } catch {
+    return { state: "offline", reason: "Health check did not respond." };
   }
-  return { state: "offline", reason: "Health check did not respond." };
+}
+
+function remembered(): BackendStatus | undefined {
+  try {
+    const url = sessionStorage.getItem(REMEMBER);
+    return url ? { state: "online", url, capabilities: {} } : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export function useBackend() {
-  return useQuery({ queryKey: ["backend"], queryFn: discover, refetchInterval: 20_000, staleTime: 0 });
+  // Start from the last working URL so engine-dependent UI renders immediately; the probe confirms it in the background.
+  return useQuery({ queryKey: ["backend"], queryFn: discover, refetchInterval: 20_000, staleTime: 15_000, placeholderData: remembered });
 }
 
 /** Authenticated call to the local API. */
