@@ -1,101 +1,25 @@
+import { DashboardView, type DashboardJob, type DashboardMetric, type DashboardProject, type DashboardReel } from "@/components/dashboard/dashboard-view";
 import { requireOrg } from "@/lib/supabase/server";
-import {
-  DashboardView,
-  type ProjectCardItem,
-  type ProcessingJobItem,
-} from "@/components/dashboard/dashboard-view";
-
-const JOB_LABEL: Record<string, string> = {
-  transcribe: "Transcription",
-  analyze: "Highlight analysis",
-  render: "Video rendering",
-  generate: "AI topic video",
-  publish: "Instagram publishing",
-  insights: "Analytics sync",
-};
-
-function ago(iso: string) {
-  const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m ago`;
-  if (m < 1440) return `${Math.round(m / 60)}h ago`;
-  return `${Math.round(m / 1440)}d ago`;
-}
-
-const SAMPLE_IMAGES = [
-  "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&q=80",
-  "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400&q=80",
-  "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=400&q=80",
-  "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&q=80",
-  "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=400&q=80",
-];
 
 export default async function DashboardPage() {
   const { supabase, org } = await requireOrg();
-
-  const [projectsRes, activityRes] = await Promise.all([
-    supabase
-      .from("projects")
-      .select("id, name, mode, status, updated_at")
-      .eq("organization_id", org.id)
-      .order("updated_at", { ascending: false })
-      .limit(5),
-    supabase
-      .from("jobs")
-      .select(
-        "id, project_id, job_type, status, current_stage, progress, created_at, projects(name)"
-      )
-      .eq("organization_id", org.id)
-      .order("created_at", { ascending: false })
-      .limit(5),
+  const [projects, jobs, active, ready, published, renderRows, metricsRows] = await Promise.all([
+    supabase.from("projects").select("id,name,mode,status,updated_at").eq("organization_id", org.id).order("updated_at", { ascending: false }).limit(5),
+    supabase.from("jobs").select("id,project_id,job_type,status,current_stage,progress,projects(name)").eq("organization_id", org.id).order("created_at", { ascending: false }).limit(5),
+    supabase.from("jobs").select("id", { count: "exact", head: true }).eq("organization_id", org.id).in("status", ["running", "queued"]),
+    supabase.from("render_jobs").select("id", { count: "exact", head: true }).eq("organization_id", org.id).eq("status", "ready"),
+    supabase.from("publish_jobs").select("id", { count: "exact", head: true }).eq("organization_id", org.id).eq("status", "published"),
+    supabase.from("render_jobs").select("project_id,duration_s").eq("organization_id", org.id).eq("status", "ready").order("created_at", { ascending: false }).limit(100),
+    supabase.from("platform_metrics").select("metrics,media,updated_at").eq("organization_id", org.id).order("updated_at", { ascending: false }).limit(1),
   ]);
-
-  const rawProjects = projectsRes.data || [];
-  const rawActivity = activityRes.data || [];
-
-  const projects: ProjectCardItem[] | undefined =
-    rawProjects.length > 0
-      ? rawProjects.map((p, idx) => ({
-          id: p.id,
-          title: p.name,
-          duration: "0:30",
-          timeAgo: `Edited ${ago(p.updated_at)}`,
-          bgImage: SAMPLE_IMAGES[idx % SAMPLE_IMAGES.length],
-        }))
-      : undefined;
-
-  const jobs: ProcessingJobItem[] | undefined =
-    rawActivity.length > 0
-      ? rawActivity.map((job, idx) => {
-          const isComplete = job.status === "succeeded";
-          const isRunning = job.status === "running";
-          const isQueued = job.status === "queued";
-          const pct = Math.round((job.progress || 0) * 100);
-          const name =
-            (job.projects as unknown as { name: string } | null)?.name ||
-            JOB_LABEL[job.job_type] ||
-            "Video project";
-          return {
-            id: job.id,
-            title: name,
-            desc: isComplete
-              ? "Completed • Ready to download."
-              : isRunning
-              ? `${job.current_stage || "Processing"}...`
-              : "Queued for processing.",
-            progress: isComplete ? 100 : pct,
-            status: job.status,
-            timeRemaining: isComplete
-              ? `Completed ${ago(job.created_at)}`
-              : isQueued
-              ? "In queue"
-              : `${Math.max(1, 100 - pct)}% left`,
-            action: isComplete ? "Download" : isRunning ? "Cancel" : "View",
-            img: SAMPLE_IMAGES[idx % SAMPLE_IMAGES.length],
-            projectId: job.project_id,
-          };
-        })
-      : undefined;
-
-  return <DashboardView projects={projects} jobs={jobs} />;
+  const durations = new Map<string, number>();
+  for (const render of renderRows.data ?? []) if (render.project_id && typeof render.duration_s === "number" && !durations.has(render.project_id)) durations.set(render.project_id, render.duration_s);
+  const recentProjects: DashboardProject[] = (projects.data ?? []).map((project) => ({ ...project, duration_s: durations.get(project.id) ?? null }));
+  const recentJobs: DashboardJob[] = (jobs.data ?? []).map((job) => ({ id: job.id, project_id: job.project_id, job_type: job.job_type, status: job.status, current_stage: job.current_stage, progress: job.progress ?? 0, project_name: (job.projects as unknown as { name: string } | null)?.name ?? null }));
+  const latest = metricsRows.data?.[0];
+  const metrics = (Array.isArray(latest?.metrics) ? latest.metrics : []) as DashboardMetric[];
+  const media = (Array.isArray(latest?.media) ? latest.media : []) as DashboardReel[];
+  const reels = media.filter((item) => item.media_product_type === "REELS");
+  const topReel = reels.filter((reel) => reel.insights && typeof reel.insights.views === "number").sort((a, b) => (b.insights.views ?? 0) - (a.insights.views ?? 0))[0] ?? reels[0] ?? null;
+  return <DashboardView workspaceName={org.name} canEdit={org.role !== "viewer"} projects={recentProjects} jobs={recentJobs} activeCount={active.error ? null : active.count ?? 0} readyCount={ready.error ? null : ready.count ?? 0} publishedCount={published.error ? null : published.count ?? 0} metrics={metrics} metricsUpdatedAt={latest?.updated_at ?? null} topReel={topReel} loadError={Boolean(projects.error || jobs.error || active.error || ready.error || published.error || renderRows.error || metricsRows.error)} />;
 }

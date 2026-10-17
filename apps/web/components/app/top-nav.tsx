@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, ChevronDown, LogOut, Search } from "lucide-react";
+import { Activity, ChevronDown, LogOut, Search } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { signOut } from "@/app/(auth)/actions";
@@ -23,38 +23,30 @@ export function TopNav({
 
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-4 border-b border-[#E7E5DE] bg-[#FCF9F4]/90 px-4 backdrop-blur-md sm:px-6 lg:px-8">
-      {/* Search Input matching reference */}
-      <div className="flex flex-1 items-center max-w-lg">
+      <form action="/projects" role="search" className="flex flex-1 items-center max-w-lg">
         <div className="relative w-full">
-          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-[#707267]">
-            <Search size={15} />
-          </div>
+          <button type="submit" aria-label="Search projects" className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-[#707267] hover:text-[#1D2618]"><Search size={15} /></button>
           <input
+            name="q"
             type="text"
-            placeholder="Search your projects, videos, or templates..."
-            className="w-full rounded-xl border border-[#E7E5DE] bg-[#FCF9F4] py-2 pl-9 pr-12 text-[13px] text-[#1D2618] placeholder:text-[#A3A094] transition-all focus:border-[#3C462F] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#3C462F]"
+            aria-label="Search projects"
+            placeholder="Search your projects..."
+            className="w-full rounded-xl border border-[#E7E5DE] bg-[#FCF9F4] py-2 pl-9 pr-3 text-[13px] text-[#1D2618] placeholder:text-[#A3A094] transition-all focus:border-[#3C462F] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#3C462F]"
           />
-          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-            <kbd className="inline-flex items-center rounded border border-[#E7E5DE] bg-white px-1.5 py-0.5 text-[10px] font-medium text-[#707267]">
-              ⌘ K
-            </kbd>
-          </div>
         </div>
-      </div>
+      </form>
 
       {/* Right Controls */}
       <div className="flex items-center gap-3.5">
         <BackendBadge />
 
-        {/* Notifications */}
-        <button
-          type="button"
-          aria-label="Notifications"
+        <Link
+          href="/dashboard#jobs"
+          aria-label="Processing jobs"
           className="relative grid h-9 w-9 place-items-center rounded-xl text-[#707267] transition-colors hover:bg-[#F6F3EC] hover:text-[#1D2618]"
         >
-          <Bell size={18} />
-          <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#3C462F] ring-2 ring-[#FCF9F4]" />
-        </button>
+          <Activity size={18} />
+        </Link>
 
         {/* User Profile */}
         <div className="relative">

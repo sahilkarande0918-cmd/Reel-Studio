@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { DM_Sans, Fraunces, JetBrains_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
-const dmSans = DM_Sans({ variable: "--font-dm-sans", subsets: ["latin"] });
-const fraunces = Fraunces({ variable: "--font-fraunces", subsets: ["latin"] });
+const dmSans = localFont({ src: "./fonts/dm-sans-latin.woff2", variable: "--font-dm-sans", weight: "100 1000", display: "swap" });
+const fraunces = localFont({ src: "./fonts/fraunces-latin.woff2", variable: "--font-fraunces", weight: "100 900", display: "swap" });
 // Monospace is only for real code (editor fragments, code blocks).
-const code = JetBrains_Mono({ variable: "--font-code", subsets: ["latin"], weight: ["400"] });
+const code = localFont({ src: "./fonts/jetbrains-mono-latin.woff2", variable: "--font-code", weight: "400", display: "swap" });
 
 export const metadata: Metadata = {
   title: "Reel Studio — class recordings to reels",

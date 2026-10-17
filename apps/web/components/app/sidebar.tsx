@@ -3,11 +3,9 @@
 import {
   BarChart2,
   ChevronDown,
-  Crown,
   Film,
   Folder,
   Home,
-  LayoutTemplate,
   Leaf,
   LogOut,
   Menu,
@@ -16,7 +14,6 @@ import {
   Settings,
   Share2,
   Sparkles,
-  Users,
   Video,
 } from "lucide-react";
 import Link from "next/link";
@@ -30,16 +27,15 @@ const MAIN_NAV = [
   { href: "/dashboard", label: "Home", icon: Home },
   { href: "/topics", label: "Create", icon: Film },
   { href: "/projects", label: "Projects", icon: Folder },
-  { href: "/topics#templates", label: "Templates", icon: LayoutTemplate },
-  { href: "/recordings", label: "Media Library", icon: Video },
+  { href: "/recordings", label: "Recordings", icon: Video },
+  { href: "/editor", label: "Editor", icon: Film },
   { href: "/brand", label: "Brand Kit", icon: Palette },
-  { href: "/glossary", label: "AI Tools", icon: Sparkles },
+  { href: "/glossary", label: "Glossary", icon: Sparkles },
 ];
 
 const SECONDARY_NAV = [
   { href: "/analytics", label: "Analytics", icon: BarChart2 },
-  { href: "/publishing#audience", label: "Audience", icon: Users },
-  { href: "/publishing#integrations", label: "Integrations", icon: Share2 },
+  { href: "/publishing", label: "Publishing", icon: Share2 },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -72,27 +68,6 @@ function NavLink({
       />
       <span>{label}</span>
     </Link>
-  );
-}
-
-function ProPlanCard() {
-  return (
-    <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#172010] p-4 text-white">
-      <div className="flex items-center gap-2">
-        <Crown className="h-4 w-4 text-[#F2B544]" fill="#F2B544" aria-hidden />
-        <span className="text-[13px] font-semibold text-[#FCF9F4]">Pro Plan</span>
-      </div>
-      <p className="mt-1 text-[11px] text-[#A3A694]">Unlimited creations</p>
-      <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-[#2A3522]">
-        <div className="h-full w-3/4 rounded-full bg-[#647457]" />
-      </div>
-      <button
-        type="button"
-        className="mt-3.5 w-full rounded-xl bg-[#FCF9F4] py-2 text-center text-[13px] font-semibold text-[#1D2618] transition-colors hover:bg-white active:scale-[0.98]"
-      >
-        Upgrade Plan
-      </button>
-    </div>
   );
 }
 
@@ -283,7 +258,6 @@ export function Sidebar({
 
         {/* Bottom Section */}
         <div className="space-y-3 pt-4">
-          <ProPlanCard />
           <WorkspaceSwitcher orgs={orgs} org={org} email={email} />
         </div>
       </aside>
@@ -319,7 +293,6 @@ export function Sidebar({
               );
             })}
           </nav>
-          <ProPlanCard />
           <WorkspaceSwitcher orgs={orgs} org={org} email={email} />
         </div>
       </details>

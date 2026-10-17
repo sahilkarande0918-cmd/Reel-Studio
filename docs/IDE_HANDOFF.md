@@ -4,6 +4,13 @@ For any agent (Cursor, Antigravity, Claude, Codex) or human continuing this proj
 Read this file first, then `docs/CHECKPOINT.md`, `AGENTS.md`, `CLAUDE.md`. The requirements live unchanged in
 `docs/ORIGINAL_PS.md` and `docs/MASTER_PROMPT.md` (+ `MASTER_PROMPT_SUPABASE_ADDENDUM.md`): **never edit those two**.
 
+**UI audit, 2026-10-17:** Antigravity's local `714b8e2` introduced the forest/ivory shell and reference-style dashboard
+but was not on `origin/main` when audited. The follow-up UI pass keeps its palette and layout while removing invented
+project thumbnails, jobs, analytics, upgrade offer, and dead navigation. Dashboard counts and Instagram insights now
+come from the authorized workspace's stored data; missing metrics show as unavailable. The header search opens filtered
+Projects. The three UI fonts are self-hosted with OFL notices, so builds require no Google Fonts request. No publishing
+action was triggered during this UI work. See the latest entry in `docs/TEST_STATUS.md` for verification.
+
 ---
 
 ## 1. Objective

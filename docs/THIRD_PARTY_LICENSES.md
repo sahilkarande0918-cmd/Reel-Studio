@@ -78,6 +78,7 @@ Test audio: Oriserve model-repo sample clips (Common Voice, CC0) used for local 
 | vitest 5 | MIT | Schema tests |
 | jsonschema (Python) | MIT | Validates timelines against the generated JSON Schema |
 | Archivo (Omnibus-Type), JetBrains Mono (JetBrains) via @fontsource 5.3.0 | SIL OFL 1.1 | Caption fonts bundled into renders; licence texts in `apps/api/app/services/rendering/fonts/` |
+| DM Sans, Fraunces, JetBrains Mono (Google Fonts distributions) | SIL OFL 1.1 | Local Latin WOFF2 files for the web UI in `apps/web/app/fonts/`; copyright and license texts alongside each font. Self-hosted so the production build needs no Google Fonts network request. |
 | GSAP 3.14.2 (bundled: `apps/api/app/services/rendering/vendor/gsap.min.js`, copied into each render) | GSAP Standard "No Charge" licence (free incl. commercial; the Webflow-published terms restrict only no-code visual animation builders competing with Webflow — not our use) | Composition timeline |
 | Microsoft Dev Tunnels CLI 1.0.2115 | Microsoft licence terms (free service) | Public HTTPS tunnel to the local backend; installed with winget, not redistributed |
 | Poppins (Indian Type Foundry), Noto Sans (Google), Fira Code (Nikita Prokopov) via @fontsource 5.3.0 | SIL OFL 1.1 | Brand kit fonts, bundled into renders and `apps/web/public/brand-fonts`; licence texts beside the font files |

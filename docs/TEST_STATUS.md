@@ -219,6 +219,19 @@ Recording: a 7.5-min Hinglish **physics** class (distance vs displacement), uplo
 | Known quality limits | ⚠️ | ASR errors pass into captions ("use fish" for useFetch); panel layout code is small (~17 px on 1080 wide); GSAP loaded from jsDelivr during render (needs network) |
 
 ## Unverified / untested
+
+### UI audit — 2026-10-17 (Antigravity dashboard follow-up)
+
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Antigravity commit vs remote | ✅ inspected | `714b8e2` was local only; `origin/main` was `521bbbb` before this UI pass |
+| Dashboard data and controls | ✅ code audit | Removed fabricated cards, metrics, chart, paid plan, and dead links; projects/jobs/counts/Instagram insights use org-scoped Supabase rows; no live publishing performed |
+| Web ESLint and TypeScript | ✅ | `pnpm lint` and `pnpm exec tsc --noEmit` in `apps/web` |
+| Workspace tests | ✅ | `pnpm test`: timeline-schema 12/12 |
+| Production web build | ✅ | `RS_BUILD_SINGLE_WORKER=1 node node_modules/next/dist/bin/next build --webpack`: 20/20 static pages, all dynamic routes compiled |
+| Default Turbopack build on this Windows host | ⚠️ tool failure | Initial Google Fonts fetch failure fixed by local fonts; later CSS-worker startup panic. Webpack with 15 static workers hit Windows `EPERM` creating segment directories; 1 worker passed. |
+| Authenticated visual browser check | ⬜ pending | Review deployed dashboard at desktop and mobile widths after push/deployment. |
+
 Remote Supabase (migrations not applied yet), production auth E2E, email confirmation and password-reset emails, production ↔ backend with a real session. Phase 04 remainder (brand kits, intro/outro, SRT/VTT, timing check) and Phases 05–09.
 
 ## Active checkpoint — 2026-10-17: topic studio and Instagram integration
