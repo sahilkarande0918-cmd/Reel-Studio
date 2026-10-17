@@ -45,8 +45,8 @@ Details: `docs/ARCHITECTURE.md`. Decisions D-001…D-026: `docs/DECISIONS.md`.
 | 05–09 | ⬜ | topic-to-video, advanced editor, IG/YT publishing+scheduler, analytics+feedback+SaaS, final QA/submission |
 
 ## 6. Current exact task
-`docs/CURRENT_TASK.md` → Phase 04 second task: brand kits (table, editor, snapshot into the timeline) +
-intro/outro sub-compositions + caption style presets, then SRT/VTT and the timing check.
+Feature A (context-aware AI editing) is done and verified (see `CURRENT_TASK.md`). Waiting for the owner's next
+instruction; Features B (caption personalities) and C (clip collections) are postponed until explicitly requested.
 
 ## 7. Source directories and entry points
 | Path | What |

@@ -1,6 +1,6 @@
 """Performance feedback: what this workspace's own published reels (real Instagram metrics) say about
 length, style and mode. Needs MIN_POSTS reels with reach before it concludes anything; the learned ideal
-length is fed back into highlight scoring (`candidates.score_window` via `extras["ideal_s"]`)."""
+length is fed back into highlight scoring (`candidates.score` via `extras["ideal_s"]`)."""
 
 import json
 import logging

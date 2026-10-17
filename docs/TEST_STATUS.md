@@ -1,4 +1,18 @@
-> **Pre-compaction checkpoint (2026-10-17): read [CHECKPOINT.md](CHECKPOINT.md) first.** Latest: homepage + 61 s Hyperframes tour, sin1 speed pass, Topic JSON import, Instagram delivery copy, silent-render guard, self-restarting engine (HEAD `b2b1c38` + docs). Backlog A/B/C (context-aware editing, caption personalities, clip collections) is NOT implemented.
+> **2026-10-17: Feature A (context-aware AI editing) verified on the owner's real physics class (production) and the synthetic React fixture (local). Read [CHECKPOINT.md](CHECKPOINT.md) first.** B/C not implemented.
+
+## Context-aware AI editing (2026-10-17)
+| Test | Data | Result |
+|---|---|---|
+| Unit tests (outline repair, step split, completeness, cliff ending, filler/back-reference, lexical fallback, de-dup) | synthetic word timings | ✅ 7 new tests; API suite 97 passed, 6 skipped; ruff clean |
+| Dry runs (`tests/dryrun_highlights.py`) | **real** physics class, 7.5 min Hinglish (production recording) | ✅ outline 60–70 s on the RTX 5050; best run picked 2:35–3:31 ("plug in 4 and 0 → answer 0 → why? → the bird came back, so s = 0", 84/100) |
+| Real analyze job (production worker, new code) | **real** physics class | ✅ 20 teaching steps / LLM outline; 1732 windows; 6 clips, **all 6 start and end on whole steps** (`complete_explanations: 6`), 30–60 s, no clip opens on filler; local LLM judged none fully standalone, so scores are 64–67/100 (honest, the class is one continuous problem) |
+| Real render via the existing pipeline (`/highlights/{id}/render`, focus, looks) | top physics clip 5:17–6:04 | ✅ ffprobe 1080×1920 H.264 30 fps + AAC, 46.47 s (= clip length), audio mean −17.8 dB / peak −1.5 dB; frames: whiteboard maths retained, panel + crop reframing, synced captions, ends on "Displacement hai distance nahin." |
+| Analyze job, local stack | **SYNTHETIC** React-hooks Hinglish fixture (192.5 s) | ✅ 9 steps / 5 topics; 4 clips (3 complete, 1 marked partial); vs reference topic boundaries (±1 s): new clips start on a boundary 3/4, end on one 3/4 |
+| UI (local dev, browser) | synthetic fixture | ✅ NN/100, explanation, 5-bar breakdown, opens/ends quotes, limitation, lecture outline with clip steps highlighted, "Create reel" on unselected clips; legacy rows hide the breakdown (fixed a NaN) |
+| Shared logo | browser | ✅ app sidebar shows the landing Aperture mark |
+| Web lint · tsc · next build · schema vitest | — | ✅ clean · clean · built · 12 passed |
+| Failures found and fixed | production worker | Ollama 500 on a context-size reload → one ctx + retry; Supabase HTTP/2 "Server disconnected" after long LLM stages failed all 3 attempts → HTTP/1.1 + client reset |
+
 
 ## Pre-compaction checks (2026-10-17)
 | Test | Data | Result |

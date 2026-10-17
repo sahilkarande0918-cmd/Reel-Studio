@@ -34,7 +34,11 @@ const STAGES: Record<string, string> = {
 const QUALITY = { draft: "Draft (fast)", looks: "Standard", delivery: "Delivery (best)" } as const;
 
 /** Render a selected highlight to MP4; progress is live via Realtime, results play inline. */
-export function Renders({ highlightId, projectId, selected, canEdit }: { highlightId: string; projectId: string; selected: boolean; canEdit: boolean }) {
+export function Renders({ highlightId, projectId, selected, canEdit, onSelect }: {
+  highlightId: string; projectId: string; selected: boolean; canEdit: boolean;
+  /** Marks the highlight selected first, so "Create reel" is one click. */
+  onSelect?: () => Promise<boolean>;
+}) {
   const qc = useQueryClient();
   const backend = useBackend();
   const base = backend.data?.state === "online" ? backend.data.url : null;
@@ -98,6 +102,7 @@ export function Renders({ highlightId, projectId, selected, canEdit }: { highlig
   async function render() {
     setError(null);
     if (!base) return setError("The processing backend is offline.");
+    if (!selected && !(await onSelect?.())) return setError("Select this highlight to render it.");
     const r = await apiFetch(base, `/highlights/${highlightId}/render`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -139,15 +144,15 @@ export function Renders({ highlightId, projectId, selected, canEdit }: { highlig
                 {Object.entries(QUALITY).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
             </label>
-            <button type="button" onClick={render} disabled={!selected || busy || !base}
+            <button type="button" onClick={render} disabled={(!selected && !onSelect) || busy || !base}
               className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 font-semibold text-accent-ink hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50">
-              <Film size={14} aria-hidden /> Render MP4
+              <Film size={14} aria-hidden /> {selected ? "Render MP4" : "Create reel"}
             </button>
           </>
         )}
       </div>
       {canEdit && <StylePicker value={style} onChange={setStyle} name="render-style" />}
-      {!selected && <p className="text-[13px] text-muted">Select this highlight to render it.</p>}
+      {!selected && <p className="text-[13px] text-muted">{onSelect ? "Create reel selects this highlight and renders it with the brand, quality and style above." : "Select this highlight to render it."}</p>}
       {selected && !base && <p className="text-[13px] text-muted">Rendering needs the processing backend online.</p>}
       {error && <p className="text-[13px] text-danger">{error}</p>}
       {latest && busy && (

@@ -183,3 +183,19 @@ actual crop keyframes, the actually published Reel) and show no engagement stati
 Supabase project `adjwycjsxtxvjockxtan` is in ap-southeast-1; server-rendered pages make several sequential database
 calls, so functions are pinned to Vercel `sin1` (Hobby allows one region). Visitors in India reach the bom1 edge, which
 forwards to sin1 (~40–60 ms) instead of iad1 (~200 ms per database call from there).
+
+## D-043 — Context-aware highlight selection: LLM outline, deterministic score
+The local LLM is used where it is strong (reading meaning: splitting the class into teaching steps and topics, judging
+whether a clip stands alone) and kept out of the arithmetic: the clip score is a fixed weighted sum of five named
+components computed from the outline, sentence text cues, pauses, audio and screen features, so every number is
+reproducible and explainable. The outline is cached per transcript because a 7B model's segmentation varies between runs;
+steps longer than a reel are split deterministically. Scores are shown as NN/100 with a breakdown and never called
+confidence. Rejected: letting the LLM pick clips directly (unexplainable, varies run to run) and a separate embedding model
+(new dependency and VRAM for little gain on Hinglish).
+
+## D-044 — PostgREST over HTTP/1.1
+supabase-py's PostgREST session uses HTTP/2; after an idle stretch the server closes the connection and httpx raised
+`RemoteProtocolError: Server disconnected` on the next request, which made a long analyze job fail all retries. The
+backend now gives PostgREST an HTTP/1.1 httpx client (idle connections are checked before reuse) and the worker resets
+its cached client after any transport error.
+

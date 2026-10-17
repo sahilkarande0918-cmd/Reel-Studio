@@ -1,4 +1,4 @@
-# Reel Studio — checkpoint (2026-10-17, before compaction)
+# Reel Studio — checkpoint (2026-10-17, after Feature A)
 
 **Read first after compaction**, then `docs/IDE_HANDOFF.md` (full detail), `docs/CURRENT_TASK.md` (backlog), `AGENTS.md`,
 `CLAUDE.md`. Requirements are unchanged in `docs/ORIGINAL_PS.md` and `docs/MASTER_PROMPT.md` (never edit them).
@@ -32,6 +32,8 @@ Ollama, OpenCV, Hyperframes).
 | 08 Analytics + AI feedback | 🟡 real insights refresh verified; AI feedback needs ≥3 reels with reach (not exercised yet) |
 | Performance | ✅ Vercel functions in `sin1` next to Supabase (`5528a7c`), loading skeleton, parallel engine discovery, faster uploads/IG polling, 8 render workers |
 | Engine uptime | ✅ watchdog in `app.serve` + `apps/api/start-engine.cmd/.ps1` + Windows task "Reel Studio Engine" at logon (`6cf530a`, `b2b1c38`) |
+| Context-aware AI editing (Feature A) | ✅ lecture outline (LLM teaching steps + topics), five-component NN/100 score, grounded explanations, Create reel; verified on the owner's real physics class + rendered MP4 |
+| Shared logo | ✅ landing Aperture mark used on sign-in pages and inside the app |
 | 09 Submission | 🟡 README done; production E2E in the owner account + submission materials pending |
 
 Published Reels: physics `18111030863186503` https://www.instagram.com/reel/DekyGWcDEAl/ · maths (owner) ·
@@ -46,14 +48,16 @@ RTX 5050 laptop via Microsoft Dev Tunnel `https://j96sqlp6-8000.inc1.devtunnels.
 seek runtime (`services/rendering/preview.py`). AI: faster-whisper (Hinglish CT2), OpenCV change maps, RapidOCR, Ollama
 `qwen2.5vl:7b`, Kokoro via `hyperframes tts`.
 
-### Highlight selection today (`services/highlights/candidates.py`, `workers/analyze.py`)
-Sentences from word timings (pause split 0.9 s) → windows of 30–60 s → `score_window` weighted sum: boundary 0.35
-(speaker-relative pause percentiles before/after + opener words like "toh", "ab"), length 0.10 (closeness to 45 s or the
-learned ideal from `performance_feedback`), voice 0.15 (energy level/variation), pace 0.10, screen 0.15 (typing/screen
-change), technical 0.15 (glossary terms + on-screen identifiers that are spoken) → human-readable reasons → "strict" pool
-needs both pause ranks ≥ 0.6 (relaxed if < 3 survive) → `select` top-k with ≤ 35 % overlap → local LLM judge (standalone /
-educational scores, title, summary) → `highlight_candidates` rows with features, reasons and crop keyframes.
-No semantic topic segmentation, no explicit "complete explanation" check and no collections yet (see backlog A/C).
+### Highlight selection today (`services/highlights/outline.py`, `candidates.py`, `llm.py`, `workers/analyze.py`)
+Sentences (pause split 0.9 s) → **lecture outline**: local LLM splits timed sentences into teaching steps (kind + title)
+grouped into topics, 150-sentence chunks, repaired to a gap-free cover, steps > 60 s split at the strongest boundary,
+cached per transcript (`outline.json`); lexical fallback if the LLM is offline → every 30–60 s window (never opening on
+filler) scored by **context 35 / educational 25 / opening 15 / ending 15 / engagement 10** → de-dup (overlap, same core
+step, ≥ 55 % shared words) → local LLM judge with outline + before/after context (blended into context/educational) →
+rows with `features.context` (steps, complete, opens/ends quotes, limitation) and `features.components`; job result holds
+the outline and a limitation message when no complete explanation fits. UI shows NN/100, explanation, breakdown, outline.
+Known: a 7B model's segmentation varies between runs (cached after the first run); scores on the physics class are
+64–67/100 because the LLM judged no clip fully standalone.
 
 ### Captions today
 Word-timed caption items in the timeline; `compose.paginate` (maxCharsPerLine/maxLines) → per-word GSAP states. Presets
@@ -61,10 +65,9 @@ Word-timed caption items in the timeline; `compose.paginate` (maxCharsPerLine/ma
 the editor; style presets add caption CSS (Energy uppercase/stroke, Story spacing, Signature accent bar + lower third).
 SRT/VTT via `services/rendering/captions.py`. The five "personalities" of backlog B do not exist yet.
 
-## 5. Approved backlog — NOT YET IMPLEMENTED OR VERIFIED
-`docs/CURRENT_TASK.md` §Backlog: **A** context-aware AI editing, **B** five AI caption personalities (Minimal, Creator,
-Cinematic, Learning, Brand) that change the rendered MP4, **C** AI clip collections (a series from one recording with titles
-grounded in the lecture). Do not start before the owner's continuation prompt.
+## 5. Approved backlog
+**A** context-aware AI editing — ✅ done (2026-10-17, `docs/CURRENT_TASK.md`). **B** five AI caption personalities and **C** AI
+clip collections — approved, NOT implemented, postponed until the owner explicitly asks.
 
 ## 6. Known issues / unverified
 Topic storyboards can still repeat example code (3 of 5 distinct live) · audio fades not checked audibly · future-scheduled
@@ -80,4 +83,4 @@ logon task registered. Local test stack :8001 (local Supabase in Docker, `upload
 ## 8. Resume after compaction
 1. Read this file, `docs/IDE_HANDOFF.md`, `docs/CURRENT_TASK.md`, `AGENTS.md`; run `git status`, `git log --oneline -15`.
 2. Engine: `curl http://127.0.0.1:8000/health`; if down, double-click `apps/api/start-engine.cmd`.
-3. Implement backlog A → B → C as the owner's prompt specifies; render real MP4s to verify; update docs; commit; push.
+3. Wait for the owner's next instruction (B/C only when asked); render real MP4s to verify any change; update docs; commit; push.

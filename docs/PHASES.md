@@ -1,8 +1,9 @@
-> **Pre-compaction checkpoint (2026-10-17): read [CHECKPOINT.md](CHECKPOINT.md) first.** Latest: homepage + 61 s Hyperframes tour, sin1 speed pass, Topic JSON import, Instagram delivery copy, silent-render guard, self-restarting engine (HEAD `b2b1c38` + docs). Backlog A/B/C (context-aware editing, caption personalities, clip collections) is NOT implemented.
+> **2026-10-17: Feature A, context-aware AI editing, done and verified on the owner's real physics class (Phase 03 upgrade). B/C postponed. Read [CHECKPOINT.md](CHECKPOINT.md) first.**
 
 ## Status at IDE switch (2026-10-17)
 00–05 ✅ · UI redesign ✅ · style presets ✅ · 06 editor ✅ · 07 Instagram ✅ publish verified (scheduling not yet verified live) ·
 08 🟡 insights verified, AI feedback awaiting data · 09 🟡 production E2E + submission materials pending. Detail: `IDE_HANDOFF.md` §4.
+03+ context-aware AI editing (lecture outline, five-component explainable score, grounded explanations, Create reel) ✅ real-class verified.
 
 > **Latest checkpoint (2026-10-17, after the Codex handoff): read [CHECKPOINT.md](CHECKPOINT.md) first.** Mode B now works end to end (JSON vs XML → 46.8 s 1080×1920 MP4, plays and downloads in the UI); repeated-code prompt fix not yet re-verified on a new video. Instagram Business OAuth still pending; nothing published. YouTube postponed (D-035). HEAD at checkpoint start: `fe984a0`.
 

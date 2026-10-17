@@ -1,11 +1,35 @@
-> **Pre-compaction checkpoint (2026-10-17): read [CHECKPOINT.md](CHECKPOINT.md) first.** Next: backlog A → B → C below.
+> **2026-10-17: Feature A (context-aware AI editing) is done and verified — see below and [CHECKPOINT.md](CHECKPOINT.md).**
+> Next: wait for the owner. Features B and C stay postponed until the owner asks for them.
 
-## Backlog — approved by the owner, NOT YET IMPLEMENTED OR VERIFIED (start only on the owner's next prompt)
-### Feature A — Context-aware AI editing
-Upgrade highlight detection (`services/highlights/candidates.py`, `workers/analyze.py`, `services/highlights/llm.py`) so clips
-are complete, self-contained educational explanations: semantic context (what concept is being explained and where that
-explanation starts/ends), complete sentence boundaries, educational value, strong opening and closing, and explainable
-scoring shown to the user (per-component scores + reasons). Reuse the existing local LLM (Ollama) and scoring architecture.
+### Feature A — Context-aware AI editing — ✅ IMPLEMENTED AND VERIFIED (2026-10-17)
+Highlight selection now reads the class as a **lecture outline** before choosing clips:
+- `services/highlights/outline.py` (new): the local LLM (`qwen2.5vl:7b`, temperature 0) splits the numbered, timed
+  transcript sentences into **teaching steps** (introduction / concept / example / demonstration / question / recap /
+  conclusion / digression) grouped into **topics**; long classes are read in 150-sentence overlapping chunks; output is
+  repaired into a gap-free cover; any step > 60 s is split at its strongest internal boundary (speaker-relative pause +
+  closing cue before + fresh start after, never just before an answer). LLM offline → deterministic TextTiling-style
+  lexical segmentation (vocabulary shift + long pauses), labelled `lexical`. Cached per transcript text (`outline.json`).
+- `services/highlights/candidates.py`: every 30–60 s sentence-bounded window is scored from five named, deterministic
+  components (0–100, never a probability): **context completeness 35 %** (starts/ends on whole steps, whole-step share,
+  covers the whole topic), **educational value 25 %** (step kinds, technical terms, spoken on-screen identifiers, code
+  activity), **opening 15 %** (cue/question/pause, penalised if it leans on earlier talk or starts on a recap),
+  **ending 15 %** (closing cue/step end/pause, penalised if it stops before an answer or right after posing a point),
+  **engagement 10 %** (voice, pace, learned length). Windows never open on filler ("Thik hai?"); clip edges breathe
+  ≤ 0.2 s / 0.3 s into the surrounding pauses. De-duplication: time overlap, same core teaching step, or ≥ 55 %
+  content-word overlap. The local LLM judge now sees the outline and the sentences before/after the clip; its
+  standalone/complete/educational judgment is blended into context (35 %) and educational (35 %) and shown separately.
+- Grounded explanation per clip ("Selected because it starts where the instructor begins “…”, covers the example “…”
+  and conclusion “…”, and ends as that point is concluded."), exact opening/closing sentences, and a **limitation** line
+  when a clip is partial or its topic is longer than 60 s; the job result says when no complete explanation fits.
+- UI (`components/studio/highlights.tsx`): title, NN/100, start–end, duration, complete/partial tag, explanation,
+  5-bar breakdown, opens/ends quotes, limitation, collapsible lecture outline (clip's steps highlighted), preview, boundary
+  edits, Select/Reject, and **Create reel** (selects + renders through the existing pipeline).
+- Reliability fixes found while verifying: PostgREST client uses HTTP/1.1 (`core/db.py`; HTTP/2 raised "Server
+  disconnected" after the long LLM stages and failed every retry); worker drops its cached client after a transport error
+  (`workers/run.py`); one Ollama context size (12288) + one retry on a 5xx (`llm.py`).
+- Dry-run tool: `python tests/dryrun_highlights.py RECORDING_ID [--fresh]` (prints outline + picks, writes nothing).
+
+## Backlog — approved, NOT YET IMPLEMENTED (postponed until the owner explicitly asks)
 ### Feature B — AI caption personalities
 Five selectable caption styles — **Minimal, Creator, Cinematic, Learning, Brand** — selectable in the studios and editor and
 applied by the compiler (`compose.py`) so they change the actual rendered MP4, not only the preview.

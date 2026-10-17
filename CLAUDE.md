@@ -24,8 +24,8 @@ Repo: https://github.com/sahilkarande0918-cmd/Reel-Studio (public, `main`).
 Trust repo docs and git history over remembered assumptions.
 
 ## Current next work
-Backlog A/B/C in `docs/CURRENT_TASK.md` (approved, NOT implemented): context-aware AI editing, five caption personalities
-(Minimal, Creator, Cinematic, Learning, Brand) affecting rendered MP4s, AI clip collections. Start the engine with
+Feature A (context-aware AI editing) is done and verified (`docs/CURRENT_TASK.md`). Features B (five caption
+personalities) and C (AI clip collections) are approved but postponed until the owner explicitly asks. Start the engine with
 `apps/api/start-engine.cmd` (also a Windows logon task).
 
 ## Non-negotiable rules
