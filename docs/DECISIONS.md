@@ -178,3 +178,8 @@ captured app screens, Kokoro narration and real renders, so it stays reproducibl
 media is served from `apps/web/public/landing/` on Vercel (₹0, CDN, range requests); only that folder's MP4s are
 exempt from the repository's `*.mp4` ignore rule. Homepage claims use only real data (actual transcript corrections,
 actual crop keyframes, the actually published Reel) and show no engagement statistics.
+
+## D-042 — Vercel functions in sin1
+Supabase project `adjwycjsxtxvjockxtan` is in ap-southeast-1; server-rendered pages make several sequential database
+calls, so functions are pinned to Vercel `sin1` (Hobby allows one region). Visitors in India reach the bom1 edge, which
+forwards to sin1 (~40–60 ms) instead of iad1 (~200 ms per database call from there).

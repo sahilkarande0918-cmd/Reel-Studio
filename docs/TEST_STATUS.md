@@ -1,5 +1,13 @@
 > **IDE switch checkpoint (2026-10-17): read [IDE_HANDOFF.md](IDE_HANDOFF.md) first.** Real Instagram publishing verified (@career.with.purpose, media 18111030863186503, https://www.instagram.com/reel/DekyGWcDEAl/); editor, style presets and dark UI done. Next: production E2E in the owner's account (Topic → Generate → Edit → Render → Download).
 
+## Speed pass (2026-10-17)
+| Test | Data | Result |
+|---|---|---|
+| Live function region after `vercel.json` | **production** | ✅ `x-vercel-id: bom1::sin1::…` (was `bom1::iad1::…`) |
+| Render workers benchmark (28 s Mode A reel) | local, synthetic | auto 123 s · 8 workers 111 s · GPU encode 119 s · GPU+8+jpg 117 s → adopted 8 workers |
+| API pytest / web lint + tsc | — | ✅ 90 passed, 6 skipped / clean |
+| Authenticated page timing on production | — | ⏳ not measured (needs owner login) |
+
 ## Homepage + Hyperframes tour (2026-10-17)
 | Test | Data | Result |
 |---|---|---|

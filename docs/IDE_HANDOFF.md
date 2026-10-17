@@ -13,6 +13,17 @@ action was triggered during this UI work. See the latest entry in `docs/TEST_STA
 
 ---
 
+## Speed pass (2026-10-17)
+- Cause of slow clicks: Vercel functions ran in iad1 (US East) while Supabase is in ap-southeast-1 (Singapore), ~200 ms per
+  database round trip, several per page, plus no loading UI. Fix: `apps/web/vercel.json` `regions: ["sin1"]` (+ `preferredRegion`
+  in the root layout), verified live `x-vercel-id: bom1::sin1::…`; `app/(app)/loading.tsx` skeleton; engine discovery probes
+  tunnel and same-machine in parallel and remembers the winner (`lib/backend.ts`).
+- Uploads: ownership checked once per upload (not per 8 MB chunk), progress written every 64 MB. Instagram: container status
+  polled every 3 s at first (was 10 s). Renders: `--workers 8` (measured 111 s vs 123 s for a 28 s Mode A reel; capture-bound,
+  GPU encoding gave no meaningful gain).
+- Not measured: authenticated page timings on production (needs the owner's login); expected saving ≈ 0.2 s × database
+  round trips per page.
+
 ## Homepage redesign + 60-second Hyperframes tour (2026-10-17)
 - **Homepage** (`apps/web/app/page.tsx`, `components/landing/{site-nav,hero-visual,tour-player,hinglish-compare,legal-page}.tsx`):
   forest/ivory editorial design (Fraunces + DM Sans, the owner's theme commits `714b8e2`/`d174ff1`); sticky nav; hero with a
