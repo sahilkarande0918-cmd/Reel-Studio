@@ -1,26 +1,46 @@
 @import "tailwindcss";
 
 /*
-  Reel Studio tokens. One ground, one ink, one accent (tally-light amber).
-  The same roles serve the landing page and the dense app/editor UI.
+  Reel Studio — Forest-green / ivory editorial theme.
+  Sampled from the approved reference dashboard.
+  Every color is a CSS custom property so components use tokens, not hex.
 */
 :root {
-  --bg: #0c0c0d;
-  --surface: #161618;
-  --surface-2: #1f1f22;
-  --surface-3: #2a2a2e;
-  --ink: #ececea;
-  --muted: #a3a39e;
-  --line: #2f2f33;
-  --accent: #f5a524;
-  --accent-ink: #141005;
-  --danger: #f06a5c;
-  --success: #5fc48a;
+  /* Core palette */
+  --bg: #FCF9F4;
+  --surface: #FFFFFF;
+  --surface-2: #F6F3EC;
+  --surface-3: #EFECE5;
+  --ink: #1D2618;
+  --muted: #707267;
+  --line: #E7E5DE;
+  --accent: #3C462F;
+  --accent-ink: #FFFFFF;
+  --danger: #C53030;
+  --success: #2F6B3A;
+  --sage: #647457;
+  --olive: #3C462F;
+  --forest: #1D2618;
+  --promo-bg: #172010;
 
+  /* Sidebar */
+  --rail: #1D2618;
+  --rail-ink: #F6F3EC;
+  --rail-muted: #A3A694;
+  --rail-active: #3C462F;
+
+  /* Editor canvas — darker for professional editing */
+  --canvas: #1A1D15;
+  --canvas-ink: #F0EDE6;
+
+  /* Typography scale */
   --step-small: clamp(0.8125rem, 0.79rem + 0.1vw, 0.875rem);
-  --step-body: clamp(1.0625rem, 1rem + 0.25vw, 1.1875rem);
-  --step-lead: clamp(1.25rem, 1.1rem + 0.7vw, 1.625rem);
-  --step-head: clamp(2rem, 1.3rem + 3.2vw, 4rem);
+  --step-body: clamp(0.9375rem, 0.9rem + 0.2vw, 1rem);
+  --step-lead: clamp(1.125rem, 1rem + 0.5vw, 1.375rem);
+  --step-head: clamp(1.75rem, 1.2rem + 2.5vw, 3rem);
+
+  /* Easing */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @theme inline {
@@ -35,8 +55,13 @@
   --color-accent-ink: var(--accent-ink);
   --color-danger: var(--danger);
   --color-success: var(--success);
-  --color-signal: var(--signal, #67e8f9);
-  --font-sans: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+  --color-sage: var(--sage);
+  --color-olive: var(--olive);
+  --color-forest: var(--forest);
+  --color-signal: var(--success);
+  --color-promo: var(--promo-bg);
+  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-fraunces), Georgia, 'Times New Roman', serif;
   --font-mono: var(--font-code), ui-monospace, monospace;
   --text-small: var(--step-small);
   --text-body: var(--step-body);
@@ -45,7 +70,7 @@
 }
 
 html {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body {
@@ -56,8 +81,8 @@ body {
 }
 
 ::selection {
-  background: var(--accent);
-  color: var(--accent-ink);
+  background: #3C462F;
+  color: #FFFFFF;
 }
 
 :focus-visible {
@@ -65,31 +90,33 @@ body {
   outline-offset: 2px;
 }
 
-/* stage slider: solid track, passed part in ink, square accent thumb */
+/* ─── Stage slider (still used in some studio controls) ─── */
 .stage-range {
   appearance: none;
-  height: 8px;
-  background: linear-gradient(to right, var(--ink) var(--p), var(--surface-3) var(--p));
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(to right, var(--sage) var(--p), var(--surface-3) var(--p));
   cursor: pointer;
 }
 .stage-range::-webkit-slider-thumb {
   appearance: none;
-  width: 32px;
-  height: 32px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
   background: var(--accent);
+  border: 2px solid #FFFFFF;
+  box-shadow: 0 1px 3px rgba(0,0,0,.15);
 }
 .stage-range::-moz-range-thumb {
-  width: 32px;
-  height: 32px;
-  border: 0;
-  border-radius: 0;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #FFFFFF;
+  border-radius: 50%;
   background: var(--accent);
+  box-shadow: 0 1px 3px rgba(0,0,0,.15);
 }
 
-/* motion (landing). Content is never hidden without JS: everything is gated on html.js. */
-:root {
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-}
+/* ─── Landing page motion ─── */
 .lines .line {
   display: block;
   overflow: hidden;
@@ -123,83 +150,163 @@ body {
   }
 }
 @keyframes line-up {
-  to {
-    transform: none;
-  }
+  to { transform: none; }
 }
 @keyframes fade-up {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  *, *::before, *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
 }
 
-/* App workspace: cinematic dark. Inlined: the Turbopack Tailwind loader drops local @imports.
- * One warm accent (amber, a studio tally light) for primary actions; cyan only as a small "live" signal. */
+/* ─── Studio app workspace ─── */
 .studio-app {
-  --bg: #0d0f14;
-  --surface: #191d27;
-  --surface-2: #1f2430;
-  --surface-3: #272d3a;
-  --ink: #f5f5f7;
-  --muted: #a1a1aa;
-  --line: #292d38;
-  --accent: #f2b544;
-  --accent-ink: #1a1306;
-  --signal: #67e8f9;
-  --danger: #f87171;
-  --success: #86efac;
-  --rail: #12151c;
-  --rail-ink: #f5f5f7;
-  --rail-muted: #a1a1aa;
-  --rail-active: #1f2430;
-  --canvas: #08090c;
-  --canvas-ink: #f5f5f7;
-  color-scheme: dark;
+  color-scheme: light;
   color: var(--ink);
   background: var(--bg);
-  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  font-feature-settings: "cv11", "ss01";
+  font-family: var(--font-sans);
   min-height: 100svh;
 }
-.studio-app button, .studio-app a, .studio-app select { -webkit-tap-highlight-color: transparent; }
-.studio-app button:not(:disabled), .studio-app select { cursor: pointer; }
+
+.studio-app button,
+.studio-app a,
+.studio-app select { -webkit-tap-highlight-color: transparent; }
+.studio-app button:not(:disabled),
+.studio-app select { cursor: pointer; }
 .studio-app button:disabled { cursor: not-allowed; }
 .studio-app h1, .studio-app h2, .studio-app h3 { overflow-wrap: anywhere; }
 .studio-app ::selection { background: var(--accent); color: var(--accent-ink); }
-.studio-app :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.studio-app .studio-panel { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
-.studio-app .studio-input { width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 9px; background: var(--bg); padding: 10px 12px; color: var(--ink); font-size: 14px; transition: border-color 150ms; }
-.studio-app .studio-input:hover { border-color: #3a404e; }
-.studio-app .studio-input:focus { border-color: var(--accent); outline: none; }
-.studio-app .studio-input::placeholder { color: #6b6f7a; }
-.studio-app .studio-label { display: grid; gap: 7px; color: var(--muted); font-size: 12px; font-weight: 500; }
-.studio-app .studio-button { display: inline-flex; justify-content: center; align-items: center; gap: 8px; border-radius: 9px; padding: 10px 16px; background: var(--accent); color: var(--accent-ink); font-size: 13px; font-weight: 600; white-space: nowrap; transition: filter 150ms, transform 150ms, background-color 150ms; }
-.studio-app .studio-button:hover:not(:disabled) { filter: brightness(1.08); }
+.studio-app :focus-visible { outline: 2px solid var(--sage); outline-offset: 2px; }
+
+/* Panels */
+.studio-app .studio-panel {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+/* Inputs */
+.studio-app .studio-input {
+  width: 100%; min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  padding: 10px 14px;
+  color: var(--ink);
+  font-size: 14px;
+  transition: border-color 150ms;
+}
+.studio-app .studio-input:hover { border-color: #C5C3BA; }
+.studio-app .studio-input:focus { border-color: var(--sage); outline: none; }
+.studio-app .studio-input::placeholder { color: #A3A094; }
+
+/* Labels */
+.studio-app .studio-label {
+  display: grid; gap: 6px;
+  color: var(--muted);
+  font-size: 12px; font-weight: 500;
+}
+
+/* Buttons */
+.studio-app .studio-button {
+  display: inline-flex; justify-content: center; align-items: center; gap: 8px;
+  border-radius: 8px;
+  padding: 10px 18px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 13px; font-weight: 600;
+  white-space: nowrap;
+  transition: background-color 150ms, transform 100ms;
+}
+.studio-app .studio-button:hover:not(:disabled) { background: #2D3422; }
 .studio-app .studio-button:active:not(:disabled) { transform: translateY(1px); }
-.studio-app .studio-button:disabled { opacity: .4; }
-.studio-app .studio-button-secondary { background: var(--surface-2); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); }
-.studio-app .studio-button-secondary:hover:not(:disabled) { background: var(--surface-3); filter: none; }
-.studio-app .studio-eyebrow { color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
-.studio-app .studio-heading { font-size: clamp(24px, 2.2vw, 32px); font-weight: 600; letter-spacing: -.03em; line-height: 1.2; }
-.studio-app .studio-pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 6px; background: var(--surface-2); color: var(--muted); padding: 3px 8px; font-size: 11px; font-weight: 500; }
-.studio-app .studio-rail { background: var(--rail); color: var(--rail-ink); border-right: 1px solid var(--line); }
-.studio-app .studio-rail select { color-scheme: dark; background: var(--surface); color: var(--rail-ink); }
-.studio-app progress { accent-color: var(--accent); }
+.studio-app .studio-button:disabled { opacity: .45; }
+
+.studio-app .studio-button-secondary {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.studio-app .studio-button-secondary:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+
+/* Eyebrow / heading */
+.studio-app .studio-eyebrow {
+  color: var(--muted);
+  font-size: 11px; font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.studio-app .studio-heading {
+  font-family: var(--font-serif);
+  font-size: clamp(22px, 2vw, 30px);
+  font-weight: 600;
+  letter-spacing: -.02em;
+  line-height: 1.25;
+  color: var(--ink);
+}
+.studio-app .studio-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--muted);
+  padding: 3px 8px;
+  font-size: 11px; font-weight: 500;
+}
+
+/* Sidebar rail */
+.studio-app .studio-rail {
+  background: var(--rail);
+  color: var(--rail-ink);
+  border-right: 1px solid rgba(255,255,255,.06);
+}
+.studio-app .studio-rail select {
+  color-scheme: dark;
+  background: var(--rail-active);
+  color: var(--rail-ink);
+}
+.studio-app progress { accent-color: var(--sage); }
 .studio-app select option { background: var(--surface); }
-.studio-app ::-webkit-scrollbar { width: 10px; height: 10px; }
-.studio-app ::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 10px; border: 2px solid transparent; background-clip: padding-box; }
-@media (prefers-reduced-motion: reduce) { .studio-app * { scroll-behavior: auto !important; transition: none !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; } }
+
+/* Scrollbars */
+.studio-app ::-webkit-scrollbar { width: 8px; height: 8px; }
+.studio-app ::-webkit-scrollbar-track { background: transparent; }
+.studio-app ::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+/* ─── Editor canvas override: dark neutral for video editing ─── */
+.editor-canvas {
+  --bg: #1A1D15;
+  --surface: #242820;
+  --surface-2: #2E332A;
+  --surface-3: #393E34;
+  --ink: #F0EDE6;
+  --muted: #A3A094;
+  --line: #3A3E34;
+  --accent: #647457;
+  --accent-ink: #FFFFFF;
+  color-scheme: dark;
+  color: var(--ink);
+  background: var(--bg);
+}
+.editor-canvas ::selection { background: var(--sage); color: #FFFFFF; }
+.editor-canvas ::-webkit-scrollbar-thumb { background: var(--surface-3); }
+
+@media (prefers-reduced-motion: reduce) {
+  .studio-app * {
+    scroll-behavior: auto !important;
+    transition: none !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

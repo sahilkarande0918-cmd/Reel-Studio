@@ -1,95 +1,328 @@
 "use client";
 
-import { Aperture, BookA, CalendarDays, ChartNoAxesCombined, Clapperboard, Code2, FolderKanban, LayoutDashboard, LogOut, Menu, Mic, Palette, Plus, Settings } from "lucide-react";
+import {
+  BarChart2,
+  ChevronDown,
+  Crown,
+  Film,
+  Folder,
+  Home,
+  LayoutTemplate,
+  Leaf,
+  LogOut,
+  Menu,
+  Palette,
+  Plus,
+  Settings,
+  Share2,
+  Sparkles,
+  Users,
+  Video,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import { signOut } from "@/app/(auth)/actions";
 import { switchWorkspace } from "@/app/onboarding/actions";
 import type { Org } from "@/lib/supabase/server";
 
-const GROUPS = [
-  { label: "Create", items: [
-    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/projects", label: "Projects", icon: FolderKanban },
-    { href: "/recordings", label: "Recordings", icon: Mic },
-    { href: "/topics", label: "Topic Studio", icon: Code2 },
-    { href: "/editor", label: "Editor", icon: Clapperboard },
-  ] },
-  { label: "Brand", items: [
-    { href: "/brand", label: "Brand Kits", icon: Palette },
-    { href: "/glossary", label: "Glossary", icon: BookA },
-  ] },
-  { label: "Share", items: [
-    { href: "/publishing", label: "Publish", icon: CalendarDays },
-    { href: "/analytics", label: "Analytics", icon: ChartNoAxesCombined },
-  ] },
-  { label: "", items: [{ href: "/settings", label: "Settings", icon: Settings }] },
+const MAIN_NAV = [
+  { href: "/dashboard", label: "Home", icon: Home },
+  { href: "/topics", label: "Create", icon: Film },
+  { href: "/projects", label: "Projects", icon: Folder },
+  { href: "/topics#templates", label: "Templates", icon: LayoutTemplate },
+  { href: "/recordings", label: "Media Library", icon: Video },
+  { href: "/brand", label: "Brand Kit", icon: Palette },
+  { href: "/glossary", label: "AI Tools", icon: Sparkles },
 ];
 
-function Nav({ path }: { path: string }) {
-  return <nav aria-label="Workspace navigation" className="space-y-5">
-    {GROUPS.map((g, i) => <div key={i}>
-      {g.label && <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[.16em] text-[var(--rail-muted)]">{g.label}</p>}
-      <ul className="space-y-0.5">{g.items.map(({ href, label, icon: Icon }) => {
-        const active = path === href || path.startsWith(href + "/");
-        return <li key={href}><Link href={href} aria-current={active ? "page" : undefined}
-          className={`relative flex items-center gap-3 rounded-lg px-3 py-2 text-[13.5px] transition-colors ${active ? "bg-[var(--rail-active)] font-medium text-[var(--rail-ink)] before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[3px] before:rounded-full before:bg-accent" : "text-[var(--rail-muted)] hover:bg-[var(--rail-active)]/70 hover:text-[var(--rail-ink)]"}`}>
-          <Icon size={17} strokeWidth={1.8} className={active ? "text-accent" : ""} aria-hidden />{label}
-        </Link></li>;
-      })}</ul>
-    </div>)}
-  </nav>;
+const SECONDARY_NAV = [
+  { href: "/analytics", label: "Analytics", icon: BarChart2 },
+  { href: "/publishing#audience", label: "Audience", icon: Users },
+  { href: "/publishing#integrations", label: "Integrations", icon: Share2 },
+  { href: "/settings", label: "Settings", icon: Settings },
+];
+
+function NavLink({
+  href,
+  label,
+  icon: Icon,
+  active,
+}: {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string; size?: number }>;
+  active: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      aria-current={active ? "page" : undefined}
+      className={`group flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-[14px] font-medium transition-all ${
+        active
+          ? "bg-[#3C462F] text-[#FCF9F4] shadow-sm"
+          : "text-[#A3A694] hover:bg-[#283321] hover:text-[#FCF9F4]"
+      }`}
+    >
+      <Icon
+        size={18}
+        className={`transition-colors ${
+          active ? "text-[#FCF9F4]" : "text-[#A3A694] group-hover:text-[#FCF9F4]"
+        }`}
+      />
+      <span>{label}</span>
+    </Link>
+  );
 }
 
-function Workspace({ orgs, org }: { orgs: Org[]; org: Org }) {
-  return <form action={switchWorkspace}>
-    <label className="sr-only" htmlFor="org-switch">Workspace</label>
-    <select id="org-switch" name="org" defaultValue={org.id} onChange={(e) => e.currentTarget.form?.requestSubmit()}
-      className="w-full rounded-lg border border-line px-3 py-2.5 text-[13px] font-medium">
-      {orgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-    </select>
-    <Link href="/onboarding" className="mt-2 flex items-center gap-1 px-1 text-[11px] text-[var(--rail-muted)] hover:text-[var(--rail-ink)]"><Plus size={12} aria-hidden /> New workspace</Link>
-  </form>;
+function ProPlanCard() {
+  return (
+    <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#172010] p-4 text-white">
+      <div className="flex items-center gap-2">
+        <Crown className="h-4 w-4 text-[#F2B544]" fill="#F2B544" aria-hidden />
+        <span className="text-[13px] font-semibold text-[#FCF9F4]">Pro Plan</span>
+      </div>
+      <p className="mt-1 text-[11px] text-[#A3A694]">Unlimited creations</p>
+      <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-[#2A3522]">
+        <div className="h-full w-3/4 rounded-full bg-[#647457]" />
+      </div>
+      <button
+        type="button"
+        className="mt-3.5 w-full rounded-xl bg-[#FCF9F4] py-2 text-center text-[13px] font-semibold text-[#1D2618] transition-colors hover:bg-white active:scale-[0.98]"
+      >
+        Upgrade Plan
+      </button>
+    </div>
+  );
 }
 
-function Account({ email, org }: { email: string; org: Org }) {
-  return <div className="flex items-center gap-2.5 border-t border-[var(--rail-active)] pt-4">
-    <span aria-hidden className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-surface-3 text-[12px] font-semibold text-accent">{email.slice(0, 1).toUpperCase()}</span>
-    <div className="min-w-0 flex-1"><span className="block truncate text-[12px]">{email}</span><span className="text-[10px] capitalize text-[var(--rail-muted)]">{org.role}</span></div>
-    <form action={signOut}><button type="submit" aria-label="Sign out" title="Sign out" className="rounded-md p-2 text-[var(--rail-muted)] hover:bg-[var(--rail-active)] hover:text-[var(--rail-ink)]"><LogOut size={15} aria-hidden /></button></form>
-  </div>;
+function WorkspaceSwitcher({
+  orgs,
+  org,
+}: {
+  orgs: Org[];
+  org: Org;
+  email: string;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative pt-2">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-[#283321]"
+      >
+        <div className="flex items-center gap-2.5 overflow-hidden">
+          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[#3C462F] text-[12px] font-semibold text-[#FCF9F4]">
+            {org.name.slice(0, 1).toUpperCase()}
+          </span>
+          <div className="min-w-0">
+            <span className="block truncate text-[12.5px] font-medium text-[#FCF9F4]">
+              {org.name}
+            </span>
+            <span className="block truncate text-[10.5px] text-[#A3A694]">
+              {org.role}
+            </span>
+          </div>
+        </div>
+        <ChevronDown size={14} className="text-[#A3A694]" />
+      </button>
+
+      {open && (
+        <div className="absolute bottom-full left-0 mb-2 w-full rounded-xl border border-[rgba(255,255,255,0.1)] bg-[#172010] p-2 shadow-xl backdrop-blur-md">
+          <p className="px-2 py-1 text-[10.5px] font-semibold uppercase tracking-wider text-[#A3A694]">
+            Workspaces
+          </p>
+          <div className="space-y-1">
+            {orgs.map((o) => (
+              <form key={o.id} action={switchWorkspace}>
+                <input type="hidden" name="org" value={o.id} />
+                <button
+                  type="submit"
+                  className={`w-full rounded-lg px-2 py-1.5 text-left text-[12px] transition-colors ${
+                    o.id === org.id
+                      ? "bg-[#3C462F] font-medium text-[#FCF9F4]"
+                      : "text-[#A3A694] hover:bg-[#283321] hover:text-[#FCF9F4]"
+                  }`}
+                >
+                  {o.name}
+                </button>
+              </form>
+            ))}
+          </div>
+          <div className="mt-2 border-t border-[rgba(255,255,255,0.08)] pt-2">
+            <Link
+              href="/onboarding"
+              className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11.5px] text-[#A3A694] hover:text-[#FCF9F4]"
+            >
+              <Plus size={13} /> New workspace
+            </Link>
+            <form action={signOut} className="mt-1">
+              <button
+                type="submit"
+                className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-[11.5px] text-danger/80 hover:text-danger"
+              >
+                <LogOut size={13} /> Sign out
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
-const Logo = () => <Link href="/dashboard" className="flex items-center gap-2.5 text-[18px] font-semibold tracking-[-.04em]">
-  <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent text-accent-ink"><Aperture size={19} strokeWidth={1.8} aria-hidden /></span>Reel Studio
-</Link>;
-
-/** Icon-only rail so the editor workspace gets the full width. */
+/** Icon-only rail for dense editor workspace */
 function Rail({ path }: { path: string }) {
-  return <aside className="studio-rail sticky top-0 hidden h-svh w-[60px] shrink-0 flex-col items-center gap-1 py-3 md:flex">
-    <Link href="/dashboard" aria-label="Reel Studio dashboard" className="mb-3 grid h-9 w-9 place-items-center rounded-lg bg-accent text-accent-ink"><Aperture size={19} strokeWidth={1.8} aria-hidden /></Link>
-    {GROUPS.flatMap((g) => g.items).map(({ href, label, icon: Icon }) => {
-      const active = path === href || path.startsWith(href + "/");
-      return <Link key={href} href={href} title={label} aria-label={label} aria-current={active ? "page" : undefined}
-        className={`grid h-10 w-10 place-items-center rounded-lg transition-colors ${active ? "bg-[var(--rail-active)] text-accent" : "text-[var(--rail-muted)] hover:bg-[var(--rail-active)] hover:text-[var(--rail-ink)]"}`}><Icon size={18} strokeWidth={1.8} aria-hidden /></Link>;
-    })}
-  </aside>;
+  const allNav = [...MAIN_NAV, ...SECONDARY_NAV];
+  return (
+    <aside className="sticky top-0 hidden h-svh w-[64px] shrink-0 flex-col items-center gap-2 border-r border-[rgba(255,255,255,0.06)] bg-[#1D2618] py-4 md:flex">
+      <Link
+        href="/dashboard"
+        aria-label="Reel Studio dashboard"
+        className="mb-4 grid h-10 w-10 place-items-center rounded-xl bg-[#3C462F] text-[#FCF9F4]"
+      >
+        <Leaf size={20} className="text-[#98A886]" fill="#98A886" />
+      </Link>
+      <div className="flex flex-1 flex-col gap-1">
+        {allNav.map(({ href, label, icon: Icon }) => {
+          const active =
+            href === "/dashboard"
+              ? path === "/dashboard"
+              : path === href || path.startsWith(href.split("#")[0] + "/");
+          return (
+            <Link
+              key={label}
+              href={href}
+              title={label}
+              aria-label={label}
+              className={`grid h-10 w-10 place-items-center rounded-xl transition-colors ${
+                active
+                  ? "bg-[#3C462F] text-[#FCF9F4]"
+                  : "text-[#A3A694] hover:bg-[#283321] hover:text-[#FCF9F4]"
+              }`}
+            >
+              <Icon size={18} />
+            </Link>
+          );
+        })}
+      </div>
+    </aside>
+  );
 }
 
-export function Sidebar({ orgs, org, email }: { orgs: Org[]; org: Org; email: string }) {
+export function Sidebar({
+  orgs,
+  org,
+  email,
+}: {
+  orgs: Org[];
+  org: Org;
+  email: string;
+}) {
   const path = usePathname();
   if (path.startsWith("/editor/")) return <Rail path={path} />;
-  return <>
-    <aside className="studio-rail hidden w-[236px] shrink-0 flex-col gap-6 px-4 py-5 md:sticky md:top-0 md:flex md:h-svh md:overflow-y-auto">
-      <div className="px-1"><Logo /></div>
-      <Workspace orgs={orgs} org={org} />
-      <Nav path={path} />
-      <div className="mt-auto"><Account email={email} org={org} /></div>
-    </aside>
-    {/* Phones and small tablets: the same navigation in a native disclosure. */}
-    <details className="studio-rail group md:hidden" key={path}>
-      <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3"><Logo /><span className="rounded-md p-2 hover:bg-[var(--rail-active)]"><Menu size={20} aria-label="Open navigation" /></span></summary>
-      <div className="space-y-5 border-t border-[var(--rail-active)] px-4 py-4"><Workspace orgs={orgs} org={org} /><Nav path={path} /><Account email={email} org={org} /></div>
-    </details>
-  </>;
+
+  return (
+    <>
+      <aside className="hidden w-[240px] shrink-0 flex-col justify-between border-r border-[rgba(255,255,255,0.06)] bg-[#1D2618] px-4 py-6 md:sticky md:top-0 md:flex md:h-svh md:overflow-y-auto">
+        <div className="space-y-6">
+          {/* Logo */}
+          <Link
+            href="/dashboard"
+            className="flex items-center gap-2.5 px-2 text-white"
+          >
+            <span className="flex h-7 w-7 items-center justify-center">
+              <Leaf
+                size={22}
+                className="text-[#98A886]"
+                fill="#98A886"
+                aria-hidden
+              />
+            </span>
+            <span className="font-serif text-[21px] font-medium tracking-tight text-[#FCF9F4]">
+              Reel Studio
+            </span>
+          </Link>
+
+          {/* Primary Nav */}
+          <nav className="space-y-1">
+            {MAIN_NAV.map(({ href, label, icon }) => {
+              const active =
+                href === "/dashboard"
+                  ? path === "/dashboard"
+                  : path === href || path.startsWith(href.split("#")[0] + "/");
+              return (
+                <NavLink
+                  key={label}
+                  href={href}
+                  label={label}
+                  icon={icon}
+                  active={active}
+                />
+              );
+            })}
+
+            <div className="my-3 mx-2 border-t border-[rgba(255,255,255,0.08)]" />
+
+            {SECONDARY_NAV.map(({ href, label, icon }) => {
+              const active =
+                path === href || path.startsWith(href.split("#")[0] + "/");
+              return (
+                <NavLink
+                  key={label}
+                  href={href}
+                  label={label}
+                  icon={icon}
+                  active={active}
+                />
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* Bottom Section */}
+        <div className="space-y-3 pt-4">
+          <ProPlanCard />
+          <WorkspaceSwitcher orgs={orgs} org={org} email={email} />
+        </div>
+      </aside>
+
+      {/* Mobile drawer */}
+      <details className="group border-b border-[#E7E5DE] bg-[#1D2618] text-[#FCF9F4] md:hidden" key={path}>
+        <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3.5">
+          <Link href="/dashboard" className="flex items-center gap-2.5 text-white">
+            <Leaf size={20} className="text-[#98A886]" fill="#98A886" />
+            <span className="font-serif text-[19px] font-medium text-[#FCF9F4]">
+              Reel Studio
+            </span>
+          </Link>
+          <span className="rounded-lg p-1.5 text-[#A3A694] hover:bg-[#283321]">
+            <Menu size={22} aria-label="Open navigation" />
+          </span>
+        </summary>
+        <div className="space-y-4 border-t border-[rgba(255,255,255,0.08)] px-4 py-4">
+          <nav className="space-y-1">
+            {MAIN_NAV.concat(SECONDARY_NAV).map(({ href, label, icon }) => {
+              const active =
+                href === "/dashboard"
+                  ? path === "/dashboard"
+                  : path === href || path.startsWith(href.split("#")[0] + "/");
+              return (
+                <NavLink
+                  key={label}
+                  href={href}
+                  label={label}
+                  icon={icon}
+                  active={active}
+                />
+              );
+            })}
+          </nav>
+          <ProPlanCard />
+          <WorkspaceSwitcher orgs={orgs} org={org} email={email} />
+        </div>
+      </details>
+    </>
+  );
 }
