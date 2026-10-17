@@ -1,7 +1,9 @@
 """Durable Instagram publishing. Persist the container before the irreversible publish call."""
 
+import subprocess
 import time
 from datetime import UTC, datetime
+from pathlib import Path
 from urllib.parse import urlparse
 
 import httpx
@@ -30,6 +32,23 @@ def eligible(info: dict) -> None:
         raise Permanent("Instagram Reel must be 3–900 seconds with width at most 1920 pixels")
     if abs(video["width"] / video["height"] - 9 / 16) > 0.02:
         raise Permanent("Select a portrait 9:16 export")
+
+
+def instagram_copy(src: Path) -> Path:
+    """Delivery copy in the encoding Instagram's Reels pipeline expects (H.264 High 4.1, 2 s GOP, steady
+    bitrate, AAC 48 kHz). Mostly static topic videos encode to a few hundred kbit/s, which Instagram
+    rejected with a generic processing ERROR. Same frames and audio; cached next to the render."""
+    out = src.with_name("instagram.mp4")
+    if out.is_file() and out.stat().st_mtime >= src.stat().st_mtime:
+        return out
+    tmp = src.with_name("instagram.tmp.mp4")
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(src), "-c:v", "libx264", "-profile:v", "high",
+                    "-level:v", "4.1", "-pix_fmt", "yuv420p", "-preset", "medium", "-b:v", "3500k", "-minrate", "3500k",
+                    "-maxrate", "3500k", "-bufsize", "7M", "-x264-params", "nal-hrd=cbr", "-g", "60", "-keyint_min", "60", "-sc_threshold", "0",
+                    "-r", "30", "-c:a", "aac", "-b:a", "128k", "-ar", "48000", "-ac", "2", "-movflags", "+faststart",
+                    str(tmp)], check=True, timeout=900)
+    tmp.replace(out)
+    return out
 
 
 def run_publish(ctx: JobContext) -> dict:
@@ -61,6 +80,8 @@ def run_publish(ctx: JobContext) -> dict:
     if not path.is_file() or path.stat().st_size > 1024**3:
         raise Permanent("Export file is unavailable or exceeds Instagram's 1 GB limit")
     eligible(media.probe(path))
+    ctx.stage("instagram_encode", 0.08, "Preparing an Instagram-ready copy of the video")
+    eligible(media.probe(instagram_copy(path)))
     adapter = instagram_client(account)
     _update(pid, status="processing", error=None)
     container = row.get("container_id")
@@ -68,8 +89,8 @@ def run_publish(ctx: JobContext) -> dict:
         base = s.public_api_url.rstrip("/")
         if urlparse(base).scheme != "https":
             raise Permanent("Instagram requires the public HTTPS processing-backend URL")
-        query, _ = signing.query("render-video", render["id"])
-        video_url = f"{base}/renders/{render['id']}/file/video?{query}"
+        query, _ = signing.query("render-instagram", render["id"])
+        video_url = f"{base}/renders/{render['id']}/file/instagram?{query}"
         # No bypass header here: Meta must be able to ingest the URL itself.
         try:
             with httpx.Client(timeout=30, follow_redirects=True) as client:
@@ -88,12 +109,14 @@ def run_publish(ctx: JobContext) -> dict:
     ctx.stage("instagram_processing", 0.35, "Waiting for Instagram to process the video")
     for attempt in range(80):  # ~6 min: quick checks first (most Reels finish in under a minute), then every 6 s
         ctx.check_cancel()
-        state = adapter.container(container).get("status_code")
+        info = adapter.container(container)
+        state = info.get("status_code")
         if state == "FINISHED":
             break
         if state in ("ERROR", "EXPIRED"):
             _update(pid, container_id=None)
-            raise RuntimeError(f"Instagram media processing returned {state}")
+            # Instagram's own status text says why (e.g. an unsupported format); keep it, it has no secrets.
+            raise RuntimeError(f"Instagram media processing returned {state}: {str(info.get('status', ''))[:300]}")
         if state == "PUBLISHED":
             _update(pid, status="needs_review", error="Container already published; reconcile its media ID")
             raise Permanent("Container already published; automatic duplicate prevented")

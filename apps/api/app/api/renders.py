@@ -171,13 +171,15 @@ def render_urls(render_id: str, user: User = Depends(current_user)) -> dict:
 
 @router.get("/renders/{render_id}/file/{kind}")
 def render_file(
-    render_id: str, kind: Literal["video", "thumb"], exp: int, sig: str, download: int = 0
+    render_id: str, kind: Literal["video", "thumb", "instagram"], exp: int, sig: str, download: int = 0
 ) -> FileResponse:
     if not signing.valid(f"render-{kind}", render_id, exp, sig):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Link expired or invalid")
     rows = service_client().table("render_jobs").select("*").eq("id", render_id).limit(1).execute().data
-    rel = rows[0][FILES[kind]] if rows else None
+    rel = rows[0][FILES["video" if kind == "instagram" else kind]] if rows else None
     path = get_settings().data_dir / rel if rel else None
+    if path and kind == "instagram":  # the Instagram delivery copy written by the publish worker
+        path = path.with_name("instagram.mp4")
     if not path or not path.is_file():
         raise HTTPException(404, "Not found")
     name = f"reel-{render_id[:8]}.mp4" if download and kind == "video" else None
