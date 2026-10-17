@@ -15,7 +15,11 @@
 | Vercel production deploy `41d1917` | production | ✅ READY |
 | Instagram OAuth with Business account (owner, private window) | **production** | ✅ @career.with.purpose (BUSINESS, id 17841466046205321), not the personal account; scopes basic, content_publish, manage_insights (+comments, messages); token stored encrypted |
 | Live read-only Instagram calls (/me, /media, account insights reach+views) | **production**, real API | ✅ identity matches stored id; 0 media; reach/views 0 (new account). `/{id}/permissions` returns error 100 for Instagram Login tokens (callback already falls back) |
-| Instagram publish | — | ⏳ awaiting owner approval of one test post |
+| Production render of owner's real physics class (top highlight, rank 1, score 0.85) | **production, real recording** | ✅ 1080×1920 H.264 30 fps + AAC 48 kHz, 44.5 s, 25.8 MB; timing check ok (170 words on speech, 0 ms offset); Instagram eligibility ok |
+| Public media URL fetchable without bypass header | local + GitHub Actions probe (outside network) | ✅ 206 video/mp4; probe run 38984638199 all steps green |
+| **Instagram publish (owner-approved, once)** | **production, real API** | ✅ published media 18111030863186503, REELS, @career.with.purpose, https://www.instagram.com/reel/DekyGWcDEAl/ ; caption verified via API; 1 attempt, no duplicates |
+| Insights refresh (account + per-reel) | **production, real API** | ✅ 4 account metrics + 9 reel metrics returned, none unavailable (all 0 minutes after posting) |
+| AI feedback with real data | — | ⏳ needs ≥3 published reels with reach; shows the honest insufficient-data message now |
 | Topic Studio "edit script → re-record" via UI (scene 2 code edited) | local stack | ✅ 1080×1920 H.264+AAC 42.27 s, edited code in timeline/video; invalid code rejected before render |
 | Repeated-code gate, live Ollama (JSON vs XML, temperature 0) | local | 🟡 before: 2 distinct examples / 5 scenes; after stricter gate + repair: 3 / 5 (71 s). Still repetitive; script editing covers it |
 | Audio fades audible check | — | ⏳ not run |
