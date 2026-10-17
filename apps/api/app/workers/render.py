@@ -36,7 +36,8 @@ def _link_source(src: Path, dst: Path) -> None:
 
 
 def _render(ctx: JobContext, project: Path, quality: str) -> None:
-    cmd = hyperframes_command() + ["render", "--quality", quality, "--video-frame-format", "png"]
+    # 8 capture workers: measured 111 s vs 123 s (auto) for a 28 s Mode A reel on this 16-thread laptop.
+    cmd = hyperframes_command() + ["render", "--quality", quality, "--video-frame-format", "png", "--workers", "8"]
     cmd += ["--output", "out.mp4", "."]
     log_path = project / "render.log"
     with log_path.open("w", encoding="utf-8") as logf:

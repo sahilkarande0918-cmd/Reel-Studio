@@ -4,6 +4,7 @@ Flow: POST /recordings → PUT /recordings/{id}/chunk?offset=N (repeat) → POST
 GET /recordings/{id} reports received bytes, so a client resumes from where the disk says it stopped.
 """
 
+import time
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -19,6 +20,21 @@ from app.services import media
 
 router = APIRouter(prefix="/recordings")
 CHUNK_MAX = 8 * 1024 * 1024  # half of Dev Tunnels' 16 MB request-body cap
+PROGRESS_EVERY = 64 * 1024 * 1024  # persist received_bytes every 64 MB (the file size on disk is the truth)
+# ponytail: per-process cache of (recording, user) → row for the duration of an upload; drop if several API
+# processes ever serve one upload.
+_uploads: dict[tuple[str, str], tuple[float, dict]] = {}
+
+
+def _upload_row(rec_id: str, user: User) -> dict:
+    """Ownership + row for chunk uploads without a database round trip per chunk (checked once per 10 min)."""
+    key = (rec_id, user.id)
+    hit = _uploads.get(key)
+    if hit and time.monotonic() - hit[0] < 600:
+        return hit[1]
+    rec = get_owned("source_recordings", rec_id, user, write=True)
+    _uploads[key] = (time.monotonic(), rec)
+    return rec
 
 
 class CreateRecording(BaseModel):
@@ -72,7 +88,7 @@ def status_of(rec_id: str, user: User = Depends(current_user)) -> dict:
 async def put_chunk(
     rec_id: str, request: Request, offset: int = Query(ge=0), user: User = Depends(current_user)
 ) -> dict:
-    rec = get_owned("source_recordings", rec_id, user, write=True)
+    rec = _upload_row(rec_id, user)
     if rec["status"] != "uploading":
         raise HTTPException(409, "Upload already completed")
     p = source_path(rec)
@@ -88,9 +104,10 @@ async def put_chunk(
     with p.open("ab") as f:
         f.write(data)
     received = have + len(data)
-    service_client().table("source_recordings").update({"received_bytes": received}).eq(
-        "id", rec_id
-    ).execute()
+    if received // PROGRESS_EVERY != have // PROGRESS_EVERY or received == rec["size_bytes"]:
+        service_client().table("source_recordings").update({"received_bytes": received}).eq(
+            "id", rec_id
+        ).execute()
     return {"received_bytes": received}
 
 
@@ -99,6 +116,7 @@ def complete(rec_id: str, user: User = Depends(current_user)) -> dict:
     rec = get_owned("source_recordings", rec_id, user, write=True)
     if rec["status"] != "uploading":
         raise HTTPException(409, "Upload already completed")
+    _uploads.pop((rec_id, user.id), None)
     p = source_path(rec)
     if p.stat().st_size != rec["size_bytes"]:
         raise HTTPException(409, detail={"message": "upload incomplete", "received_bytes": p.stat().st_size})

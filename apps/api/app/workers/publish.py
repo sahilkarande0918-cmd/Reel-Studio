@@ -86,7 +86,7 @@ def run_publish(ctx: JobContext) -> dict:
         container = adapter.create_reel(account["platform_user_id"], video_url, row["caption"])
         _update(pid, container_id=container)
     ctx.stage("instagram_processing", 0.35, "Waiting for Instagram to process the video")
-    for _ in range(40):
+    for attempt in range(80):  # ~6 min: quick checks first (most Reels finish in under a minute), then every 6 s
         ctx.check_cancel()
         state = adapter.container(container).get("status_code")
         if state == "FINISHED":
@@ -97,7 +97,7 @@ def run_publish(ctx: JobContext) -> dict:
         if state == "PUBLISHED":
             _update(pid, status="needs_review", error="Container already published; reconcile its media ID")
             raise Permanent("Container already published; automatic duplicate prevented")
-        time.sleep(10)
+        time.sleep(3 if attempt < 20 else 6)
     else:
         raise RuntimeError("Instagram processing is still pending; the existing container will be retried")
     ctx.stage("instagram_publish", 0.85, "Publishing the processed Reel")
