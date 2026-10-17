@@ -1,5 +1,8 @@
 # AGENTS.md — Reel Studio engineering rules
 
+> **Start here:** read `docs/IDE_HANDOFF.md` (complete current state, rules, commands, next task), then `docs/CHECKPOINT.md`.
+> Never publish a real Reel without the owner's explicit approval of account, video and caption. YouTube is postponed.
+
 Applies to any coding agent or human working in this repository. `CLAUDE.md` holds the full
 session workflow; this file holds the shared engineering rules (no conflicting duplicates).
 

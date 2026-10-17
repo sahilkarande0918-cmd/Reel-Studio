@@ -1,4 +1,10 @@
-> **Final-run checkpoint (2026-10-17): read [CHECKPOINT.md](CHECKPOINT.md) first.** Dark UI redesign, style presets, multitrack editor (verified on Mode A and Mode B renders), Instagram disconnect/insights/analytics/AI feedback code are done; Instagram Business OAuth and any real post are pending the owner.
+> **IDE switch checkpoint (2026-10-17): read [IDE_HANDOFF.md](IDE_HANDOFF.md) first.** Real Instagram publishing verified (@career.with.purpose, media 18111030863186503, https://www.instagram.com/reel/DekyGWcDEAl/); editor, style presets and dark UI done. Next: production E2E in the owner's account (Topic → Generate → Edit → Render → Download).
+
+## Current task (IDE switch, 2026-10-17)
+1. Production E2E in the owner's account: Topic → Generate → Edit → Render → Download.
+2. Verify remaining editor controls; fix bugs. 3. Audio fades + final quality check. 4. UI usability/responsiveness pass.
+5. Instagram scheduling verification (owner approval required for any real post). 6. AI feedback once ≥3 reels have reach.
+7. Final integration testing + hackathon submission materials. YouTube and billing stay postponed; ₹0.
 
 > **Latest checkpoint (2026-10-17, after the Codex handoff): read [CHECKPOINT.md](CHECKPOINT.md) first.** Mode B now works end to end (JSON vs XML → 46.8 s 1080×1920 MP4, plays and downloads in the UI); repeated-code prompt fix not yet re-verified on a new video. Instagram Business OAuth still pending; nothing published. YouTube postponed (D-035). HEAD at checkpoint start: `fe984a0`.
 

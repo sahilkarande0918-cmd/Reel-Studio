@@ -1,4 +1,4 @@
-> **Final-run checkpoint (2026-10-17): read [CHECKPOINT.md](CHECKPOINT.md) first.** Dark UI redesign, style presets, multitrack editor (verified on Mode A and Mode B renders), Instagram disconnect/insights/analytics/AI feedback code are done; Instagram Business OAuth and any real post are pending the owner.
+> **IDE switch checkpoint (2026-10-17): read [IDE_HANDOFF.md](IDE_HANDOFF.md) first.** Real Instagram publishing verified (@career.with.purpose, media 18111030863186503, https://www.instagram.com/reel/DekyGWcDEAl/); editor, style presets and dark UI done. Next: production E2E in the owner's account (Topic → Generate → Edit → Render → Download).
 
 > **Latest checkpoint (2026-10-17, after the Codex handoff): read [CHECKPOINT.md](CHECKPOINT.md) first.** Mode B now works end to end (JSON vs XML → 46.8 s 1080×1920 MP4, plays and downloads in the UI); repeated-code prompt fix not yet re-verified on a new video. Instagram Business OAuth still pending; nothing published. YouTube postponed (D-035). HEAD at checkpoint start: `fe984a0`.
 
@@ -100,3 +100,10 @@ Main f144e7b337ee0d712d079529efdaf0c2001c51c7 pushed and remotely verified. Prod
 
 ## Runtime at checkpoint (2026-10-17)
 Vercel deployment for `fe984a0`: success; `/` 200, `/login` 200, `/dashboard` 307. Production backend :8000 (`app.serve --tunnel devtunnel`) restarted with `fe984a0`, heartbeat fresh at `https://j96sqlp6-8000.inc1.devtunnels.ms`. Local test backend :8001 (local Supabase), web dev :3000 and Ollama serve running. Supabase migrations through `20261017040000_social_publishing` applied (Codex).
+
+## Runtime at IDE switch (2026-10-17)
+Vercel production READY on `main` (auto-deploy). Supabase `adjwycjsxtxvjockxtan` migrations through `20261017050000` applied.
+Production backend `python -m app.serve --tunnel devtunnel` (:8000 → https://j96sqlp6-8000.inc1.devtunnels.ms) restarted on
+`af7b676`-era backend code (no backend changes since). Instagram app "Reel Studio-IG": client ID = Instagram app ID, redirect
+`https://reel-studio-taupe.vercel.app/publishing/callback/instagram` registered in Business login settings. Connected account
+@career.with.purpose (token encrypted, expires 2026-12-15; renewed automatically within 7 days of expiry when used).

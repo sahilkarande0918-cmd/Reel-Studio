@@ -1,4 +1,4 @@
-> **Final-run checkpoint (2026-10-17): read [CHECKPOINT.md](CHECKPOINT.md) first.** Dark UI redesign, style presets, multitrack editor (verified on Mode A and Mode B renders), Instagram disconnect/insights/analytics/AI feedback code are done; Instagram Business OAuth and any real post are pending the owner.
+> **IDE switch checkpoint (2026-10-17): read [IDE_HANDOFF.md](IDE_HANDOFF.md) first.** Real Instagram publishing verified (@career.with.purpose, media 18111030863186503, https://www.instagram.com/reel/DekyGWcDEAl/); editor, style presets and dark UI done. Next: production E2E in the owner's account (Topic → Generate → Edit → Render → Download).
 
 ## Final run — UI, editor, presets, Instagram/analytics code (2026-10-17)
 | Test | Data | Result |

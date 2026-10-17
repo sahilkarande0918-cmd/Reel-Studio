@@ -7,7 +7,7 @@ Two modes, one pipeline: **Recording → Reels** (class recording → 30–60 s 
 Repo: https://github.com/sahilkarande0918-cmd/Reel-Studio (public, `main`).
 
 ## Mandatory reading order (new or compacted session)
-0. **`docs/CHECKPOINT.md`** — latest state, priorities (Instagram only; YouTube postponed) and next steps.
+0. **`docs/IDE_HANDOFF.md`** then **`docs/CHECKPOINT.md`** — latest state, priorities (Instagram only; YouTube postponed) and next steps.
 1. `CLAUDE.md` (this file)
 2. `docs/MASTER_PROMPT.md` (+ `docs/MASTER_PROMPT_SUPABASE_ADDENDUM.md`)
 3. `docs/ORIGINAL_PS.md`

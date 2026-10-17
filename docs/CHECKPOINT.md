@@ -1,3 +1,5 @@
+> **IDE switch checkpoint (2026-10-17): read [IDE_HANDOFF.md](IDE_HANDOFF.md) first.** Real Instagram publishing verified (@career.with.purpose, media 18111030863186503, https://www.instagram.com/reel/DekyGWcDEAl/); editor, style presets and dark UI done. Next: production E2E in the owner's account (Topic → Generate → Edit → Render → Download).
+
 # Reel Studio — latest checkpoint (2026-10-17, Claude, final development run)
 
 **Read this first after compaction.** It supersedes older status lines in other docs (not the requirements).
@@ -13,9 +15,9 @@ commits only as `sahilkarande0918-cmd`, only Supabase `adjwycjsxtxvjockxtan`, ne
 | UI redesign | ✅ cinematic dark theme (owner direction 2026-10-17: Inter, #0D0F14 / #12151C / #191D27, **amber #F2B544 primary — no purple at owner's request**, cyan only for live states). Screens: Dashboard, Projects, Recordings, Topic Studio, Editor, Brand Kits, Glossary, Publish, Analytics, Settings. Desktop + mobile checked |
 | Style presets | ✅ Focus / Energy / Story / Signature in timeline `stylePreset`, applied by `compose.py` (verified in rendered MP4s) |
 | 06 Editor | ✅ `/editor/[renderId]`; verified on Mode B and Mode A renders (see §3) |
-| 07 Instagram | 🟡 **Business account connected and verified live** (@career.with.purpose, IG user 17841466046205321, BUSINESS, token encrypted, expires 2026-12-15; media list + account insights calls succeed). **First owner-approved Reel published 2026-10-17**: media 18111030863186503, https://www.instagram.com/reel/DekyGWcDEAl/ (physics class top highlight, 44.5 s). Code complete (connect, encrypted tokens, renewal, disconnect, publish now/schedule, queue, calendar, retries, dedupe, permalink). publishing verified end to end on production |
+| 07 Instagram | ✅ publish verified; scheduling not yet verified live. **Business account connected and verified live** (@career.with.purpose, IG user 17841466046205321, BUSINESS, token encrypted, expires 2026-12-15; media list + account insights calls succeed). **First owner-approved Reel published 2026-10-17**: media 18111030863186503, https://www.instagram.com/reel/DekyGWcDEAl/ (physics class top highlight, 44.5 s). Code complete (connect, encrypted tokens, renewal, disconnect, publish now/schedule, queue, calendar, retries, dedupe, permalink). publishing verified end to end on production |
 | 08 Analytics + AI feedback | 🟡 insights refresh verified with the real API (account + per-reel metrics stored; values 0 right after posting). AI feedback needs ≥3 published reels with reach — not yet exercised on real data |
-| 09 Submission | 🟡 README rewritten; final E2E on production pending Instagram |
+| 09 Submission | 🟡 README rewritten; production E2E in the owner account + submission materials pending |
 
 ## 2. Architecture additions this run
 - `packages/timeline-schema/src/edit.ts` (+ `edit.test.ts`): pure split/trim/move/duplicate/remove/update keeping invariants.
@@ -49,9 +51,8 @@ commits only as `sahilkarande0918-cmd`, only Supabase `adjwycjsxtxvjockxtan`, ne
 - **Not verified:** audio fades audible check; analytics/feedback with real data; any Instagram API call with the Business account.
 
 ## 4. Pending owner actions
-1. Instagram Business OAuth in a private window (Publish → Connect Instagram → log in with the Business account).
-   If Meta rejects the insights scope, enable `instagram_business_manage_insights` on app "Reel Studio-IG".
-2. Approve one controlled test post (account, video, caption) before anything is published.
+1. ~~Instagram OAuth~~ done. ~~First test post~~ done (approved and published).
+2. Approve any further real post (each one) — needed for scheduling verification and AI feedback (≥3 reels with reach).
 
 ## 5. Runtime
 Production backend `python -m app.serve --tunnel devtunnel` (:8000 → https://j96sqlp6-8000.inc1.devtunnels.ms). Local
@@ -59,6 +60,4 @@ test stack :8001 against local Supabase; web dev :3000. **Running `next build` w
 serving stale CSS — restart dev with a clean `.next`.** Restart API+worker together after backend changes.
 
 ## 6. Next steps
-1. Instagram OAuth (owner) → verify username/ID → approved test post → verify media ID/permalink → insights refresh.
-2. Production E2E pass (topic generation + editor render on the owner's account), docs/TEST_STATUS update.
-3. Optional polish: editor mobile (desktop-first now), Recording Studio layout refresh.
+See `IDE_HANDOFF.md` §12. First: production E2E in the owner's account (Topic → Generate → Edit → Render → Download).
