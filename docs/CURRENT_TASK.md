@@ -1,5 +1,7 @@
 > **IDE switch checkpoint (2026-10-17): read [IDE_HANDOFF.md](IDE_HANDOFF.md) first.** Real Instagram publishing verified (@career.with.purpose, media 18111030863186503, https://www.instagram.com/reel/DekyGWcDEAl/); editor, style presets and dark UI done. Next: production E2E in the owner's account (Topic → Generate → Edit → Render → Download).
 
+## Done since IDE switch: homepage redesign + 61 s Hyperframes tour (see IDE_HANDOFF.md top).
+
 ## Current task (IDE switch, 2026-10-17)
 1. Production E2E in the owner's account: Topic → Generate → Edit → Render → Download.
 2. Verify remaining editor controls; fix bugs. 3. Audio fades + final quality check. 4. UI usability/responsiveness pass.

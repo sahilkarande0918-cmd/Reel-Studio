@@ -3,7 +3,7 @@
 **The AI video studio for technical educators.**
 Turn recorded programming classes and one-line topics into branded, ready-to-publish 9:16 reels, with Hinglish-aware transcription, correctly spelled technical terms and framing that follows the code instead of cropping the centre.
 
-Live app: https://reel-studio-taupe.vercel.app · Hackathon PS4 · Runs at **₹0** (open-source models on our own GPU machine, free tiers only).
+Live app: https://reel-studio-taupe.vercel.app (with a 60-second product tour rendered in Hyperframes) · Hackathon PS4 · Runs at **₹0** (open-source models on our own GPU machine, free tiers only).
 
 ## What it does
 | Mode | Input | Output |

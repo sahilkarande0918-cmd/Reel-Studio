@@ -1,5 +1,15 @@
 > **IDE switch checkpoint (2026-10-17): read [IDE_HANDOFF.md](IDE_HANDOFF.md) first.** Real Instagram publishing verified (@career.with.purpose, media 18111030863186503, https://www.instagram.com/reel/DekyGWcDEAl/); editor, style presets and dark UI done. Next: production E2E in the owner's account (Topic → Generate → Edit → Render → Download).
 
+## Homepage + Hyperframes tour (2026-10-17)
+| Test | Data | Result |
+|---|---|---|
+| Tour composition lint (`hyperframes lint`) | — | ✅ 0 errors |
+| Tour render (`hyperframes render`, 30 fps, high) | real app screens (synthetic data), real renders | ✅ 1920×1080 H.264+AAC, 61.4 s, 17.3 MB, peak −1.9 dB; frames inspected |
+| Tour playback on deployed site | **production** (headless Chrome) | ✅ playing, 61.4 s, 1920×1080; live MP4 byte-identical to render |
+| Homepage desktop 1440 / mobile 390 full-page screenshots | local | ✅ inspected, no horizontal overflow |
+| Live `/`, `/privacy`, `/terms`, landing MP4/VTT/JPG content types | **production** | ✅ |
+| Web lint, tsc, `next build`; API pytest | — | ✅ (90 passed, 6 skipped) |
+
 ## Final run — UI, editor, presets, Instagram/analytics code (2026-10-17)
 | Test | Data | Result |
 |---|---|---|

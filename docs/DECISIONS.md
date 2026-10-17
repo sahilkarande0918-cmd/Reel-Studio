@@ -172,3 +172,9 @@ the learned ideal length (fed to highlight scoring) plus findings. The local LLM
 computed numbers only; with it offline the measured findings are shown alone. Audio fades are applied to the mix with an
 ffmpeg volume expression after rendering (ponytail: per-source fades would need Hyperframes element-volume animation).
 
+## D-041 — Homepage media and the Hyperframes product tour
+The product tour is composed and rendered only with Hyperframes (GSAP timeline in a generated composition) from real
+captured app screens, Kokoro narration and real renders, so it stays reproducible from `marketing/tutorial/`. Website
+media is served from `apps/web/public/landing/` on Vercel (₹0, CDN, range requests); only that folder's MP4s are
+exempt from the repository's `*.mp4` ignore rule. Homepage claims use only real data (actual transcript corrections,
+actual crop keyframes, the actually published Reel) and show no engagement statistics.

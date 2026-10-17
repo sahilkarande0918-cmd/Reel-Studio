@@ -107,3 +107,7 @@ Production backend `python -m app.serve --tunnel devtunnel` (:8000 → https://j
 `af7b676`-era backend code (no backend changes since). Instagram app "Reel Studio-IG": client ID = Instagram app ID, redirect
 `https://reel-studio-taupe.vercel.app/publishing/callback/instagram` registered in Business login settings. Connected account
 @career.with.purpose (token encrypted, expires 2026-12-15; renewed automatically within 7 days of expiry when used).
+
+## Homepage media (2026-10-17)
+`apps/web/public/landing/` holds the tour (`reel-studio-tour.mp4` 17.3 MB + `.vtt` + poster), two short reel loops and
+stills; served statically by Vercel (verified video/mp4 with byte ranges). `proxy.ts` excludes these from the auth redirect.

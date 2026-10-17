@@ -13,6 +13,31 @@ action was triggered during this UI work. See the latest entry in `docs/TEST_STA
 
 ---
 
+## Homepage redesign + 60-second Hyperframes tour (2026-10-17)
+- **Homepage** (`apps/web/app/page.tsx`, `components/landing/{site-nav,hero-visual,tour-player,hinglish-compare,legal-page}.tsx`):
+  forest/ivory editorial design (Fraunces + DM Sans, the owner's theme commits `714b8e2`/`d174ff1`); sticky nav; hero with a
+  real class frame, the real crop keyframes of render 023ff36c and the rendered reel; embedded tour; how it works; real
+  Hinglish corrections (AbortController/AbortError via on-screen OCR, useEffect via glossary, from the synthetic lecture's
+  transcript) next to the source frames; reframing demo; both modes; editor + brand kits; the verified Instagram publish
+  (link to the real permalink, no invented stats); CTA; footer; new `/privacy` and `/terms`. Old landing components and
+  Wikimedia archive images removed. `proxy.ts` now lets `/landing/*`, media files, `/privacy`, `/terms` through.
+- **Tour** (`marketing/tutorial/`): `capture.mjs` (real app screens + target boxes via the Chrome bundled with
+  Hyperframes, local stack, synthetic data), `narrate.py` (Kokoro via `hyperframes tts` + faster-whisper word timings),
+  `build.py` (Hyperframes composition: camera moves, cursor, rings, karaoke captions, synthesized UI sounds, real reels),
+  then `hyperframes lint` (0 errors) and `hyperframes render --fps 30 --quality high`. All composition and rendering is
+  Hyperframes; FFmpeg/ffprobe were used only for probing and for extracting stills/short loops for the web page.
+  Output 1920×1080, 30 fps, H.264 + AAC 48 kHz stereo, **61.4 s**, 17.3 MB, peak −1.9 dB; WebVTT captions generated from
+  the same word timings. Served from `apps/web/public/landing/` (Vercel static, faststart). `build/` is git-ignored;
+  `.gitignore` exempts only `apps/web/public/landing/*.mp4`.
+- Rebuild: local stack + web running → `node marketing/tutorial/capture.mjs` (env HF_NODE_MODULES, CHROME, EMPTY_PROJECT)
+  → `python marketing/tutorial/narrate.py` → `python marketing/tutorial/build.py` → `hyperframes render marketing/tutorial/build/project
+  --fps 30 --quality high --video-frame-format png -o marketing/tutorial/build/reel-studio-tour.mp4` → copy MP4 + VTT to `apps/web/public/landing/`.
+- Fixes found on the way: editor text invisible on the forest theme (style preset names, media cards) → fixed; narration
+  aligner rejected scenes with hallucinated zero-length words → now drops them; landing MP4s were excluded by `*.mp4`.
+- Verified: lint, tsc, `next build`, API pytest 90 passed; full-page screenshots at 1440 and 390 px (no horizontal
+  overflow); tour plays locally and **on the deployed site** (headless Chrome: playing, 1920×1080, 61.4 s; live file
+  byte-identical to the render). The in-app browser pane blocks that media request itself (ERR_BLOCKED_BY_CLIENT), not the site.
+
 ## 1. Objective
 Hackathon PS4, "Reel Studio": an AI video studio for technical educators and institutes.
 - **Mode A, Recording → Reels**: upload a class recording; Hinglish transcription (Roman script) with corrected technical
