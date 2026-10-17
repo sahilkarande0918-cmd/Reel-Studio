@@ -1,10 +1,10 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Clapperboard, Code2, Download, Film, LoaderCircle, Mic, Pencil, Plus, RefreshCw, Sparkles, Trash2, Wand2, X } from "lucide-react";
+import { Check, Clapperboard, Code2, Download, Film, FileUp, LoaderCircle, Mic, Pencil, Plus, RefreshCw, Sparkles, Trash2, Wand2, X } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { apiErrorMessage, apiFetch, useBackend } from "@/lib/backend";
 import { friendlyError } from "@/lib/friendly-error";
 import { useProjectJobs } from "@/lib/realtime";
@@ -23,6 +23,28 @@ const STEPS = [
 ];
 const STAGE_TEXT: Record<string, string> = { queued: "Waiting for the processing machine", storyboard: "Writing the script and code examples", narration: "Recording the voiceover and syncing captions", render: "Rendering your video", done: "Your video is ready" };
 const ACTIVE = ["queued", "generating", "rendering"];
+
+const CODE_LANGUAGES = ["json", "xml", "python", "text"];
+// Settings a script file may carry; anything else is ignored (the API rejects unknown fields).
+const SETTING_KEYS = ["topic", "audience", "tone", "difficulty", "language", "voice", "duration_s", "quality", "brand_kit_id", "style"];
+
+/** Accepts a full generate request ({...settings, storyboard}) or a bare storyboard ({title, scenes}).
+ * Shape is checked here; code syntax is checked by the API before anything is narrated or rendered. */
+function readScript(raw: unknown): { board: Storyboard; settings: Record<string, unknown> } {
+  if (!raw || typeof raw !== "object") throw new Error("The file is not a JSON object.");
+  const obj = raw as Record<string, unknown>;
+  const sb = (obj.storyboard ?? obj) as Record<string, unknown>;
+  if (typeof sb.title !== "string" || !sb.title.trim()) throw new Error('Add a "title" to the storyboard.');
+  if (!Array.isArray(sb.scenes) || sb.scenes.length < 2 || sb.scenes.length > 6) throw new Error('The storyboard needs "scenes" with 2 to 6 scenes.');
+  const scenes = sb.scenes.map((s: unknown, i: number) => {
+    const o = (s ?? {}) as Record<string, unknown>;
+    for (const k of ["title", "narration", "code"]) if (typeof o[k] !== "string" || !(o[k] as string).trim()) throw new Error(`Scene ${i + 1} needs a "${k}".`);
+    if (!CODE_LANGUAGES.includes(o.code_language as string)) throw new Error(`Scene ${i + 1}: "code_language" must be json, xml, python or text.`);
+    return { title: o.title, narration: o.narration, code: o.code, code_language: o.code_language } as Scene;
+  });
+  const settings = obj.storyboard ? Object.fromEntries(Object.entries(obj).filter(([k, v]) => SETTING_KEYS.includes(k) && v !== undefined)) : {};
+  return { board: { title: sb.title, scenes }, settings };
+}
 
 async function responseJson(r: Response) {
   const body = await r.json().catch(() => null);
@@ -51,6 +73,10 @@ export function TopicStudio({ projectId, canEdit }: { projectId: string; canEdit
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Storyboard | null>(null);
   const [style, setStyle] = useState<StylePreset>("focus");
+  const [imported, setImported] = useState<{ name: string; settings: Record<string, unknown> } | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const form = useRef<HTMLFormElement>(null);
   const generations = useQuery<Generation[]>({
     queryKey: ["generations", projectId, base], enabled: !!base,
     queryFn: async () => responseJson(await apiFetch(base!, `/projects/${projectId}/generations`)),
@@ -80,7 +106,7 @@ export function TopicStudio({ projectId, canEdit }: { projectId: string; canEdit
     setError(null); setSubmitting(true);
     try {
       const result = await responseJson(await apiFetch(base, `/projects/${projectId}/generate`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }));
-      setSelectedId(result.generation_id); setDraft(null);
+      setSelectedId(result.generation_id); setDraft(null); setImported(null);
       await Promise.all([qc.invalidateQueries({ queryKey: ["generations", projectId] }), qc.invalidateQueries({ queryKey: ["jobs", projectId] })]);
     } catch (e) { setError(e instanceof Error ? e.message : "The request failed. Please try again."); }
     finally { setSubmitting(false); }
@@ -90,16 +116,39 @@ export function TopicStudio({ projectId, canEdit }: { projectId: string; canEdit
     const v = new FormData(event.currentTarget);
     void start({ topic: topic.trim(), audience: v.get("audience"), language: "en", tone: v.get("tone"), difficulty: v.get("difficulty"), voice: v.get("voice"), duration_s: Number(v.get("duration_s")), quality: v.get("quality"), brand_kit_id: v.get("brand_kit_id") || null, style });
   }
+  function formSettings() {
+    const v = new FormData(form.current!);
+    return { audience: v.get("audience"), language: "en", tone: v.get("tone"), difficulty: v.get("difficulty"), voice: v.get("voice"), duration_s: Number(v.get("duration_s")), quality: v.get("quality"), brand_kit_id: v.get("brand_kit_id") || null, style };
+  }
   function renderEdited() {
-    if (!latest?.settings || !draft) return;
-    const settings = { ...latest.settings }; delete settings.storyboard;
-    void start({ ...settings, topic: latest.topic, storyboard: draft });
+    if (!draft) return;
+    // An imported file's settings win; otherwise the version being edited, otherwise the form on this page.
+    const settings: Record<string, unknown> = { ...(latest?.settings ?? formSettings()), ...(imported?.settings ?? {}) };
+    delete settings.storyboard;
+    const name = [settings.topic, latest?.topic, topic.trim(), draft.title].find((t) => typeof t === "string" && t.trim().length >= 3);
+    void start({ ...settings, topic: name, storyboard: draft });
+  }
+  async function importScript(file: File | undefined) {
+    if (!file) return;
+    setImportError(null);
+    try {
+      if (file.size > 200_000) throw new Error("That file is too large for a script (max 200 KB).");
+      const { board, settings } = readScript(JSON.parse(await file.text()));
+      setDraft(board);
+      setImported({ name: file.name, settings });
+      if (typeof settings.topic === "string") setTopic(settings.topic);
+      if (typeof settings.style === "string") setStyle(settings.style as StylePreset);
+    } catch (e) {
+      setImportError(e instanceof SyntaxError ? `${file.name} is not valid JSON: ${e.message}` : e instanceof Error ? e.message : "Could not read that file.");
+    } finally {
+      if (fileInput.current) fileInput.current.value = "";
+    }
   }
 
   return (
     <div className="space-y-6">
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
-        <form onSubmit={generate} className="studio-panel p-5 sm:p-6">
+        <form ref={form} onSubmit={generate} className="studio-panel p-5 sm:p-6">
           <h2 className="text-[18px] font-semibold tracking-[-.02em]">What should the video explain?</h2>
           <fieldset disabled={!canEdit || submitting} className="mt-4 space-y-5 disabled:opacity-70">
             <label className="block"><span className="sr-only">Topic</span><textarea value={topic} onChange={(e) => setTopic(e.target.value)} name="topic" minLength={3} maxLength={500} required rows={3} placeholder="Explain JSON vs XML with a simple example. Show how the same data looks in both formats." className="studio-input resize-y !rounded-xl !p-4 !text-[17px] !leading-7" /></label>
@@ -150,11 +199,16 @@ export function TopicStudio({ projectId, canEdit }: { projectId: string; canEdit
           <div className="flex flex-wrap items-center gap-2">
             {!!generations.data?.length && !draft && <label><span className="sr-only">Version</span><select className="studio-input !w-auto !py-2" value={latest?.id ?? ""} onChange={(e) => setSelectedId(e.target.value)}>{generations.data.map((g, i) => <option key={g.id} value={g.id}>Version {generations.data!.length - i} · {g.status}</option>)}</select></label>}
             {!draft && <button type="button" aria-label="Refresh" disabled={!base || generations.isFetching} onClick={() => generations.refetch()} className="rounded-lg border border-line p-2.5 text-muted hover:text-ink disabled:opacity-40"><RefreshCw size={15} className={generations.isFetching ? "animate-spin" : ""} aria-hidden /></button>}
+            {canEdit && !draft && <><input ref={fileInput} type="file" accept="application/json,.json" className="sr-only" aria-label="Import script JSON file" onChange={(e) => importScript(e.target.files?.[0])} />
+              <button type="button" disabled={busy} onClick={() => fileInput.current?.click()} className="studio-button studio-button-secondary"><FileUp size={15} aria-hidden />Import script (JSON)</button></>}
             {canEdit && latest?.storyboard && !draft && <button type="button" disabled={busy} onClick={() => setDraft(structuredClone(latest.storyboard!))} className="studio-button studio-button-secondary"><Pencil size={15} aria-hidden />Edit script</button>}
-            {draft && <><button type="button" onClick={() => setDraft(null)} className="studio-button studio-button-secondary"><X size={15} aria-hidden />Discard</button><button type="button" disabled={!base || busy} onClick={renderEdited} className="studio-button">{submitting ? <LoaderCircle size={15} className="animate-spin" aria-hidden /> : <Film size={15} aria-hidden />}Record & render edits</button></>}
+            {draft && <><button type="button" onClick={() => { setDraft(null); setImported(null); }} className="studio-button studio-button-secondary"><X size={15} aria-hidden />Discard</button><button type="button" disabled={!base || busy} onClick={renderEdited} className="studio-button">{submitting ? <LoaderCircle size={15} className="animate-spin" aria-hidden /> : <Film size={15} aria-hidden />}Record & render edits</button></>}
             {latest?.render_id && latest.status === "ready" && !draft && <Link href={`/editor/${latest.render_id}`} className="studio-button studio-button-secondary"><Clapperboard size={15} aria-hidden />Open in editor</Link>}
           </div>
         </div>
+        {imported && draft && <p role="status" className="mt-4 rounded-lg bg-surface-2 px-3 py-2 text-[13px]"><FileUp size={14} className="mr-1.5 inline text-sage" aria-hidden />Imported <b>{imported.name}</b>: {draft.scenes.length} scenes. Review them below, then choose <b>Record &amp; render edits</b>.</p>}
+        {importError && <p role="alert" className="mt-4 rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger ring-1 ring-danger/25">{importError}</p>}
+        {draft && error && <p role="alert" className="mt-4 rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger ring-1 ring-danger/25">{error}</p>}
         {generations.error && <p role="alert" className="mt-4 text-[13px] text-danger">Could not load versions. {friendlyError(generations.error.message).title}</p>}
         {draft ? <StoryboardEditor board={draft} onChange={setDraft} /> : latest?.storyboard?.scenes?.length ? <div className="mt-6 grid gap-4 lg:grid-cols-2">{latest.storyboard.scenes.map((scene, i) => <article key={i} className="rounded-xl border border-line p-4">
           <div className="flex items-baseline gap-3"><span className="text-[12px] font-semibold tabular-nums text-accent">{String(i + 1).padStart(2, "0")}</span><h3 className="text-[15px] font-semibold">{scene.title}</h3></div>

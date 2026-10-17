@@ -1,0 +1,47 @@
+{
+  "topic": "What is an automation engineer? Explain what they automate, how tests run, and how to start.",
+  "audience": "Students and freshers exploring tech careers",
+  "tone": "clear",
+  "difficulty": "beginner",
+  "language": "en",
+  "voice": "af_heart",
+  "duration_s": 45,
+  "quality": "looks",
+  "style": "focus",
+  "brand_kit_id": null,
+  "storyboard": {
+    "title": "What Is an Automation Engineer?",
+    "scenes": [
+      {
+        "title": "The Repetitive Release Check",
+        "narration": "Before every release, someone clicks through the same login page and checks the same screens by hand. It is slow, boring, and very easy to get wrong.",
+        "code_language": "text",
+        "code": "Release checklist\n1. Open the login page\n2. Enter a test user\n3. Check the dashboard\n4. Repeat for 50 pages"
+      },
+      {
+        "title": "Turning Steps Into Code",
+        "narration": "An automation engineer turns those manual steps into code. This script opens the browser, signs in and checks the result in seconds, every single time.",
+        "code_language": "python",
+        "code": "def test_login(page):\n    page.goto(\"/login\")\n    page.fill(\"#email\", \"qa@test.in\")\n    page.click(\"text=Sign in\")\n    assert \"/home\" in page.url"
+      },
+      {
+        "title": "Test Data in JSON",
+        "narration": "Test data usually lives in a simple file like this one. The same script can now check an admin and a viewer without changing a single line of code.",
+        "code_language": "json",
+        "code": "[\n  {\"user\": \"qa@test.in\",\n   \"role\": \"admin\"},\n  {\"user\": \"dev@test.in\",\n   \"role\": \"viewer\"}\n]"
+      },
+      {
+        "title": "Results From the Pipeline",
+        "narration": "These tests then run automatically on every code change. The pipeline writes a report like this, so the whole team sees a clear pass or fail.",
+        "code_language": "xml",
+        "code": "<testsuite tests=\"2\" failures=\"0\">\n  <testcase name=\"admin_login\"/>\n  <testcase name=\"viewer_login\"/>\n</testsuite>"
+      },
+      {
+        "title": "Skills to Start Today",
+        "narration": "To begin, learn Python, one testing tool such as Playwright or Selenium, and the basics of Git and continuous integration. Then automate one boring weekly task.",
+        "code_language": "python",
+        "code": "skills = [\n    \"Python basics\",\n    \"Playwright or Selenium\",\n    \"Git and CI pipelines\",\n]"
+      }
+    ]
+  }
+}
