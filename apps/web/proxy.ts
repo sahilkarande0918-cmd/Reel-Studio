@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { SUPABASE_KEY, SUPABASE_URL } from "@/lib/supabase/env";
 
-const PUBLIC = ["/", "/login", "/signup", "/forgot-password", "/auth"];
+const PUBLIC = ["/", "/login", "/signup", "/forgot-password", "/auth", "/privacy", "/terms"];
 
 /** Refreshes the Supabase session cookie on every navigation and bounces signed-out users from app routes. */
 export async function proxy(request: NextRequest) {
@@ -34,5 +34,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|archive/|.*\\.(?:svg|png|jpg|jpeg|webp)$).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|landing/|.*\\.(?:svg|png|jpg|jpeg|webp|mp4|vtt|woff2)$).*)"],
 };
