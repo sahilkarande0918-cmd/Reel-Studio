@@ -32,6 +32,7 @@ venv/
 # media, renders, caches, model weights — never in git
 data/
 *.mp4
+!apps/web/public/landing/*.mp4
 *.mov
 *.mkv
 *.webm
