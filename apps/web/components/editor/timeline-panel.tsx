@@ -82,7 +82,7 @@ export function TimelinePanel({ doc, time, zoom, selected, onSelect, onSeek, onL
               return <div key={item.id} role="button" tabIndex={0} aria-label={`${k.label} item at ${fmt(item.start)}`} aria-pressed={on}
                 onPointerDown={(e) => drag(e, item, "move")} onKeyDown={(e) => { if (e.key === "Enter") onSelect(item.id); }}
                 style={{ left: item.start * zoom, width: Math.max(6, item.duration * zoom) }}
-                className={`group absolute inset-y-1.5 cursor-grab overflow-hidden rounded-md border text-[11px] text-[#e8e8ec] active:cursor-grabbing ${k.cls} ${on ? "ring-2 ring-accent" : "hover:brightness-125"}`}>
+                className={`group absolute inset-y-1.5 cursor-grab overflow-hidden rounded-md border text-[11px] text-[#e8e8ec] active:cursor-grabbing ${k.cls} ${on ? "ring-2 ring-[#E8D9A8]" : "hover:brightness-125"}`}>
                 <span className="pointer-events-none block truncate px-2.5 leading-[34px]">{label(item)}</span>
                 <span onPointerDown={(e) => drag(e, item, "start")} className="absolute inset-y-0 left-0 w-2 cursor-ew-resize bg-white/0 group-hover:bg-white/25" />
                 <span onPointerDown={(e) => drag(e, item, "end")} className="absolute inset-y-0 right-0 w-2 cursor-ew-resize bg-white/0 group-hover:bg-white/25" />
@@ -91,8 +91,8 @@ export function TimelinePanel({ doc, time, zoom, selected, onSelect, onSeek, onL
           </div>
         </div>;
       })}
-      <div className="pointer-events-none absolute bottom-0 top-0 z-30 w-px bg-accent" style={{ left: 96 + time * zoom }}>
-        <span className="absolute -left-[5px] top-0 h-0 w-0 border-x-[5px] border-t-[7px] border-x-transparent border-t-accent" />
+      <div className="pointer-events-none absolute bottom-0 top-0 z-30 w-px bg-[#E8D9A8]" style={{ left: 96 + time * zoom }}>
+        <span className="absolute -left-[5px] top-0 h-0 w-0 border-x-[5px] border-t-[7px] border-x-transparent border-t-[#E8D9A8]" />
       </div>
     </div>
   </div>;
