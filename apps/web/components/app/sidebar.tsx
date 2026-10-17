@@ -6,7 +6,6 @@ import {
   Film,
   Folder,
   Home,
-  Leaf,
   LogOut,
   Menu,
   Palette,
@@ -20,6 +19,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { signOut } from "@/app/(auth)/actions";
+import { Logo, LogoMark } from "@/components/landing/site-nav";
 import { switchWorkspace } from "@/app/onboarding/actions";
 import type { Org } from "@/lib/supabase/server";
 
@@ -155,9 +155,9 @@ function Rail({ path }: { path: string }) {
       <Link
         href="/dashboard"
         aria-label="Reel Studio dashboard"
-        className="mb-4 grid h-10 w-10 place-items-center rounded-xl bg-[#3C462F] text-[#FCF9F4]"
+        className="mb-4 grid h-10 w-10 place-items-center"
       >
-        <Leaf size={20} className="text-[#98A886]" fill="#98A886" />
+        <LogoMark light />
       </Link>
       <div className="flex flex-1 flex-col gap-1">
         {allNav.map(({ href, label, icon: Icon }) => {
@@ -202,23 +202,7 @@ export function Sidebar({
     <>
       <aside className="hidden w-[240px] shrink-0 flex-col justify-between border-r border-[rgba(255,255,255,0.06)] bg-[#1D2618] px-4 py-6 md:sticky md:top-0 md:flex md:h-svh md:overflow-y-auto">
         <div className="space-y-6">
-          {/* Logo */}
-          <Link
-            href="/dashboard"
-            className="flex items-center gap-2.5 px-2 text-white"
-          >
-            <span className="flex h-7 w-7 items-center justify-center">
-              <Leaf
-                size={22}
-                className="text-[#98A886]"
-                fill="#98A886"
-                aria-hidden
-              />
-            </span>
-            <span className="font-serif text-[21px] font-medium tracking-tight text-[#FCF9F4]">
-              Reel Studio
-            </span>
-          </Link>
+          <div className="px-2"><Logo light href="/dashboard" /></div>
 
           {/* Primary Nav */}
           <nav className="space-y-1">
@@ -265,12 +249,7 @@ export function Sidebar({
       {/* Mobile drawer */}
       <details className="group border-b border-[#E7E5DE] bg-[#1D2618] text-[#FCF9F4] md:hidden" key={path}>
         <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3.5">
-          <Link href="/dashboard" className="flex items-center gap-2.5 text-white">
-            <Leaf size={20} className="text-[#98A886]" fill="#98A886" />
-            <span className="font-serif text-[19px] font-medium text-[#FCF9F4]">
-              Reel Studio
-            </span>
-          </Link>
+          <Logo light href="/dashboard" />
           <span className="rounded-lg p-1.5 text-[#A3A694] hover:bg-[#283321]">
             <Menu size={22} aria-label="Open navigation" />
           </span>

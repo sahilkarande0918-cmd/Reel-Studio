@@ -3,9 +3,14 @@ import { Aperture, Menu } from "lucide-react";
 
 const LINKS = [["Features", "#features"], ["How it works", "#how-it-works"], ["Examples", "#examples"]] as const;
 
-export function Logo({ light = false }: { light?: boolean }) {
-  return <Link href="/" className={`flex items-center gap-2.5 text-[17px] font-semibold tracking-[-.02em] ${light ? "text-[#F6F3EC]" : "text-forest"}`}>
-    <span className={`grid h-8 w-8 place-items-center rounded-[9px] ${light ? "bg-[#F6F3EC] text-forest" : "bg-forest text-[#F6F3EC]"}`}><Aperture size={18} strokeWidth={1.9} aria-hidden /></span>
+/** The one Reel Studio mark: landing page, sign-in pages and the app shell all use it. */
+export function LogoMark({ light = false }: { light?: boolean }) {
+  return <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-[9px] ${light ? "bg-[#F6F3EC] text-forest" : "bg-forest text-[#F6F3EC]"}`}><Aperture size={18} strokeWidth={1.9} aria-hidden /></span>;
+}
+
+export function Logo({ light = false, href = "/" }: { light?: boolean; href?: string }) {
+  return <Link href={href} className={`flex items-center gap-2.5 text-[17px] font-semibold tracking-[-.02em] ${light ? "text-[#F6F3EC]" : "text-forest"}`}>
+    <LogoMark light={light} />
     Reel Studio
   </Link>;
 }
