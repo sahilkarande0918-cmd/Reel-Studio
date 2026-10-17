@@ -111,3 +111,10 @@ Production backend `python -m app.serve --tunnel devtunnel` (:8000 → https://j
 ## Homepage media (2026-10-17)
 `apps/web/public/landing/` holds the tour (`reel-studio-tour.mp4` 17.3 MB + `.vtt` + poster), two short reel loops and
 stills; served statically by Vercel (verified video/mp4 with byte ranges). `proxy.ts` excludes these from the auth redirect.
+
+## Keeping the engine on (2026-10-17)
+Start the processing engine with `apps/api/start-engine.cmd` (double-click), not from an editor/agent terminal: it runs
+hidden, independent of any session, restarts the whole engine 5 s after it stops, and refuses to start a second copy.
+Inside, `app.serve` now restarts a crashed tunnel or worker within 10 s (watchdog). Log:
+`%LOCALAPPDATA%eel-studio\logs\engine.log`. The engine still needs the laptop awake and online; set Windows to never
+sleep while plugged in during demos. Auto-start at login is optional (Task Scheduler → run `start-engine.cmd` at log on).

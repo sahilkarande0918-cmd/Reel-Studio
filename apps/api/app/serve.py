@@ -118,25 +118,43 @@ def main() -> None:
     ap.add_argument("--no-worker", action="store_true")
     args = ap.parse_args()
 
-    procs: list[subprocess.Popen] = []
+    # name -> (start function, running process); the watchdog restarts any child that exits.
+    children: dict[str, list] = {}
     if args.tunnel != "none":
         starter = {"cloudflare": start_tunnel, "devtunnel": start_devtunnel, "tailscale": start_funnel}
         tunnel, url = starter[args.tunnel](args.port)
-        procs.append(tunnel)
+        children["tunnel"] = [lambda: starter[args.tunnel](args.port)[0], tunnel]
         os.environ["PUBLIC_API_URL"] = url
         print(f"Tunnel: {url}", flush=True)
     if not args.no_worker and Path(__file__).with_name("workers").joinpath("run.py").exists():
-        procs.append(
-            subprocess.Popen([sys.executable, "-m", "app.workers.run"], cwd=Path(__file__).parents[1])
+        worker = lambda: subprocess.Popen(  # noqa: E731
+            [sys.executable, "-m", "app.workers.run"], cwd=Path(__file__).parents[1]
         )
+        children["worker"] = [worker, worker()]
+
+    stop = threading.Event()
+
+    def watchdog() -> None:
+        """A crashed tunnel or worker made the site show 'Engine offline' until a manual restart."""
+        while not stop.wait(10):
+            for name, entry in children.items():
+                if entry[1].poll() is not None:
+                    print(f"[serve] {name} exited ({entry[1].returncode}); restarting", flush=True)
+                    try:
+                        entry[1] = entry[0]()
+                    except (OSError, SystemExit) as e:  # e.g. network down: try again next round
+                        print(f"[serve] {name} restart failed: {e}", flush=True)
+
+    threading.Thread(target=watchdog, daemon=True).start()
 
     import uvicorn
 
     try:
         uvicorn.run("app.main:app", host="127.0.0.1", port=args.port, app_dir=str(Path(__file__).parents[1]))
     finally:
-        for p in procs:
-            p.terminate()
+        stop.set()
+        for entry in children.values():
+            entry[1].terminate()
 
 
 if __name__ == "__main__":
