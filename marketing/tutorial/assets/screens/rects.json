@@ -1,0 +1,149 @@
+{
+ "dashboard": {
+  "Use a recording": {
+   "x": 504,
+   "y": 357,
+   "w": 147,
+   "h": 40
+  },
+  "Create from a topic": {
+   "x": 304,
+   "y": 357,
+   "w": 190,
+   "h": 40
+  },
+  "Recent projects": {
+   "x": 293,
+   "y": 503,
+   "w": 167,
+   "h": 35
+  }
+ },
+ "recordings": {},
+ "uploader": {
+  "Drop a class recording here": {
+   "x": 758,
+   "y": 370,
+   "w": 323,
+   "h": 24
+  }
+ },
+ "recording-top": {
+  "Recording & transcript": {
+   "x": 289,
+   "y": 363,
+   "w": 1262,
+   "h": 30
+  },
+  "useEffect": {
+   "x": 981,
+   "y": 495,
+   "w": 72,
+   "h": 20
+  },
+  "Search words or terms": null
+ },
+ "recording-highlights": {
+  "Custom Hook with useEffect in React": {
+   "x": 301,
+   "y": 210,
+   "w": 257,
+   "h": 23
+  },
+  "Play / pause clip": {
+   "x": 1113,
+   "y": 214,
+   "w": 122,
+   "h": 32
+  }
+ },
+ "topic-studio": {
+  "What should the video explain?": {
+   "x": 293,
+   "y": 213,
+   "w": 830,
+   "h": 27
+  },
+  "Generate new version": {
+   "x": 922,
+   "y": 753,
+   "w": 201,
+   "h": 44
+  },
+  "Preview": {
+   "x": 1193,
+   "y": 203,
+   "w": 53,
+   "h": 21
+  }
+ },
+ "topic-script": {
+  "Script & storyboard": {
+   "x": 293,
+   "y": 207,
+   "w": 341,
+   "h": 27
+  },
+  "XML Works": {
+   "x": 338,
+   "y": 519,
+   "w": 80,
+   "h": 23
+  }
+ },
+ "editor": {
+  "Caption words": {
+   "x": 1293,
+   "y": 297,
+   "w": 287,
+   "h": 17
+  },
+  "Shift all": {
+   "x": 1293,
+   "y": 326,
+   "w": 287,
+   "h": 28
+  }
+ },
+ "editor-recording": {
+  "Style": {
+   "x": 1293,
+   "y": 128,
+   "w": 287,
+   "h": 17
+  },
+  "Captions": {
+   "x": 68,
+   "y": 765,
+   "w": 96,
+   "h": 47
+  },
+  "Render MP4 with edits": {
+   "x": 1293,
+   "y": 818,
+   "w": 287,
+   "h": 40
+  }
+ },
+ "publishing": {
+  "Instagram account": {
+   "x": 293,
+   "y": 236,
+   "w": 1254,
+   "h": 26
+  },
+  "Connect Instagram": {
+   "x": 310,
+   "y": 397,
+   "w": 178,
+   "h": 40
+  },
+  "Prepare a post": {
+   "x": 293,
+   "y": 556,
+   "w": 930,
+   "h": 30
+  }
+ },
+ "brand": {}
+}

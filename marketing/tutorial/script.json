@@ -1,0 +1,21 @@
+{
+  "voice": "af_heart",
+  "scenes": [
+    {"id": "hook", "chapter": "", "min": 6.0,
+     "text": "One class recording holds many moments worth sharing. Reel Studio finds them for you."},
+    {"id": "dashboard", "chapter": "Dashboard", "min": 8.0,
+     "text": "Start from the dashboard. Upload a recording, or create a video from just a topic."},
+    {"id": "upload", "chapter": "Upload and analyze", "min": 10.0,
+     "text": "Drop in a class. Reel Studio transcribes the Hinglish on your own machine, and corrects technical terms like useEffect, using the code on screen."},
+    {"id": "highlights", "chapter": "AI highlights", "min": 9.6,
+     "text": "It ranks complete thirty to sixty second moments, explains why each one works, and reframes the widescreen class into a readable vertical reel."},
+    {"id": "topic", "chapter": "Topic Studio", "min": 8.0,
+     "text": "No recording? Type a topic like JSON versus XML, and get an editable script, animated code and a natural voiceover."},
+    {"id": "editor", "chapter": "Editor and export", "min": 9.0,
+     "text": "Then fine tune it in the editor. Trim clips, edit captions word by word, apply your brand and a style, and render a new MP4."},
+    {"id": "publish", "chapter": "Publish", "min": 6.0,
+     "text": "When it is ready, publish straight to Instagram, or schedule it for later."},
+    {"id": "cta", "chapter": "", "min": 3.0,
+     "text": "Your content, beautifully repurposed."}
+  ]
+}
