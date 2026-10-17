@@ -11,6 +11,8 @@ import time
 import traceback
 from datetime import UTC, datetime, timedelta
 
+import httpx
+
 from app.core.db import service_client
 from app.workers.analyze import run_analyze
 from app.workers.generate import run_generate
@@ -66,6 +68,8 @@ def run_one(job: dict) -> None:
     except Exception as e:  # noqa: BLE001 — every failure is recorded on the job row
         msg = f"{type(e).__name__}: {e}"
         log.error("job %s failed: %s\n%s", job["id"], msg, traceback.format_exc())
+        if isinstance(e, httpx.TransportError):
+            service_client.cache_clear()  # never retry on a client whose connections are broken
         if isinstance(e, Permanent) or job["attempts"] >= job["max_attempts"]:
             finish(job, status="failed", error=msg[:2000])
         else:

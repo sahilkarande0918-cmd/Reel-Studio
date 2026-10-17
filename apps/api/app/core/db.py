@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+import httpx
 from supabase import Client, create_client
 
 from app.core.config import get_settings
@@ -11,7 +12,16 @@ def service_client() -> Client:
     s = get_settings()
     if not s.supabase_configured:
         raise RuntimeError("SUPABASE_URL / SUPABASE_SECRET_KEY not configured")
-    return create_client(s.supabase_url, s.supabase_secret_key)
+    client = create_client(s.supabase_url, s.supabase_secret_key)
+    # PostgREST's default HTTP/2 session raised "Server disconnected" on the first request after a long idle
+    # stretch (e.g. the worker's local-LLM stages) and kept failing on retries. HTTP/1.1 keep-alive
+    # connections are checked before reuse, so a connection the server closed is simply replaced.
+    pg, old = client.postgrest, client.postgrest.session
+    pg.session = httpx.Client(
+        base_url=old.base_url, headers=old.headers, timeout=old.timeout, follow_redirects=True, http2=False
+    )
+    old.close()
+    return client
 
 
 def transcript_words(transcript_id: str) -> list[dict]:
