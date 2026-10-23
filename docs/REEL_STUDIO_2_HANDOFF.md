@@ -228,7 +228,10 @@ and captions-OFF renders ready. Not run: voice synthesis, `next build`, Tests B/
 5. Polish: landing card, collection scheduling, reference report page, manual beat correction.
 
 ## 18. Precise next task
-**Phase F voice verification.** Files: `apps/api/app/services/voice_worker.py`, `voice_profiles.py`, `voice.py`.
+**First (session 3, 2026-10-24):** the owner is moving Claude's storage to D: with
+`scripts/claude-storage/migrate-claude-storage.ps1`. Before any development, run the post-migration verification in
+`docs/CLAUDE_STORAGE_MIGRATION.md` and report it; never delete the C: original or backups without explicit approval.
+Then: **Phase F voice verification.** Files: `apps/api/app/services/voice_worker.py`, `voice_profiles.py`, `voice.py`.
 Steps: add `"model_dir": "C:\\Users\\Sahil\\AppData\\Local\\reel-studio\\data\\models\\chatterbox"` to
 `data/voice-test/job.json`; make sure the GPU is idle (no edit job, Ollama unloaded); run the voice worker; check
 `result.json` (4 WAVs, durations, `watermarked`), listen/ASR-check that the two English scripts sound like the same
