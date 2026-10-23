@@ -46,8 +46,9 @@ def snap_plan(segs: list[Segment], fps: int) -> None:
     for i, s in enumerate(segs):
         s.duration = frames(s.duration, fps) / fps
         if s.transition_out != "cut" and i + 1 < len(segs):
-            cap = min(s.duration, segs[i + 1].duration) / 2
-            s.transition_dur = min(frames(max(s.transition_dur, 1 / fps), fps) / fps, frames(cap, fps) / fps)
+            cap_f = frames(min(s.duration, segs[i + 1].duration) / 2, fps)
+            want_f = max(2, 2 * round(s.transition_dur * fps / 2))  # even: centred overlaps stay whole frames
+            s.transition_dur = min(want_f, cap_f - cap_f % 2) / fps
         else:
             s.transition_out, s.transition_dur = "cut", 0.0
 

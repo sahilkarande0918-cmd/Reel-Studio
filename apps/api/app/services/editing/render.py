@@ -10,11 +10,17 @@ from app.services.music import score
 def to_segments(plan: dict, clip_paths: list[Path]) -> list[base.Segment]:
     segs = []
     sp = plan["segments"]
+    fps = plan["fps"]
+    # whole frames everywhere: transitions get an even frame count so each neighbour overlaps by whole frames and the
+    # assembled length is exactly the planned duration (odd transitions lost half a frame each)
+    even = [2 * round(s["transition_s"] * fps / 2) for s in sp]
     for i, s in enumerate(sp):
-        td_in = sp[i - 1]["transition_s"] if i else 0.0
-        td_out = s["transition_s"]
-        slot = s["slot"][1] - s["slot"][0]
-        dur = slot + td_in / 2 + td_out / 2  # transitions are centred on the cut
+        f_in = even[i - 1] if i else 0
+        f_out = even[i]
+        slot_f = round(s["slot"][1] * fps) - round(s["slot"][0] * fps)
+        dur = (slot_f + f_in // 2 + f_out // 2) / fps  # transitions are centred on the cut
+        td_out = f_out / fps
+        slot = slot_f / fps
         need = (
             (s["src_out"] - s["src_in"]) * dur / slot
         )  # the planner's range, grown by the transition overlap

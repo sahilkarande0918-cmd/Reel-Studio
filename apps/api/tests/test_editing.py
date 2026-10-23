@@ -96,3 +96,29 @@ def test_prompt_keywords_pick_a_profile():
 def test_snap_moves_to_beat_then_frame():
     assert snap(1.03, [1.0, 1.5]) == 1.0
     assert snap(1.3, [1.0, 1.5]) == round(round(1.3 * 30) / 30, 4)  # too far from a beat: frame grid only
+
+
+def test_reference_style_transfers_hook_flashes_and_shot_lengths():
+    from app.services.editing import style_transfer
+
+    ref = {
+        "meta": {"duration_s": 14.0},
+        "music": {"tempo_bpm": 120.0, "drops": [3.5]},
+        "beat_sync": {"tempo_bpm": 120.0},
+        "shots": [{"duration_s": 3.5, "end_s": 3.5}]
+        + [{"duration_s": 1.0, "end_s": 4.5 + i} for i in range(5)],
+        "transitions": [
+            {"kind": "whip/motion-blur"},
+            {"kind": "hard cut"},
+            {"kind": "flash"},
+            {"kind": "whip/motion-blur"},
+        ],
+        "flashes": [{"t": 5.0, "kind": "black"}, {"t": 7.0, "kind": "black"}, {"t": 9.0, "kind": "white"}],
+        "motion": {"zoom_in_share": 0.15, "zoom_out_share": 0.12},
+    }
+    prof, evidence = style_transfer.from_reference(ref, pacing.PROFILES["phonk"])
+    assert prof.hook_share == 0.25 and prof.cut_beats == (2.0,) * 5
+    assert prof.transitions[0] == "whip" and prof.fx_params["flash"]["white"] == 0
+    assert len(evidence) >= 4
+    p = planner.plan(clips(), prof, 12.0, music())
+    assert p["segments"][1]["slot"][0] == 8.0 - p["music_start"]  # the first cut lands on the drop

@@ -53,7 +53,7 @@ def analyze_clip(path: Path, max_moments: int = 12) -> dict:
     cap = cv2.VideoCapture(str(path))
     per = max(1, round(fps * BUCKET))
     prev, n = None, 0
-    rows: list[list[float]] = []  # [t, motion, sharp, bright, cx, cy]
+    rows: list[list[float]] = []  # [t, motion, sharp, bright, cx, cy, ix, iy]
     acc: list[list[float]] = []
     while True:
         ok, frame = cap.read()
@@ -66,8 +66,13 @@ def analyze_clip(path: Path, max_moments: int = 12) -> dict:
             mag = np.sqrt(f[..., 0] ** 2 + f[..., 1] ** 2)
             tot = mag.sum() or 1.0
             ys, xs = np.mgrid[0 : mag.shape[0], 0 : mag.shape[1]]
-            acc.append([n / fps, float(mag.mean()), float(cv2.Laplacian(g, cv2.CV_64F).var()), float(g.mean()),
-                        float((mag * xs).sum() / tot / mag.shape[1]), float((mag * ys).sum() / tot / mag.shape[0])])  # fmt: skip
+            lap = cv2.Laplacian(g, cv2.CV_64F)
+            # visual interest: bright, detailed pixels (a lit screen, a product) — what the eye goes to in a still shot
+            interest = np.abs(cv2.GaussianBlur(lap, (0, 0), 3)) * (g / 255.0) ** 2
+            it = interest.sum() or 1.0
+            acc.append([n / fps, float(mag.mean()), float(lap.var()), float(g.mean()),
+                        float((mag * xs).sum() / tot / mag.shape[1]), float((mag * ys).sum() / tot / mag.shape[0]),
+                        float((interest * xs).sum() / it / g.shape[1]), float((interest * ys).sum() / it / g.shape[0])])  # fmt: skip
         if n % per == per - 1 and acc:
             rows.append(list(np.mean(acc, axis=0)))
             acc = []
@@ -77,7 +82,10 @@ def analyze_clip(path: Path, max_moments: int = 12) -> dict:
     if not rows:
         raise ValueError(f"no decodable frames in {path.name}")
     a = np.array(rows)
-    t, motion, sharp, bright, cx, cy = a.T
+    t, motion, sharp, bright, mx, my, ix, iy = a.T
+    # framing centre: where things move when there is real local motion, otherwise where the light and detail are
+    wm = np.clip(motion / 2.0, 0.15, 0.6)
+    cx, cy = wm * mx + (1 - wm) * ix, wm * my + (1 - wm) * iy
     sharp_n = np.clip(sharp / (np.percentile(sharp, 90) or 1), 0, 1)
     motion_n = np.clip(motion / (np.percentile(motion, 90) or 1), 0, 1)
     dark = (bright < 25).astype(float)

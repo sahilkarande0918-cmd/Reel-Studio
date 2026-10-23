@@ -58,11 +58,22 @@ def analyze(path: Path) -> dict:
     win = int(SR * 0.5)
     rms = np.sqrt(np.mean(y[: len(y) // win * win].reshape(-1, win) ** 2, axis=1))
     energy = (rms / (rms.max() or 1)).round(3)
-    drops = []
-    for i in range(4, len(energy)):
-        before, now = energy[i - 4 : i].mean(), energy[i]
-        if now - before > 0.35 and now > 0.6 and (not drops or i * 0.5 - drops[-1] > 4):
-            drops.append(round(i * 0.5, 2))
+    # a drop = the next 2 s sit clearly above the previous 4 s (sustained, not a single hit); snapped to a beat
+    gain = np.array(
+        [
+            energy[i : i + 4].mean() - energy[max(0, i - 8) : i].mean() if 3 <= i <= len(energy) - 4 else 0
+            for i in range(len(energy))
+        ]
+    )
+    drops: list[float] = []
+    for i in np.argsort(-gain):
+        t = i * 0.5
+        if gain[i] < 0.15 or energy[i : i + 4].mean() < 0.6:
+            break
+        if all(abs(t - d) > 6 for d in drops):
+            drops.append(t)
+    near = lambda t: float(min(beats, key=lambda b: abs(b - t))) if len(beats) else t  # noqa: E731
+    drops = sorted(round(near(t), 3) for t in drops[:3])
     return {
         "duration_s": round(dur, 3),
         "has_music": True,

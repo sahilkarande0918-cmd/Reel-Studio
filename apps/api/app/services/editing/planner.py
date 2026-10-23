@@ -39,23 +39,46 @@ def beat_grid(
     return beats, beats[::4], beats[::2]
 
 
-def music_offset(music: dict | None, downbeats: list[float], duration: float) -> float:
-    """Start the music so its first drop lands ~30 % into the edit (a hook that pays off), else on a downbeat."""
+def music_offset(
+    music: dict | None,
+    downbeats: list[float],
+    duration: float,
+    hook_share: float = 0.0,
+    beats: list[float] | None = None,
+) -> float:
+    """Start the music so its first drop lands ~30 % into the edit (a hook that pays off), else on a downbeat.
+    With a hook (reference style), the drop lands exactly where the held opening shot ends."""
     if not music or not downbeats:
         return 0.0
     for d in music.get("drops", []):
+        if hook_share and beats:
+            want = d - duration * hook_share
+            start = min(beats, key=lambda b: abs(b - want))
+            if start >= 0 and d - start > 1.0 and start + duration <= music["duration_s"]:
+                return start
         want = d - duration * 0.3
         if want >= 0 and d + duration * 0.7 <= music["duration_s"]:
             return min(downbeats, key=lambda b: abs(b - want))
     return downbeats[0] if downbeats[0] < 2 else 0.0
 
 
-def slots(beats: list[float], start: float, duration: float, profile: Profile, fps: int) -> list[float]:
-    """Cut times on the output clock (0 … duration), following the profile's cycle of shot lengths in beats."""
+def slots(
+    beats: list[float],
+    start: float,
+    duration: float,
+    profile: Profile,
+    fps: int,
+    hook_until: float | None = None,
+) -> list[float]:
+    """Cut times on the output clock (0 … duration), following the profile's cycle of shot lengths in beats.
+    `hook_until`: one held opening shot, first cut exactly there (the drop)."""
     rel = [b - start for b in beats if start - 1e-6 <= b <= start + duration + 1e-6]
     if len(rel) < 2:
         return [0.0, duration]
     cuts, i, k = [0.0], 0, 0
+    if hook_until and 1.0 < hook_until < duration - 1.0:
+        i = min(range(len(rel)), key=lambda j: abs(rel[j] - hook_until))
+        cuts.append(round(round(rel[i] * fps) / fps, 4))
     while True:
         n = profile.cut_beats[k % len(profile.cut_beats)]
         k += 1
@@ -145,20 +168,24 @@ def plan(
 ) -> dict:
     bpm = (music or {}).get("tempo_bpm") or profile.default_bpm
     beats, downbeats, accents = beat_grid(music, bpm, duration)
-    start = music_offset(music, downbeats, duration)
-    cuts = slots(beats, start, duration, profile, fps)
+    start = music_offset(music, downbeats, duration, profile.hook_share, beats)
+    drops_rel = [d - start for d in (music or {}).get("drops", []) if start < d < start + duration]
+    hook = drops_rel[0] if profile.hook_share and drops_rel else None
+    cuts = slots(beats, start, duration, profile, fps, hook)
     durs = [b - a for a, b in zip(cuts, cuts[1:], strict=False)]
     beat_len = 60 / bpm
     ramps = [profile.ramps and d >= 1.6 * beat_len and i % 3 == 1 for i, d in enumerate(durs)]
     srcs = pick_sources(clips, durs, ramps)
     rel_acc = [a - start for a in accents if start <= a < start + duration]
-    drop_rel = [d - start for d in (music or {}).get("drops", []) if start < d < start + duration]
+    drop_rel = drops_rel
     k = profile.intensity
     segments, cues, last_flash = [], [], -9.0
     for i, (a, b) in enumerate(zip(cuts, cuts[1:], strict=False)):
         s = srcs[i]
         fxs: list[list] = []
-        if profile.hit_fx and i % profile.hit_every == 0:
+        if hook and i == 0:  # the held hook builds with a slow push; hits start on the drop
+            fxs.append(["push_in", {"amount": 0.18, "at": 0.0}])
+        elif profile.hit_fx and i % profile.hit_every == 0:
             eid = profile.hit_fx[i % len(profile.hit_fx)]
             hits = [x - a for x in rel_acc if a + 0.05 <= x < b - 0.1]
             at = hits[0] if hits and eid != "push_in" else 0.0
@@ -173,9 +200,14 @@ def plan(
                 params["amount"] = round(0.05 + 0.12 * k, 3)
             if eid == "shake":
                 params.update({"amount": round(0.3 + 0.5 * k, 2), "dur": 0.35})
+            params.update(profile.fx_params.get(eid, {}))
             fxs.append([eid, params])
         if any(abs(x - a) < 0.05 for x in drop_rel):
-            fxs.append(["flash" if a - last_flash >= 1.0 else "contrast_snap", {"at": 0.0, "amount": 0.6}])
+            if a - last_flash >= 1.0:
+                fxs.append(["flash", {"at": 0.0, "amount": 0.6, **profile.fx_params.get("flash", {})}])
+                last_flash = a
+            else:
+                fxs.append(["contrast_snap", {"at": 0.0, "amount": 0.6}])
             cues.append({"kind": "impact", "at": round(a, 3), "gain_db": -4})
         if s.get("ken_burns"):
             fxs.append(["push_in", {"amount": 0.15}])

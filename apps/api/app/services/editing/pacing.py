@@ -25,6 +25,12 @@ class Profile:
     intensity: float = 0.6
     default_bpm: int = 120
     score: str = "commercial"
+    hook_share: float = (
+        0.0  # >0: hold an opening shot for this share of the edit and land the first cut on the drop
+    )
+    fx_params: dict = field(
+        default_factory=dict
+    )  # per-effect parameter overrides, e.g. {"flash": {"white": 0}}
 
 
 PROFILES: dict[str, Profile] = {
