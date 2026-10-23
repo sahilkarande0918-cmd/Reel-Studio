@@ -57,8 +57,8 @@ def check(mp4: Path, plan: dict) -> dict:
                     "beat_offset_ms": round(1000 * (t - beat)),
                 }
             )
-    luma = [float(f.mean()) for f in fr]
-    black = sum(1 for v in luma if v < 8)
+    # black = the whole frame is dark (98th percentile), not a night shot whose street lights are bright
+    black = sum(1 for f in fr if float(np.percentile(f, 98)) < 24)
     frozen_runs, run = 0, 0
     for d in diff[1:]:
         run = run + 1 if d < 0.05 else 0

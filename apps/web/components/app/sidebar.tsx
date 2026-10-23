@@ -14,6 +14,7 @@ import {
   Share2,
   Sparkles,
   Video,
+  Wand2,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -25,7 +26,7 @@ import type { Org } from "@/lib/supabase/server";
 
 const MAIN_NAV = [
   { href: "/dashboard", label: "Home", icon: Home },
-  { href: "/topics", label: "Create", icon: Film },
+  { href: "/create", label: "Create", icon: Wand2 },
   { href: "/projects", label: "Projects", icon: Folder },
   { href: "/recordings", label: "Recordings", icon: Video },
   { href: "/editor", label: "Editor", icon: Film },

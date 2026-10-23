@@ -27,3 +27,14 @@ def render_dir(org_id: str, render_id: str) -> Path:
     d = get_settings().data_dir / "orgs" / str(uuid.UUID(org_id)) / "renders" / str(uuid.UUID(render_id))
     d.mkdir(parents=True, exist_ok=True)
     return d
+
+
+def asset_dir(org_id: str, asset_id: str) -> Path:
+    d = get_settings().data_dir / "orgs" / str(uuid.UUID(org_id)) / "assets" / str(uuid.UUID(asset_id))
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def asset_path(asset: dict) -> Path:
+    """Mode B upload on disk; the name is fixed, only the (validated) extension comes from the upload."""
+    return asset_dir(asset["organization_id"], asset["id"]) / f"source{Path(asset['filename']).suffix.lower()}"

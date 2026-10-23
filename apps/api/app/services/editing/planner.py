@@ -94,10 +94,19 @@ def slots(
     return cuts
 
 
-def pick_sources(clips: list[dict], durs: list[float], ramps: list[bool]) -> list[dict]:
-    """For each slot: clip index, source in/out, framing and any reuse treatment."""
+def pick_sources(
+    clips: list[dict],
+    durs: list[float],
+    ramps: list[bool],
+    weights: list[float] | None = None,
+    first: int | None = None,
+    last: int | None = None,
+) -> list[dict]:
+    """For each slot: clip index, source in/out, framing and any reuse treatment.
+    `weights` scale each clip's moment scores (0 = never use); `first`/`last` pin the opening/closing clip."""
+    w = weights or [1.0] * len(clips)
     pool = [
-        {"clip": ci, **m, "uses": 0}
+        {"clip": ci, **m, "score": m["score"] * w[ci], "uses": 0}
         for ci, c in enumerate(clips)
         for m in (
             c["moments"]
@@ -110,6 +119,7 @@ def pick_sources(clips: list[dict], durs: list[float], ramps: list[bool]) -> lis
                 }
             ]
         )
+        if w[ci] > 0
     ]
     pool.sort(key=lambda m: -m["score"])
     out, last_clip = [], None
@@ -119,6 +129,9 @@ def pick_sources(clips: list[dict], durs: list[float], ramps: list[bool]) -> lis
         cands = fresh or sorted(pool, key=lambda m: (m["uses"], -m["score"]))
         # prefer a different clip from the previous shot (variety), then the best score
         m = next((x for x in cands if x["clip"] != last_clip), cands[0])
+        pin = first if i == 0 else last if i == len(durs) - 1 and i else None
+        if pin is not None:
+            m = next((x for x in cands if x["clip"] == pin), None) or next((x for x in pool if x["clip"] == pin), m)
         c = clips[m["clip"]]
         still = c["kind"] == "image"
         cdur = c.get("duration_s") or 0
@@ -165,6 +178,9 @@ def plan(
     fps: int = 30,
     width: int = 1080,
     height: int = 1920,
+    weights: list[float] | None = None,
+    first: int | None = None,
+    last: int | None = None,
 ) -> dict:
     bpm = (music or {}).get("tempo_bpm") or profile.default_bpm
     beats, downbeats, accents = beat_grid(music, bpm, duration)
@@ -175,7 +191,7 @@ def plan(
     durs = [b - a for a, b in zip(cuts, cuts[1:], strict=False)]
     beat_len = 60 / bpm
     ramps = [profile.ramps and d >= 1.6 * beat_len and i % 3 == 1 for i, d in enumerate(durs)]
-    srcs = pick_sources(clips, durs, ramps)
+    srcs = pick_sources(clips, durs, ramps, weights, first, last)
     rel_acc = [a - start for a in accents if start <= a < start + duration]
     drop_rel = drops_rel
     k = profile.intensity

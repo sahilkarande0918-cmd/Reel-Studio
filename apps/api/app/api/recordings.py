@@ -16,10 +16,10 @@ from app.core.access import get_owned
 from app.core.auth import User, current_user
 from app.core.db import service_client
 from app.core.storage import source_path
+from app.core.upload import CHUNK_MAX, append_chunk
 from app.services import media
 
 router = APIRouter(prefix="/recordings")
-CHUNK_MAX = 8 * 1024 * 1024  # half of Dev Tunnels' 16 MB request-body cap
 PROGRESS_EVERY = 64 * 1024 * 1024  # persist received_bytes every 64 MB (the file size on disk is the truth)
 # ponytail: per-process cache of (recording, user) → row for the duration of an upload; drop if several API
 # processes ever serve one upload.
@@ -91,19 +91,7 @@ async def put_chunk(
     rec = _upload_row(rec_id, user)
     if rec["status"] != "uploading":
         raise HTTPException(409, "Upload already completed")
-    p = source_path(rec)
-    have = p.stat().st_size if p.exists() else 0
-    if offset != have:
-        # Client is out of sync (retry after a dropped connection): tell it where to resume.
-        raise HTTPException(409, detail={"message": "offset mismatch", "received_bytes": have})
-    data = await request.body()
-    if not data or len(data) > CHUNK_MAX:
-        raise HTTPException(413, f"Chunk must be 1..{CHUNK_MAX} bytes")
-    if have + len(data) > rec["size_bytes"]:
-        raise HTTPException(413, "Chunk exceeds declared file size")
-    with p.open("ab") as f:
-        f.write(data)
-    received = have + len(data)
+    have, received = await append_chunk(source_path(rec), offset, request, rec["size_bytes"])
     if received // PROGRESS_EVERY != have // PROGRESS_EVERY or received == rec["size_bytes"]:
         service_client().table("source_recordings").update({"received_bytes": received}).eq(
             "id", rec_id

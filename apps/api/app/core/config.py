@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     data_dir: Path = Path("./data")
     ollama_url: str = "http://localhost:11434"
     ollama_model: str = "qwen2.5vl:7b"
+    # Optional OpenAI-compatible endpoint for stronger creative planning (Mode B director). Empty = local Ollama only.
+    director_api_url: str = ""
+    director_api_key: SecretStr = SecretStr("")
+    director_model: str = ""
     public_api_url: str = ""
     whisper_model: str = "large-v3-turbo"  # or a path to a converted CTranslate2 model directory
     whisper_device: str = "cuda"

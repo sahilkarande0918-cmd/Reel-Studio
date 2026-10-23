@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import editor, health, publishing, recordings, renders, social, topics
+from app.api import assets, editor, edits, health, publishing, recordings, renders, social, topics
 from app.core import heartbeat
 from app.core.config import get_settings
 
@@ -43,3 +43,5 @@ app.include_router(topics.router)
 app.include_router(social.router)
 app.include_router(publishing.router)
 app.include_router(editor.router)
+app.include_router(assets.router)
+app.include_router(edits.router)

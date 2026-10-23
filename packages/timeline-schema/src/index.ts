@@ -89,7 +89,17 @@ export const TextItem = z.object({
   transition: Transition.default("none"),
 });
 
-export const Item = z.discriminatedUnion("type", [VideoItem, CaptionItem, AudioItem, CodeItem, TextItem]);
+/** Motion-graphics scene or overlay from the template library (apps/api/app/services/rendering/motion.py).
+ * `fields` are the template's editable texts; `media` are asset ids (images/clips) shown inside the template. */
+export const MotionItem = z.object({
+  id: z.string().min(1), type: z.literal("motion"), start: seconds, duration: z.number().positive(),
+  template: z.string().regex(/^[a-z_]{2,40}$/),
+  fields: z.record(z.string(), z.string().max(400)).default({}),
+  media: z.array(z.string().min(1)).max(6).default([]),
+  intensity: z.number().min(0).max(1).default(0.6),
+});
+
+export const Item = z.discriminatedUnion("type", [VideoItem, CaptionItem, AudioItem, CodeItem, TextItem, MotionItem]);
 
 export const Track = z.object({
   id: z.string().min(1),
@@ -149,7 +159,7 @@ export const Composition = z
     width: z.number().int().positive(),
     height: z.number().int().positive(),
     duration: z.number().positive(),
-    source: z.object({ recordingId: z.string(), highlightId: z.string() }).partial().default({}),
+    source: z.object({ recordingId: z.string(), highlightId: z.string(), editId: z.string() }).partial().default({}),
     assets: z.record(z.string(), Asset),
     tracks: z.array(Track),
     brand: Brand,
@@ -176,6 +186,8 @@ export const Composition = z
           if (c.assets[item.assetId]?.duration !== undefined && item.sourceEnd > c.assets[item.assetId].duration! + 1e-3)
             ctx.addIssue({ code: "custom", path, message: "sourceEnd exceeds asset duration" });
         }
+        if (item.type === "motion" && item.media.some(id => !c.assets[id] || !["image", "video"].includes(c.assets[id].kind)))
+          ctx.addIssue({ code: "custom", path, message: "motion media must be image or video assets" });
         if (item.type === "caption" && item.words.some(w => w.end < w.start || w.end > item.duration + 1e-3))
           ctx.addIssue({ code: "custom", path, message: "caption word timing is outside the item" });
         if (item.type === "code" && (item.typingDuration > item.duration || item.changes.some((change, i) =>

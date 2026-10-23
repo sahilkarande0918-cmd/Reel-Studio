@@ -72,6 +72,13 @@ def validate(doc: dict) -> None:
                     raise jsonschema.ValidationError("duration must equal sourceEnd - sourceStart")
                 if "duration" in asset and item["sourceEnd"] > asset["duration"] + 1e-3:
                     raise jsonschema.ValidationError("sourceEnd exceeds asset duration")
+            if item["type"] == "motion":
+                from app.services.rendering import motion
+
+                if item["template"] not in motion.TEMPLATES:
+                    raise jsonschema.ValidationError(f"unknown motion template {item['template']}")
+                if any(a not in doc["assets"] or doc["assets"][a]["kind"] not in ("image", "video") for a in item.get("media", [])):
+                    raise jsonschema.ValidationError("motion media must be image or video assets")
             if item["type"] == "caption" and any(
                 w["end"] < w["start"] or w["end"] > item["duration"] + 1e-3 for w in item["words"]
             ):

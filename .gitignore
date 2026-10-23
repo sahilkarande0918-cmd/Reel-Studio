@@ -67,3 +67,7 @@ Thumbs.db
 
 # Hyperframes tutorial build output (linked private media, renders)
 marketing/tutorial/build/
+
+# local test-stack helpers
+.claude/local-engine.sh
+apps/web/public/e2e-tmp/

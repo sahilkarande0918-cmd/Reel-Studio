@@ -52,16 +52,26 @@ def analyze_clip(path: Path, max_moments: int = 12) -> dict:
     fps = meta["fps"] or 30
     cap = cv2.VideoCapture(str(path))
     per = max(1, round(fps * BUCKET))
+    step = max(2, round(fps / 15))  # ~15 flow samples/s at any frame rate (60 fps clips cost the same as 30 fps)
     prev, n = None, 0
     rows: list[list[float]] = []  # [t, motion, sharp, bright, cx, cy, ix, iy]
     acc: list[list[float]] = []
     while True:
+        if n % step not in (0, step - 1):  # only the frame pairs we measure are converted to pixels
+            if not cap.grab():
+                break
+            if n % per == per - 1 and acc:
+                rows.append(list(np.mean(acc, axis=0)))
+                acc = []
+            prev = None
+            n += 1
+            continue
         ok, frame = cap.read()
         if not ok:
             break
         h = int(frame.shape[0] * W / frame.shape[1])
         g = cv2.cvtColor(cv2.resize(frame, (W, h), interpolation=cv2.INTER_AREA), cv2.COLOR_BGR2GRAY)
-        if prev is not None and n % 2 == 0:  # flow on every 2nd frame is plenty for 0.25 s buckets
+        if prev is not None and n % step == 0:  # flow between consecutive frames, sampled every `step` frames
             f = cv2.calcOpticalFlowFarneback(prev, g, None, 0.5, 3, 15, 3, 5, 1.2, 0)
             mag = np.sqrt(f[..., 0] ** 2 + f[..., 1] ** 2)
             tot = mag.sum() or 1.0

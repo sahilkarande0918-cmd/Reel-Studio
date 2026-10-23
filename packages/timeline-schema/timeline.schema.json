@@ -55,6 +55,9 @@
         },
         "highlightId": {
           "type": "string"
+        },
+        "editId": {
+          "type": "string"
         }
       }
     },
@@ -541,6 +544,64 @@
                     "start",
                     "duration",
                     "text"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "type": {
+                      "type": "string",
+                      "const": "motion"
+                    },
+                    "start": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "duration": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "template": {
+                      "type": "string",
+                      "pattern": "^[a-z_]{2,40}$"
+                    },
+                    "fields": {
+                      "default": {},
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {
+                        "type": "string",
+                        "maxLength": 400
+                      }
+                    },
+                    "media": {
+                      "default": [],
+                      "maxItems": 6,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "intensity": {
+                      "default": 0.6,
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "type",
+                    "start",
+                    "duration",
+                    "template"
                   ]
                 }
               ]

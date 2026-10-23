@@ -15,7 +15,9 @@ import httpx
 
 from app.core.db import service_client
 from app.workers.analyze import run_analyze
+from app.workers.edit import run_edit
 from app.workers.generate import run_generate
+from app.workers.ingest import run_ingest
 from app.workers.jobs import Cancelled, JobContext, Permanent
 from app.workers.publish import run_insights, run_publish
 from app.workers.render import run_render
@@ -29,6 +31,8 @@ HANDLERS = {
     "publish": run_publish,
     "insights": run_insights,
     "generate": run_generate,
+    "ingest": run_ingest,
+    "edit": run_edit,
 }
 WORKER_ID = f"{socket.gethostname()}-{int(time.time())}"
 POLL_S = 2

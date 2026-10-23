@@ -17,6 +17,8 @@ import re
 import shutil
 from pathlib import Path
 
+from app.services.rendering import motion
+
 FONTS_DIR = Path(__file__).with_name("fonts")
 GSAP_FILE = Path(__file__).with_name("vendor") / "gsap.min.js"  # GSAP 3.14.2, bundled so renders work offline
 PANEL_CENTER = 0.4  # panel centre as a fraction of frame height, captions in the lower zone
@@ -124,7 +126,15 @@ FONT_FILES = {  # family → (file in fonts/, weight); all SIL OFL, bundled
     "Noto Sans": ("noto-sans-700.woff2", 700),
     "JetBrains Mono": ("jetbrains-mono-700.woff2", 700),
     "Fira Code": ("fira-code-600.woff2", 600),
+    "Fraunces": ("fraunces-600.woff2", 600),  # display serif for motion-graphics headings
 }
+
+
+def font_families(doc: dict) -> list[str]:
+    fams = list(dict.fromkeys(doc["brand"]["fonts"].values()))
+    if any(i["type"] == "motion" for t in doc["tracks"] for i in t["items"]):
+        fams.append("Fraunces")
+    return fams
 SAFE_Y = 150  # keep corner marks clear of the platforms' top/bottom UI
 
 
@@ -197,7 +207,9 @@ def compile_html(doc: dict) -> str:
     chip = rgba(bg, 0.85)
     states = word_states(preset, text, accent, ink, chip, shadow)
 
-    media_html, cameras, overlays, code_sequences, fx, pushes = [], [], [], [], [], []
+    media_html, cameras, overlays, code_sequences, fx, pushes, motion_js = [], [], [], [], [], [], []
+    mctx = {"bg": bg, "text": text, "accent": accent, "ink": ink, "body_font": body_font, "code_font": code_font,
+            "display_font": "Fraunces", "assets": doc["assets"], "logo": logo_src, "name": brand.get("name", "")}
 
     look = STYLES[doc.get("stylePreset", "focus")]
 
@@ -234,6 +246,10 @@ def compile_html(doc: dict) -> str:
                             f'style="{box}left:{item.get("x", 80)}px;top:{item.get("y", 180)}px;'
                             f'font-size:{item.get("fontSize", 64)}px;color:{item.get("color", text)};'
                             f'text-align:{item.get("align", "left")}">{html.escape(item["text"])}</div>')
+        elif item["type"] == "motion":
+            markup, js = motion.render(item, idx, mctx)
+            overlays.append(markup)
+            motion_js.append(js)
         elif item["type"] == "code":
             revisions = [{"at": 0, "code": item["code"], "typingDuration": item.get("typingDuration", 2)},
                          *item.get("changes", [])]
@@ -276,7 +292,7 @@ def compile_html(doc: dict) -> str:
     fonts_css = "\n".join(
         f'      @font-face {{ font-family: "{f}"; src: url("fonts/{FONT_FILES[f][0]}") format("woff2"); '
         f"font-weight: {FONT_FILES[f][1]}; }}"
-        for f in dict.fromkeys([body_font, code_font])
+        for f in dict.fromkeys([body_font, code_font, *font_families(doc)])
     )
     bw, cw = FONT_FILES[body_font][1], FONT_FILES[code_font][1]
     logo_img = f'<img class="logo" src="{logo_src}" alt="" />' if logo_src else ""
@@ -298,6 +314,7 @@ def compile_html(doc: dict) -> str:
             + (f'<p class="handle">{handle}</p>' if handle else "")
             + "</div>"
         )
+    motion_script = "\n      ".join(motion_js)
     mark = ""
     if watermark.get("enabled") and (logo_src or handle):
         vert, horiz = watermark.get("position", "top-right").split("-")
@@ -356,6 +373,7 @@ def compile_html(doc: dict) -> str:
       #mark {{ position: absolute; display: flex; align-items: center; gap: 14px; padding: 10px 18px; border-radius: 18px;
                 background: {rgba(bg, 0.72)}; }}
       #mark img {{ height: 84px; max-width: 260px; object-fit: contain; }}
+{motion.css(mctx) if motion_js else ""}
       #mark span {{ font: {bw} 34px/1 "{body_font}", sans-serif; color: {text}; text-shadow: {shadow}; }}
     </style>
   </head>
@@ -411,6 +429,7 @@ def compile_html(doc: dict) -> str:
         tl.fromTo("#outro-cta", {{ opacity: 0, y: 40 }}, {{ opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }}, {tail_at + 0.1});
         tl.fromTo("#outro .handle", {{ opacity: 0 }}, {{ opacity: 1, duration: 0.4 }}, {tail_at + 0.4});
       }}
+      {motion_script}
       tl.set({{}}, {{}}, {dur});
       window.__timelines = window.__timelines || {{}};
       window.__timelines["main"] = tl;
@@ -453,7 +472,7 @@ def brand_ink(hex_color: str) -> str:
 def write_project(doc: dict, project_dir: Path) -> Path:
     """index.html + the fonts it uses. The caller places the source media (and logo) at their asset `src`."""
     (project_dir / "fonts").mkdir(parents=True, exist_ok=True)
-    for family in dict.fromkeys(doc["brand"]["fonts"].values()):
+    for family in font_families(doc):
         name = FONT_FILES[family][0]
         shutil.copyfile(FONTS_DIR / name, project_dir / "fonts" / name)
     shutil.copyfile(GSAP_FILE, project_dir / GSAP_FILE.name)
