@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, BookA, CalendarDays, Palette, Server, Users } from "lucide-react";
 import { BackendBadge } from "@/components/app/backend-badge";
 import { PageHeader } from "@/components/app/page-header";
+import { VoiceProfiles } from "@/components/settings/voice-profiles";
 import { requireOrg } from "@/lib/supabase/server";
 
 export default async function SettingsPage() {
@@ -35,6 +36,7 @@ export default async function SettingsPage() {
         <h2 className="flex items-center gap-2 text-[15px] font-semibold"><Users size={17} className="text-accent" aria-hidden /> Members</h2>
         {error ? <p className="mt-3 text-[13px] text-danger">Members could not load.</p> : <ul className="mt-3 divide-y divide-line">{members?.map((m) => <li key={m.user_id} className="flex items-center justify-between py-3 text-[13.5px]"><span>{m.user_id === userId ? `${email} (you)` : `Member ${m.user_id.slice(0, 8)}`}</span><span className="studio-pill capitalize">{m.role}</span></li>)}</ul>}
       </section>
+      {org.role !== "viewer" && <VoiceProfiles orgId={org.id} />}
       <div className="grid gap-4 md:grid-cols-3">{links.map(({ href, icon: Icon, title, body }) => <Link key={href} href={href} className="studio-panel group p-5 transition-colors hover:border-accent"><Icon size={20} className="text-accent" aria-hidden /><h3 className="mt-4 flex items-center justify-between text-[14px] font-semibold">{title}<ArrowRight size={15} className="text-muted transition-transform group-hover:translate-x-1" aria-hidden /></h3><p className="mt-1 text-[12.5px] leading-5 text-muted">{body}</p></Link>)}</div>
     </div>
   );

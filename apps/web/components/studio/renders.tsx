@@ -5,6 +5,7 @@ import { Clapperboard, Download, Film } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { apiFetch, useBackend } from "@/lib/backend";
+import { CaptionPicker, type CaptionChoice } from "./caption-picker";
 import { StylePicker, type StylePreset } from "./style-picker";
 import { createClient } from "@/lib/supabase/client";
 
@@ -43,6 +44,8 @@ export function Renders({ highlightId, projectId, selected, canEdit, onSelect }:
   const backend = useBackend();
   const base = backend.data?.state === "online" ? backend.data.url : null;
   const [quality, setQuality] = useState<keyof typeof QUALITY>("looks");
+  // "" = the brand kit's caption look; otherwise one of the 100 presets
+  const [caption, setCaption] = useState<CaptionChoice>({ on: true, preset: "", overrides: {} });
   const [style, setStyle] = useState<StylePreset>("focus");
   const [kitChoice, setKitChoice] = useState<string>(""); // "" = organisation default, "none" = no branding
   const kits = useQuery({
@@ -106,7 +109,7 @@ export function Renders({ highlightId, projectId, selected, canEdit, onSelect }:
     const r = await apiFetch(base, `/highlights/${highlightId}/render`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ quality, brand_kit_id: kitChoice || null, style }),
+      body: JSON.stringify({ quality, brand_kit_id: kitChoice || null, style, captions: caption.on, caption_preset: caption.preset || null, caption_overrides: caption.overrides }),
     });
     if (!r.ok) setError((await r.json()).detail ?? `Render refused (${r.status})`);
     qc.invalidateQueries({ queryKey: key });
@@ -152,6 +155,7 @@ export function Renders({ highlightId, projectId, selected, canEdit, onSelect }:
         )}
       </div>
       {canEdit && <StylePicker value={style} onChange={setStyle} name="render-style" />}
+      {canEdit && <CaptionPicker value={caption} onChange={setCaption} />}
       {!selected && <p className="text-[13px] text-muted">{onSelect ? "Create reel selects this highlight and renders it with the brand, quality and style above." : "Select this highlight to render it."}</p>}
       {selected && !base && <p className="text-[13px] text-muted">Rendering needs the processing backend online.</p>}
       {error && <p className="text-[13px] text-danger">{error}</p>}

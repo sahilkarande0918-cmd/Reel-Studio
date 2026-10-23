@@ -22,6 +22,8 @@ from app.workers.jobs import Cancelled, JobContext, Permanent
 from app.workers.publish import run_insights, run_publish
 from app.workers.render import run_render
 from app.workers.transcribe import run_transcribe
+from app.workers.voice import run_voice_preview
+from app.workers.campaign import run_campaign
 
 log = logging.getLogger("worker")
 HANDLERS = {
@@ -33,6 +35,8 @@ HANDLERS = {
     "generate": run_generate,
     "ingest": run_ingest,
     "edit": run_edit,
+    "voice_preview": run_voice_preview,
+    "campaign": run_campaign,
 }
 WORKER_ID = f"{socket.gethostname()}-{int(time.time())}"
 POLL_S = 2

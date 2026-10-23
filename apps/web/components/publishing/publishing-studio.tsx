@@ -2,7 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, ExternalLink, Film, LoaderCircle, RefreshCw, Send, X } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useBackend } from "@/lib/backend";
 import { accountReady, platformName, socialRequest, type PublishExport, type PublishJob, type SocialAccount, type SocialConfig } from "@/lib/social";
 import { AccountConnections } from "./account-connections";
@@ -34,6 +34,9 @@ export function PublishingStudio({ organizationId, canEdit }: { organizationId: 
   const [accountId, setAccountId] = useState("");
   const [caption, setCaption] = useState("");
   const [tags, setTags] = useState("");
+  const [coverMs, setCoverMs] = useState<number | null>(null);
+  const [suggestNote, setSuggestNote] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const tagLine = tags.split(/[\s,]+/).filter(Boolean).map((t) => "#" + t.replace(/^#+/, "").replace(/[^\p{L}\p{N}_]/gu, "")).filter((t) => t.length > 1).join(" ");
   const fullCaption = [caption.trim(), tagLine].filter(Boolean).join("\n\n");
   const [timing, setTiming] = useState("now");
@@ -73,12 +76,23 @@ export function PublishingStudio({ organizationId, canEdit }: { organizationId: 
     }
     setBusy("publish");
     try {
-      const result = await socialRequest<PublishJob>(base, "/publishing", { render_id: renderId, account_id: accountId, caption: fullCaption, scheduled_at: scheduled });
+      const result = await socialRequest<PublishJob>(base, "/publishing", { render_id: renderId, account_id: accountId, caption: fullCaption, scheduled_at: scheduled, cover_ms: coverMs });
       setNotice(result.status === "published" ? "This export has already been published to this account. Its status is shown below." : scheduled ? "Post scheduled. Keep the processing machine running when it is due." : "Post saved in the queue. Follow its actual status below.");
       setDay(""); setStatusFilter("all");
       await qc.invalidateQueries({ queryKey: ["publishing", organizationId] });
     } catch (e) { setError(e instanceof Error ? e.message : "The post could not be queued."); }
     finally { setBusy(null); }
+  }
+  async function suggestCaption() {
+    if (!base || !renderId) return;
+    try {
+      const s = await socialRequest<{ source: string; caption: string; hashtags: string[]; link_slugs: string[] }>(base, `/publishing/suggest?render_id=${renderId}`);
+      if (s.caption) setCaption(s.caption);
+      if (s.hashtags.length) setTags(s.hashtags.join(" "));
+      const links = s.link_slugs.map((x) => `${window.location.origin}/r/${x}`).join("  ");
+      setSuggestNote(s.source === "none" ? "Nothing is known about this export yet; write the caption yourself." :
+        `Suggested from the ${s.source === "campaign" ? "campaign plan" : s.source === "director" ? "AI director's on-screen lines" : "highlight"}. Review it before posting.${links ? ` Tracked link for your bio: ${links}` : ""}`);
+    } catch (e) { setSuggestNote(e instanceof Error ? e.message : "No suggestion available."); }
   }
   async function changeJob(id: string, action: "retry" | "cancel") {
     if (!base || !canEdit || busy) return;
@@ -105,6 +119,7 @@ export function PublishingStudio({ organizationId, canEdit }: { organizationId: 
           </div>
           {exports.data?.length === 0 && <p className="text-[12px] text-muted">No finished exports yet. Render a video in a project first.</p>}
           {!readyAccounts.length && accounts.data && <p className="text-[12px] text-muted">Connect an account above before publishing.</p>}
+          <div className="flex flex-wrap items-center gap-3"><button type="button" onClick={suggestCaption} disabled={!selected} className="studio-button-secondary rounded-xl px-3 py-2 text-[12px] font-semibold">Suggest caption & hashtags</button>{suggestNote && <span className="text-[11px] text-muted">{suggestNote}</span>}</div>
           <label className="studio-label">Caption<textarea value={caption} onChange={(e) => setCaption(e.target.value)} maxLength={2200} rows={5} placeholder="Introduce the lesson, add context, and tell your audience what to try next." className="studio-input resize-y !leading-7" /></label>
           <label className="studio-label">Hashtags<input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="python coding learntocode" className="studio-input" /><span className={`text-right text-[10px] font-normal tabular-nums ${fullCaption.length > 2200 ? "text-danger" : ""}`}>{tagLine && <span className="float-left text-accent">{tagLine}</span>}{fullCaption.length} / 2,200 · Instagram allows up to 30 hashtags</span></label>
           <fieldset><legend className="mb-2 text-[12px] font-semibold text-muted">When should it publish?</legend><div className="flex flex-wrap gap-4 text-[13px]"><label className="flex items-center gap-2"><input type="radio" name="timing" value="now" checked={timing === "now"} onChange={() => setTiming("now")} className="accent-[var(--accent)]" />Publish now</label><label className="flex items-center gap-2"><input type="radio" name="timing" value="later" checked={timing === "later"} onChange={() => setTiming("later")} className="accent-[var(--accent)]" />Schedule for later</label></div></fieldset>
@@ -114,7 +129,9 @@ export function PublishingStudio({ organizationId, canEdit }: { organizationId: 
         {existing && <p className="mt-3 text-[12px] leading-6 text-muted">This export already has a {LABELS[existing.status]?.toLowerCase() || existing.status} post for this account. Manage it in the queue below.</p>}
         {exports.error && <p role="alert" className="mt-3 text-[13px] text-danger">Exports could not load: {exports.error.message}</p>}
       </form>
-      <section className="studio-panel overflow-hidden"><h2 className="border-b border-line px-5 py-4 text-[14px] font-semibold">Export preview</h2><div className="p-5">{preview.data ? <video key={renderId} src={preview.data.video} poster={preview.data.thumb} controls playsInline preload="metadata" className="aspect-[9/16] w-full rounded-xl bg-[var(--canvas)]" /> : <div className="flex aspect-[9/16] flex-col items-center justify-center gap-4 rounded-xl bg-surface-2 p-5 text-center"><Film size={30} strokeWidth={1.3} className="text-accent" aria-hidden /><p className="text-[12px] leading-6 text-muted">{preview.error ? "The preview could not load." : selected ? "Loading the actual export…" : "Choose an export to review the video here."}</p></div>}{selected && <p className="mt-4 text-[12px] text-muted">{exportName(selected)}{selected.duration_s ? ` · ${selected.duration_s.toFixed(1)} seconds` : ""}</p>}{preview.error && <p role="alert" className="mt-3 text-[12px] text-danger">{preview.error.message}</p>}</div></section>
+      <section className="studio-panel overflow-hidden"><h2 className="border-b border-line px-5 py-4 text-[14px] font-semibold">Export preview</h2><div className="p-5">{preview.data ? <><video ref={videoRef} key={renderId} src={preview.data.video} poster={preview.data.thumb} controls playsInline preload="metadata" className="aspect-[9/16] w-full rounded-xl bg-[var(--canvas)]" />
+          {canEdit && <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px]"><button type="button" className="studio-button-secondary rounded-lg px-3 py-1.5 font-semibold" onClick={() => setCoverMs(Math.round((videoRef.current?.currentTime ?? 0) * 1000))}>Use this frame as the cover</button>
+            <span className="text-muted">{coverMs === null ? "Cover: Instagram's default frame" : `Cover: ${(coverMs / 1000).toFixed(2)} s`}</span>{coverMs !== null && <button type="button" className="text-muted hover:text-ink" onClick={() => setCoverMs(null)}>Reset</button>}</div>}</> : <div className="flex aspect-[9/16] flex-col items-center justify-center gap-4 rounded-xl bg-surface-2 p-5 text-center"><Film size={30} strokeWidth={1.3} className="text-accent" aria-hidden /><p className="text-[12px] leading-6 text-muted">{preview.error ? "The preview could not load." : selected ? "Loading the actual export…" : "Choose an export to review the video here."}</p></div>}{selected && <p className="mt-4 text-[12px] text-muted">{exportName(selected)}{selected.duration_s ? ` · ${selected.duration_s.toFixed(1)} seconds` : ""}</p>}{preview.error && <p role="alert" className="mt-3 text-[12px] text-danger">{preview.error.message}</p>}</div></section>
     </div>
     {error && <p role="alert" className="rounded-lg border border-danger/30 bg-surface p-4 text-[13px] text-danger">{error}</p>}
     {notice && <p role="status" className="flex items-start gap-2 rounded-lg border border-line bg-surface p-4 text-[13px] text-accent"><Check size={16} className="mt-0.5 shrink-0" aria-hidden />{notice}</p>}

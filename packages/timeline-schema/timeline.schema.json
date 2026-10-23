@@ -766,6 +766,10 @@
     "captionStyle": {
       "type": "object",
       "properties": {
+        "enabled": {
+          "default": true,
+          "type": "boolean"
+        },
         "preset": {
           "default": "highlight-word",
           "type": "string",
@@ -773,6 +777,136 @@
             "highlight-word",
             "karaoke",
             "boxed"
+          ]
+        },
+        "look": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-z0-9-]{2,40}$"
+            },
+            "font": {
+              "type": "string",
+              "enum": [
+                "Archivo",
+                "Poppins",
+                "Noto Sans",
+                "Fraunces",
+                "Bebas Neue",
+                "Caveat",
+                "Press Start 2P",
+                "JetBrains Mono",
+                "Fira Code"
+              ]
+            },
+            "uppercase": {
+              "default": false,
+              "type": "boolean"
+            },
+            "italic": {
+              "default": false,
+              "type": "boolean"
+            },
+            "sizeScale": {
+              "default": 1,
+              "type": "number",
+              "minimum": 0.5,
+              "maximum": 1.8
+            },
+            "tracking": {
+              "default": 0,
+              "type": "number",
+              "minimum": -0.05,
+              "maximum": 0.3
+            },
+            "color": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "active": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "chip": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "stroke": {
+              "default": 0,
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10
+            },
+            "strokeColor": {
+              "default": "#000000",
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "shadow": {
+              "default": "soft",
+              "type": "string",
+              "enum": [
+                "none",
+                "soft",
+                "hard",
+                "long"
+              ]
+            },
+            "glow": {
+              "default": 0,
+              "type": "number",
+              "minimum": 0,
+              "maximum": 40
+            },
+            "highlight": {
+              "default": "fill",
+              "type": "string",
+              "enum": [
+                "fill",
+                "chip",
+                "karaoke",
+                "underline",
+                "scale",
+                "none"
+              ]
+            },
+            "entrance": {
+              "default": "none",
+              "type": "string",
+              "enum": [
+                "none",
+                "pop",
+                "bounce",
+                "slide",
+                "fade",
+                "blur",
+                "drop",
+                "swing",
+                "typewriter",
+                "wave",
+                "zoom"
+              ]
+            },
+            "box": {
+              "default": false,
+              "type": "boolean"
+            },
+            "position": {
+              "default": "lower",
+              "type": "string",
+              "enum": [
+                "lower",
+                "middle",
+                "upper"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "font",
+            "color",
+            "active"
           ]
         },
         "fontSize": {

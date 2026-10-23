@@ -156,9 +156,9 @@ def render_segment(s: Segment, out: Path, w: int, h: int, fps: int, quality: str
             src = "[cat]"
         rev = ",reverse" if s.reverse else ""
         hold = f",tpad=stop_mode=clone:stop_duration={s.freeze_tail:.3f}" if s.freeze_tail else ""
-        # trim+fps rounding can leave the range one frame short at either end of the source; two cloned spare frames
-        # make the exact trim below always satisfiable (a held last frame is invisible at 1/30 s)
-        chains.append(f"{src}{frame}{rev}{hold},tpad=stop_mode=clone:stop=2,trim=end_frame={total},setpts=PTS-STARTPTS[base]")
+        # trim+fps rounding (and ramps ending at the very end of a short clip) can leave the range a few frames short; up to
+        # 1 s of cloned spare frames makes the exact trim below always satisfiable (a held last frame for a few frames)
+        chains.append(f"{src}{frame}{rev}{hold},tpad=stop_mode=clone:stop_duration=1,trim=end_frame={total},setpts=PTS-STARTPTS[base]")
         graph = ";".join(chains)
     chain = _effects_chain(s, w, h)
     graph += f";[base]{chain},setsar=1,format=yuv420p[v]" if chain else ";[base]setsar=1,format=yuv420p[v]"

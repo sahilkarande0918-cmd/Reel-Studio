@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { apiErrorMessage, apiFetch, useBackend } from "@/lib/backend";
 import { createClient } from "@/lib/supabase/client";
+import { CaptionPicker, type CaptionChoice } from "./caption-picker";
 import { MediaBin, useAssets } from "./media-bin";
 
 type Segment = { clip: number; slot: [number, number]; effects: [string, Record<string, number>][]; transition_out: string; reuse: Record<string, number> };
@@ -59,29 +60,25 @@ function useGenerations(projectId: string) {
   });
 }
 
-export function EditStudio({ projectId, canEdit }: { projectId: string; canEdit: boolean }) {
+export function EditStudio({ projectId, canEdit, idea }: { projectId: string; canEdit: boolean; idea?: { prompt: string; style: string; duration: number } }) {
   const backend = useBackend();
   const base = backend.data?.state === "online" ? backend.data.url : null;
   const qc = useQueryClient();
   const assets = useAssets(projectId);
   const gens = useGenerations(projectId);
-  const [prompt, setPrompt] = useState("");
-  const [duration, setDuration] = useState(15);
+  const [prompt, setPrompt] = useState(idea?.prompt ?? "");
+  const [duration, setDuration] = useState([10, 15, 20, 30, 45, 60].reduce((a, b) => (Math.abs(b - (idea?.duration ?? 15)) < Math.abs(a - (idea?.duration ?? 15)) ? b : a)));
   const [aspect, setAspect] = useState("9:16");
-  const [style, setStyle] = useState("auto");
+  const [style, setStyle] = useState(idea?.style ?? "auto");
   const [music, setMusic] = useState<"upload" | "score" | "none">("upload");
   const [useReference, setUseReference] = useState(true);
-  const [captions, setCaptions] = useState(false);
-  const [preset, setPreset] = useState("creator-pop");
+  const [caption, setCaption] = useState<CaptionChoice>({ on: false, preset: "creator-pop", overrides: {} });
   const [voice, setVoice] = useState("none");
   const [narration, setNarration] = useState("");
+  const [language, setLanguage] = useState("en");
   const [quality, setQuality] = useState("looks");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const presets = useQuery({
-    queryKey: ["caption-presets", base], enabled: !!base, staleTime: 3600_000,
-    queryFn: async () => { const r = await apiFetch(base!, "/captions/presets"); if (!r.ok) return [] as { id: string; name: string; family: string }[]; return (await r.json()) as { id: string; name: string; family: string }[]; },
-  });
   const voices = useQuery({
     queryKey: ["voices", base], enabled: !!base, staleTime: 60_000,
     queryFn: async () => { const r = await apiFetch(base!, "/voices"); if (!r.ok) return [] as { id: string; label: string }[]; return (await r.json()) as { id: string; label: string }[]; },
@@ -100,7 +97,7 @@ export function EditStudio({ projectId, canEdit }: { projectId: string; canEdit:
       const r = await apiFetch(base, `/projects/${projectId}/edit`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: prompt.trim() || "Edit it professionally", duration_s: duration, aspect, style, music: hasMusic ? music : music === "upload" ? "score" : music,
-          use_reference: useReference, captions, caption_preset: preset, voice, narration: narration.trim() || null, quality }),
+          use_reference: useReference, captions: caption.on, caption_preset: caption.preset, caption_overrides: caption.overrides, voice, narration: narration.trim() || null, language, quality }),
       });
       if (!r.ok) throw new Error(apiErrorMessage(await r.json().catch(() => null), r.status));
       qc.invalidateQueries({ queryKey: ["edits", projectId] });
@@ -125,13 +122,11 @@ export function EditStudio({ projectId, canEdit }: { projectId: string; canEdit:
           <label className="studio-label">Narration voice<select className="studio-input" value={voice} onChange={(e) => setVoice(e.target.value)}>
             <option value="none">No narration</option>
             {(voices.data ?? [{ id: "kokoro:af_heart", label: "Heart (built-in)" }, { id: "kokoro:af_bella", label: "Bella (built-in)" }, { id: "kokoro:am_adam", label: "Adam (built-in)" }]).map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}</select></label>
-          <label className="studio-label">Captions<select className="studio-input" value={captions ? "on" : "off"} onChange={(e) => setCaptions(e.target.value === "on")}><option value="off">Off (nothing burned in)</option><option value="on">On</option></select></label>
-          {captions && <label className="studio-label">Caption style<select className="studio-input" value={preset} onChange={(e) => setPreset(e.target.value)}>
-            {(presets.data?.length ? presets.data : [{ id: "creator-pop", name: "Creator pop", family: "Creator" }]).map((p) => <option key={p.id} value={p.id}>{p.family} · {p.name}</option>)}</select></label>}
           <label className="studio-label">Quality<select className="studio-input" value={quality} onChange={(e) => setQuality(e.target.value)}><option value="draft">Draft (fast)</option><option value="looks">Standard</option><option value="delivery">Delivery (best)</option></select></label>
         </div>
+        {voice !== "none" && <label className="studio-label">Narration language<select className="studio-input" value={language} onChange={(e) => setLanguage(e.target.value)}><option value="en">English</option><option value="hi">Hindi</option><option value="hinglish">Hinglish</option></select></label>}
         {voice !== "none" && <label className="studio-label">Narration script (optional — the director writes one if empty)<textarea className="studio-input resize-none" rows={2} maxLength={1500} value={narration} onChange={(e) => setNarration(e.target.value)} /></label>}
-        {captions && voice === "none" && <p className="text-[12px] text-muted">Captions follow spoken words, so they need narration. Without a voice, the director adds short on-screen text instead.</p>}
+        <CaptionPicker value={caption} onChange={setCaption} needsSpeech={voice === "none" ? "Captions follow spoken words: choose a narration voice above, otherwise only the director's short on-screen text appears." : undefined} />
         {hasReference && <label className="flex items-center gap-2 text-[13px]"><input type="checkbox" checked={useReference} onChange={(e) => setUseReference(e.target.checked)} />Follow the reference reel&apos;s editing rhythm and transitions (never its footage, music or branding)</label>}
         <div className="flex flex-wrap items-center gap-3">
           <button type="button" className="studio-button !px-5 !py-3" disabled={!base || !hasClips || busy || !!active} onClick={generate}>

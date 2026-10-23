@@ -132,8 +132,33 @@ export const Brand = z.object({
     .default({ enabled: false, duration: 3, cta: "" }),
 });
 
+/** Display/caption fonts bundled with the renderer (SIL OFL) beyond the brand body fonts. */
+export const CAPTION_FONTS = [...BODY_FONTS, "Fraunces", "Bebas Neue", "Caveat", "Press Start 2P", ...CODE_FONTS] as const;
+
+/** A caption preset's full look (one of the 100 presets in apps/api/app/services/rendering/caption_presets.py,
+ * optionally customised). Rendered by the same compiler as everything else, so preview and export match. */
+export const CaptionLook = z.object({
+  id: z.string().regex(/^[a-z0-9-]{2,40}$/),
+  font: z.enum(CAPTION_FONTS),
+  uppercase: z.boolean().default(false),
+  italic: z.boolean().default(false),
+  sizeScale: z.number().min(0.5).max(1.8).default(1),
+  tracking: z.number().min(-0.05).max(0.3).default(0),
+  color: color, active: color, chip: color.optional(),
+  stroke: z.number().min(0).max(10).default(0), strokeColor: color.default("#000000"),
+  shadow: z.enum(["none", "soft", "hard", "long"]).default("soft"),
+  glow: z.number().min(0).max(40).default(0),
+  highlight: z.enum(["fill", "chip", "karaoke", "underline", "scale", "none"]).default("fill"),
+  entrance: z.enum(["none", "pop", "bounce", "slide", "fade", "blur", "drop", "swing", "typewriter", "wave", "zoom"]).default("none"),
+  box: z.boolean().default(false),
+  position: z.enum(["lower", "middle", "upper"]).default("lower"),
+});
+
 export const CaptionStyle = z.object({
+  /** Captions OFF: nothing is burned in; caption items and transcript data are kept. */
+  enabled: z.boolean().default(true),
   preset: z.enum(["highlight-word", "karaoke", "boxed"]).default("highlight-word"),
+  look: CaptionLook.optional(),
   fontSize: z.number().int().min(24).max(120).default(64),
   maxCharsPerLine: z.number().int().min(10).max(60).default(32),
   maxLines: z.number().int().min(1).max(3).default(2),

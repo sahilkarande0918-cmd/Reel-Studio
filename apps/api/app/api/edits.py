@@ -12,6 +12,7 @@ from app.core.access import get_owned
 from app.core.auth import User, current_user
 from app.core.db import service_client
 from app.services.editing.pacing import PROFILES
+from app.services.rendering import caption_presets
 
 router = APIRouter()
 Style = Literal["auto", *PROFILES.keys()]  # type: ignore[valid-type]
@@ -27,9 +28,11 @@ class EditRequest(BaseModel):
     use_reference: bool = True
     captions: bool = False
     caption_preset: str = Field(default="creator-pop", pattern=r"^[a-z0-9-]{2,40}$")
+    caption_overrides: caption_presets.Overrides = Field(default_factory=caption_presets.Overrides)
     # "none", "kokoro" (built-in local voice) or a saved voice profile id
     voice: str = Field(default="none", max_length=64)
     narration: str | None = Field(default=None, max_length=1500)
+    language: Literal["en", "hi", "hinglish"] = "en"
     quality: Literal["draft", "looks", "delivery"] = "looks"
     brand_kit_id: str | None = None
 

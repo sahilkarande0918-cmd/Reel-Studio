@@ -84,7 +84,7 @@ def render(scene: Scene3D, work: Path, out_mp4: Path, image: Path | None = None,
         raise RuntimeError(f"Blender did not finish within {timeout_s} s")
     info = json.loads((work / "done.json").read_text())
     r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-framerate", str(scene.fps), "-i", str(work / "f_%04d.png"),
-                        "-c:v", "libx264", "-preset", "veryfast", "-crf", "16", "-pix_fmt", "yuv420p", str(out_mp4)],
+                        "-c:v", "libx264", "-preset", "veryfast", "-crf", "16", "-g", str(scene.fps), "-pix_fmt", "yuv420p", str(out_mp4)],
                        capture_output=True, text=True, timeout=600)
     if r.returncode:
         raise RuntimeError(r.stderr[-800:])

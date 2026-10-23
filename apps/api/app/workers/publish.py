@@ -104,7 +104,7 @@ def run_publish(ctx: JobContext) -> dict:
                 "Public media URL is unreachable from this machine; verify HTTPS tunnel access"
             ) from None
         ctx.stage("instagram_container", 0.15, "Uploading the Reel to Instagram processing")
-        container = adapter.create_reel(account["platform_user_id"], video_url, row["caption"])
+        container = adapter.create_reel(account["platform_user_id"], video_url, row["caption"], row.get("cover_ms"))
         _update(pid, container_id=container)
     ctx.stage("instagram_processing", 0.35, "Waiting for Instagram to process the video")
     for attempt in range(80):  # ~6 min: quick checks first (most Reels finish in under a minute), then every 6 s

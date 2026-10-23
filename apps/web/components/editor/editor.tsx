@@ -10,6 +10,7 @@ import { apiErrorMessage, apiFetch, useBackend } from "@/lib/backend";
 import { friendlyError } from "@/lib/friendly-error";
 import { createClient } from "@/lib/supabase/client";
 import { StylePicker, type StylePreset } from "@/components/studio/style-picker";
+import type { Preset } from "@/components/studio/caption-picker";
 import { ItemProperties, Num, Section } from "./properties";
 import { fmt, TimelinePanel } from "./timeline-panel";
 import { usePreview } from "./use-preview";
@@ -28,6 +29,10 @@ export function Editor({ renderId, projectId, orgId, projectName, initial, draft
   const [zoom, setZoom] = useState(28);
   const [tab, setTab] = useState<"media" | "text" | "captions" | "brand">("media");
   const [saved, setSaved] = useState<string>(draft ? "Draft restored" : "All changes saved");
+  const capPresets = useQuery({
+    queryKey: ["caption-presets", base], enabled: !!base, staleTime: 3600_000,
+    queryFn: async () => { const r = await apiFetch(base!, "/captions/presets"); return r.ok ? ((await r.json()) as Preset[]) : []; },
+  });
   const [message, setMessage] = useState<string | null>(null);
   const frame = useRef<HTMLIFrameElement>(null);
   const stage = useRef<HTMLDivElement>(null);
@@ -217,7 +222,18 @@ export function Editor({ renderId, projectId, orgId, projectName, initial, draft
         </> : <fieldset disabled={!canEdit}>
           <Section title="Style"><StylePicker value={(doc.stylePreset ?? "focus") as StylePreset} onChange={(v) => setDoc({ stylePreset: v })} name="editor-style" compact /></Section>
           <Section title="Captions">
-            <label className="studio-label">Caption look<select className="studio-input !py-2" value={doc.captionStyle.preset} onChange={(e) => setDoc({ captionStyle: { ...h.doc.captionStyle, preset: e.target.value as Composition["captionStyle"]["preset"] } })}><option value="highlight-word">Highlight word</option><option value="karaoke">Karaoke</option><option value="boxed">Boxed</option></select></label>
+            <label className="flex items-center gap-2 text-[12px]"><input type="checkbox" checked={doc.captionStyle.enabled !== false} onChange={(e) => setDoc({ captionStyle: { ...h.doc.captionStyle, enabled: e.target.checked } })} />Burn captions into the video</label>
+            <label className="studio-label">Caption look<select className="studio-input !py-2" value={doc.captionStyle.look?.id ?? doc.captionStyle.preset} onChange={(e) => {
+              const p = capPresets.data?.find((x) => x.id === e.target.value);
+              if (!p) return setDoc({ captionStyle: { ...h.doc.captionStyle, look: undefined, preset: e.target.value as Composition["captionStyle"]["preset"] } });
+              const c = h.doc.brand.colors, tok = (v?: string) => (v === "accent" ? c.accent : v === "text" ? c.text : v === "bg" ? c.background : v);
+              const look = { ...p.look, color: tok(p.look.color)!, active: tok(p.look.active)!, ...(p.look.chip ? { chip: tok(p.look.chip) } : {}), ...(p.look.strokeColor ? { strokeColor: tok(p.look.strokeColor) } : {}) };
+              const [safeTop, safeBottom] = look.position === "upper" ? [260, 560] : look.position === "middle" ? [810, 1110] : [1350, 1650];
+              setDoc({ captionStyle: { ...h.doc.captionStyle, enabled: true, look: look as Composition["captionStyle"]["look"], preset: look.box ? "boxed" : look.highlight === "karaoke" ? "karaoke" : "highlight-word", safeTop, safeBottom } });
+            }}>
+              <optgroup label="Classic"><option value="highlight-word">Highlight word</option><option value="karaoke">Karaoke</option><option value="boxed">Boxed</option></optgroup>
+              {[...new Set((capPresets.data ?? []).map((p) => p.family))].map((f) => <optgroup key={f} label={f}>{capPresets.data!.filter((p) => p.family === f).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</optgroup>)}
+            </select></label>
             <div className="grid grid-cols-2 gap-3">
               <Num label="Font size" step={2} min={24} max={120} value={doc.captionStyle.fontSize} onChange={(v) => setDoc({ captionStyle: { ...h.doc.captionStyle, fontSize: Math.round(Math.min(120, Math.max(24, v))) } }, "cfs")} />
               <Num label="Chars per line" step={1} min={10} max={60} value={doc.captionStyle.maxCharsPerLine} onChange={(v) => setDoc({ captionStyle: { ...h.doc.captionStyle, maxCharsPerLine: Math.round(Math.min(60, Math.max(10, v))) } }, "ccl")} />

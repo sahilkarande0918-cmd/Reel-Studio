@@ -2,7 +2,8 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { SUPABASE_KEY, SUPABASE_URL } from "@/lib/supabase/env";
 
-const PUBLIC = ["/", "/login", "/signup", "/forgot-password", "/auth", "/privacy", "/terms"];
+// /r and /i are tracked CTA links and inquiry forms opened by the public (Reel viewers)
+const PUBLIC = ["/", "/login", "/signup", "/forgot-password", "/auth", "/privacy", "/terms", "/r", "/i"];
 
 /** Refreshes the Supabase session cookie on every navigation and bounces signed-out users from app routes. */
 export async function proxy(request: NextRequest) {

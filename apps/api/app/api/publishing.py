@@ -16,6 +16,7 @@ class PublishBody(BaseModel):
     account_id: UUID
     caption: str = Field(default="", max_length=2200)
     scheduled_at: datetime | None = None
+    cover_ms: int | None = Field(default=None, ge=0, le=900_000)
 
     @field_validator("scheduled_at")
     @classmethod
@@ -79,9 +80,11 @@ def schedule(body: PublishBody, user: User = Depends(current_user)) -> dict:
     when = body.scheduled_at or datetime.now(UTC)
     if body.scheduled_at and when < datetime.now(UTC):
         raise HTTPException(422, "Choose a future schedule time")
-    return (
-        service_client()
-        .rpc(
+    if body.cover_ms is not None and render.get("duration_s") and body.cover_ms > render["duration_s"] * 1000:
+        raise HTTPException(422, "The cover frame must be inside the video")
+    db = service_client()
+    result = (
+        db.rpc(
             "enqueue_publication",
             {
                 "p_render": str(body.render_id),
@@ -94,6 +97,35 @@ def schedule(body: PublishBody, user: User = Depends(current_user)) -> dict:
         .execute()
         .data
     )
+    proj = db.table("projects").select("campaign_id").eq("id", render["project_id"]).limit(1).execute().data
+    pid = result.get("id") or result.get("publish_id")
+    if pid:  # cover and campaign only on a post this request created (a duplicate keeps what it had)
+        db.table("publish_jobs").update({"cover_ms": body.cover_ms, "campaign_id": (proj or [{}])[0].get("campaign_id")})             .eq("id", pid).eq("status", "scheduled").execute()
+    return result
+
+
+@router.get("/publishing/suggest")
+def suggest(render_id: UUID, user: User = Depends(current_user)) -> dict:
+    """Caption + hashtag suggestion from what the system already knows about this video (never invented):
+    the campaign Reel it was made for, else the AI director's treatment and on-screen lines, else the highlight."""
+    r = get_owned("render_jobs", str(render_id), user)
+    db = service_client()
+    proj = (db.table("projects").select("name,campaign_id,campaign_reel").eq("id", r["project_id"]).limit(1).execute().data or [{}])[0]
+    if proj.get("campaign_id"):
+        c = (db.table("campaigns").select("plan,code").eq("id", proj["campaign_id"]).limit(1).execute().data or [{}])[0]
+        reel = next((x for x in ((c.get("plan") or {}).get("reels") or []) if x["key"] == proj.get("campaign_reel")), None)
+        if reel:
+            links = db.table("tracked_links").select("slug,kind").eq("campaign_id", proj["campaign_id"]).eq("reel_key", reel["key"]).execute().data
+            return {"source": "campaign", "caption": f"{reel['caption']}\n\n{reel['cta']} (link in bio)", "hashtags": reel["hashtags"],
+                    "link_slugs": [x["slug"] for x in links]}
+    edit = (db.table("edit_generations").select("director").eq("render_id", r["id"]).limit(1).execute().data or [{}])[0].get("director")
+    if edit:
+        lines = [t["text"] for t in edit.get("on_screen_text") or []]
+        return {"source": "director", "caption": " ".join(lines) or edit.get("treatment", ""), "hashtags": [], "link_slugs": []}
+    if r.get("highlight_id"):
+        h = (db.table("highlight_candidates").select("title,summary").eq("id", r["highlight_id"]).limit(1).execute().data or [{}])[0]
+        return {"source": "highlight", "caption": f"{h.get('title', '')}\n\n{h.get('summary', '')}".strip(), "hashtags": [], "link_slugs": []}
+    return {"source": "none", "caption": "", "hashtags": [], "link_slugs": []}
 
 
 @router.post("/publishing/{publish_id}/cancel")

@@ -6,7 +6,7 @@ import os
 import shutil
 from pathlib import Path
 
-from app.services.rendering import blender, motion
+from app.services.rendering import blender, caption_presets, motion
 from app.services.rendering import timeline as tl
 
 TEXT_ROLE = {  # (y as share of height, font size, seconds on screen)
@@ -62,7 +62,11 @@ def graphics(d, dur: float, clips: list[dict], chosen: list | None = None) -> li
     the model chose too few, a structure is added from what is known — the request's own on-screen lines and the
     uploaded media in mockups — never invented claims. `clips` are the media assets in director numbering (1-based)."""
     media = {n + 1: f"media-{n + 1}" for n in range(len(clips))}
-    chosen = list(d.graphics if chosen is None else chosen)
+    chosen = sorted(d.graphics if chosen is None else chosen, key=lambda g: g.at)
+    if d.style in DESIGNED and chosen:  # the director's scenes, each held until the next one starts (a designed ad
+        starts = [g.at * dur for g in chosen] + [dur]  # flows scene to scene instead of dropping back to footage)
+        chosen = [_G(g.template, g.at, min(8.0, max(1.5, starts[i + 1] - starts[i])), dict(g.fields or {}))
+                  for i, g in enumerate(chosen)]
     if d.style in DESIGNED and sum(g.duration_s for g in chosen) < 0.5 * dur:
         hook = next((t.text for t in d.on_screen_text if t.role == "hook"), "")
         points = [t.text for t in d.on_screen_text if t.role == "point"]
@@ -141,20 +145,13 @@ def timeline(rid: str, plan: dict, d, settings: dict, kit: dict | None, narratio
         words = [x for x in narration["words"] if x["end"] <= dur]
         tracks.append({"id": "captions", "kind": "caption", "items": [
             {"id": "captions", "type": "caption", "start": 0, "duration": dur, "words": words}]})
-    style = {**tl.CAPTION_STYLE, "preset": preset}
+    style = {**tl.CAPTION_STYLE, "preset": preset, "enabled": bool(settings.get("captions"))}
     if settings.get("captions"):
-        style = _caption_style(settings.get("caption_preset", ""), style, h)
+        over = {k: v for k, v in (settings.get("caption_overrides") or {}).items() if v is not None}
+        style = caption_presets.style_for(settings.get("caption_preset", ""), style, h, brand["colors"], over)
     return {
         "id": rid, "schemaVersion": 1, "title": d.treatment[:120], "fps": plan["fps"], "width": w, "height": h,
         "duration": dur, "assets": assets, "tracks": tracks, "brand": brand, "captionStyle": style,
         "stylePreset": "focus", "renderSettings": {"quality": settings.get("quality", "looks")},
     }
 
-
-def _caption_style(preset: str, style: dict, h: int) -> dict:
-    """Caption preset id → caption style (100-preset library in rendering/caption_presets.py when present)."""
-    try:
-        from app.services.rendering import caption_presets
-    except ImportError:
-        return {**style, "preset": preset if preset in ("highlight-word", "karaoke", "boxed") else "highlight-word"}
-    return caption_presets.style_for(preset, style, h)

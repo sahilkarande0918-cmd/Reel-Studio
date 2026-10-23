@@ -10,10 +10,17 @@ import { requireOrg } from "@/lib/supabase/server";
 export default async function ProjectPage({ params }: PageProps<"/projects/[id]">) {
   const { id } = await params;
   const { supabase, org } = await requireOrg();
-  const { data: project } = await supabase.from("projects").select("id, name, mode, status, organization_id").eq("id", id).maybeSingle();
+  const { data: project } = await supabase.from("projects").select("id, name, mode, status, organization_id, campaign_id, campaign_reel").eq("id", id).maybeSingle();
   if (!project || project.organization_id !== org.id) notFound();
   const topic = project.mode === "topic";
   const edit = project.mode === "edit";
+  // a project made from a campaign idea starts with that idea's direction filled in
+  let idea: { prompt: string; style: string; duration: number } | undefined;
+  if (project.campaign_id) {
+    const { data: c } = await supabase.from("campaigns").select("plan").eq("id", project.campaign_id).maybeSingle();
+    const r = (c?.plan as { reels?: { key: string; hook: string; script: string; cta: string; style: string; duration_s: number }[] } | null)?.reels?.find((x) => x.key === project.campaign_reel);
+    if (r) idea = { prompt: `${r.hook} ${r.script} End with: ${r.cta}`.slice(0, 2000), style: r.style, duration: r.duration_s };
+  }
   return (
     <div className="space-y-6">
       <div>
@@ -24,7 +31,7 @@ export default async function ProjectPage({ params }: PageProps<"/projects/[id]"
           <span className={`studio-pill ${statusTone(project.status)}`}>{project.status.replaceAll("_", " ")}</span>
         </div>
       </div>
-      {edit ? <EditStudio projectId={project.id} canEdit={org.role !== "viewer"} /> : topic ? <TopicStudio projectId={project.id} canEdit={org.role !== "viewer"} /> : <RecordingStudio projectId={project.id} canEdit={org.role !== "viewer"} />}
+      {edit ? <EditStudio projectId={project.id} canEdit={org.role !== "viewer"} idea={idea} /> : topic ? <TopicStudio projectId={project.id} canEdit={org.role !== "viewer"} /> : <RecordingStudio projectId={project.id} canEdit={org.role !== "viewer"} />}
     </div>
   );
 }

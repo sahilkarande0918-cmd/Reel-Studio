@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     director_api_key: SecretStr = SecretStr("")
     director_model: str = ""
     public_api_url: str = ""
+    site_url: str = "http://localhost:3000"  # the web app's public URL (tracked links, inquiry forms)
     whisper_model: str = "large-v3-turbo"  # or a path to a converted CTranslate2 model directory
     whisper_device: str = "cuda"
     whisper_compute_type: str = "float16"

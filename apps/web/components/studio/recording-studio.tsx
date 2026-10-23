@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useProjectJobs } from "@/lib/realtime";
 import { JobProgress } from "./job-progress";
+import { Collections } from "./collections";
 import { Highlights } from "./highlights";
 import { TranscriptView, loadWords } from "./transcript-view";
 import { Uploader } from "./uploader";
@@ -113,6 +114,7 @@ export function RecordingStudio({ projectId, canEdit }: { projectId: string; can
       )}
       {rec && tr && <section className="studio-panel p-5"><div className="mb-5"><p className="studio-eyebrow mb-2">The source material</p><h2 className="text-[20px] font-semibold tracking-[-.03em]">Recording & transcript</h2></div><TranscriptView recordingId={rec.id} transcriptId={tr.id} canEdit={canEdit} /></section>}
       {rec && tr && rec.width && rec.height && <section className="studio-panel p-5"><div className="mb-5"><p className="studio-eyebrow mb-2">The moments that matter</p><h2 className="text-[20px] font-semibold tracking-[-.03em]">Highlights & exports</h2><p className="mt-1 text-[12px] text-muted">Review the suggested clips, adjust framing, then render a reel.</p></div><Highlights recordingId={rec.id} projectId={projectId} srcW={rec.width} srcH={rec.height} canEdit={canEdit} words={words.data ?? []} /></section>}
+      {rec && tr && <Collections recordingId={rec.id} canEdit={canEdit} />}
     </div>
   );
 }

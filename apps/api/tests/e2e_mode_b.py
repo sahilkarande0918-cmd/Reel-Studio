@@ -36,7 +36,7 @@ def token() -> str:
 
 
 def rest(t: str, method: str, path: str, **kw):
-    r = httpx.request(method, f"{SB}/rest/v1/{path}", headers={"apikey": pk(), "Authorization": f"Bearer {t}", "Prefer": "return=representation"}, **kw)
+    r = httpx.request(method, f"{SB}/rest/v1/{path}", headers={"apikey": pk(), "Authorization": f"Bearer {t}", "Prefer": "return=representation"}, timeout=60, **kw)
     r.raise_for_status()
     return r.json()
 

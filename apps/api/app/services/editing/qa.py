@@ -97,8 +97,10 @@ def check(mp4: Path, plan: dict) -> dict:
         "cuts_on_frame": all(abs(c["frame_offset_ms"]) <= 1000 / fps + 1 for c in cuts),
         "cuts_on_beat": all(abs(c["beat_offset_ms"]) <= 1000 / fps / 2 + 1 for c in cuts + transitions),
         "transitions_visible": all(t["peak_change"] > 3 for t in transitions),
+        # planned darkness: ~3 frames per flash and the full overlap of each dip-to-black transition
         "no_unplanned_black": black
-        <= sum(1 for s in plan["segments"] for e in s["effects"] if e[0] == "flash") * 3,
+        <= sum(1 for s in plan["segments"] for e in s["effects"] if e[0] == "flash") * 3
+        + sum(round(s["transition_s"] * fps) for s in plan["segments"] if s["transition_out"] == "dip_black"),
         "no_frozen_seconds": frozen_runs == 0,
         "loudness_-14": abs(loud["integrated_lufs"] + 14) <= 1.0,
         "true_peak_<=-1": loud["true_peak_dbtp"] <= -1.0,

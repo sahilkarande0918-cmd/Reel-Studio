@@ -9,7 +9,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse, PlainTextResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.core import signing
 from app.core.access import get_owned
@@ -17,7 +17,7 @@ from app.core.auth import User, current_user
 from app.core.config import get_settings
 from app.core.db import service_client, transcript_words
 from app.core.storage import render_dir
-from app.services.rendering import captions, compose, timeline
+from app.services.rendering import caption_presets, captions, compose, timeline
 
 router = APIRouter()
 FILES = {"video": "output_path", "thumb": "thumbnail_path"}
@@ -28,6 +28,10 @@ class RenderRequest(BaseModel):
     # None → the organisation's default kit (if any); "none" → render without branding
     brand_kit_id: str | None = None
     style: Literal["focus", "energy", "story", "signature"] = "focus"
+    # Captions ON/OFF and one of the 100 presets (None = the brand kit's caption look)
+    captions: bool = True
+    caption_preset: str | None = Field(default=None, pattern=r"^[a-z0-9-]{2,40}$")
+    caption_overrides: caption_presets.Overrides = Field(default_factory=caption_presets.Overrides)
 
 
 def _brand_kit(org_id: str, kit_id: str | None) -> dict | None:
@@ -90,6 +94,11 @@ def render_highlight(highlight_id: str, body: RenderRequest, user: User = Depend
     h = get_owned("highlight_candidates", highlight_id, user, write=True)
     if h["status"] != "selected":
         raise HTTPException(409, "Select this highlight before rendering it")
+    return enqueue_highlight_render(h, body, user.id)
+
+
+def enqueue_highlight_render(h: dict, body: RenderRequest, user_id: str) -> dict:
+    """Build + validate the timeline now and queue (or reuse) a render. Shared by single reels and collections."""
     db = service_client()
     rec, words = _inputs(h)
     render_id = str(uuid.uuid4())
@@ -102,6 +111,11 @@ def render_highlight(highlight_id: str, body: RenderRequest, user: User = Depend
             raise HTTPException(422, f"Brand kit logo: {e}") from e
     doc = timeline.build(h, rec, words, render_id, body.quality, kit=kit, logo_src=logo[0] if logo else None)
     doc["stylePreset"] = body.style
+    if not body.captions:
+        doc["captionStyle"] = {**doc["captionStyle"], "enabled": False}
+    elif body.caption_preset:
+        doc["captionStyle"] = caption_presets.style_for(body.caption_preset, doc["captionStyle"], doc["height"],
+                                                        doc["brand"]["colors"], body.caption_overrides.model_dump(exclude_none=True))
     digest = timeline.timeline_hash(doc)
 
     previous = (
@@ -130,7 +144,7 @@ def render_highlight(highlight_id: str, body: RenderRequest, user: User = Depend
             "project_id": h["project_id"],
             "recording_id": rec["id"],
             "highlight_id": h["id"],
-            "created_by": user.id,
+            "created_by": user_id,
             "quality": body.quality,
             "timeline": doc,
             "timeline_hash": digest,
@@ -144,7 +158,7 @@ def render_highlight(highlight_id: str, body: RenderRequest, user: User = Depend
                 "project_id": h["project_id"],
                 "job_type": "render",
                 "payload": {"render_id": render_id},
-                "created_by": user.id,
+                "created_by": user_id,
                 "current_stage": "queued",
             }
         )
@@ -153,6 +167,12 @@ def render_highlight(highlight_id: str, body: RenderRequest, user: User = Depend
     )
     db.table("render_jobs").update({"job_id": job["id"]}).eq("id", render_id).execute()
     return {"render_id": render_id, "job_id": job["id"], "cached": False}
+
+
+@router.get("/captions/presets")
+def caption_preset_catalog() -> list[dict]:
+    """The 100 caption presets (public data: names and look definitions, no user content)."""
+    return caption_presets.catalog()
 
 
 @router.get("/renders/{render_id}/urls")

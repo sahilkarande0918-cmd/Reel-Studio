@@ -115,7 +115,9 @@ class Instagram:
         except httpx.HTTPError:
             raise RuntimeError("Instagram token renewal could not reach Meta") from None
 
-    def create_reel(self, user_id: str, video_url: str, caption: str) -> str:
+    def create_reel(self, user_id: str, video_url: str, caption: str, thumb_offset: int | None = None) -> str:
+        """thumb_offset: the cover frame, in milliseconds into the video (Graph API REELS parameter)."""
+        extra = {"thumb_offset": str(int(thumb_offset))} if thumb_offset is not None else {}
         return str(
             self.request(
                 "POST",
@@ -124,6 +126,7 @@ class Instagram:
                 video_url=video_url,
                 caption=caption,
                 share_to_feed="true",
+                **extra,
             )["id"]
         )
 

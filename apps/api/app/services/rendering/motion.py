@@ -74,8 +74,9 @@ class Scene:
                 {"opacity": 1, "scale": 1, "filter": "blur(0px)", "duration": 0.45}, 0)
         self.tw(self.sel(".mg-cam"), {"scale": 1, "rotateX": 0, "y": 0},
                 {"scale": 1 + 0.05 * self.k, "rotateX": 2 * self.k, "y": -20 * self.k, "duration": self.d, "ease": "none"}, 0)
-        out = max(self.d - 0.4, 0.5)
-        self.to(self.sel(), {"opacity": 0, "scale": 0.94, "filter": "blur(14px)", "duration": 0.38, "ease": "power2.in"}, out)
+        if self.s + self.d < self.ctx.get("dur", 1e9) - 0.05:  # the closing scene holds to the last frame
+            out = max(self.d - 0.4, 0.5)
+            self.to(self.sel(), {"opacity": 0, "scale": 0.94, "filter": "blur(14px)", "duration": 0.38, "ease": "power2.in"}, out)
         return (f'<div id="{self.p}" class="mg {kind} {extra_cls} clip" data-start="{self.s}" data-duration="{self.d}">'
                 f'{bg}<div class="mg-cam">{body}</div></div>')
 
@@ -155,7 +156,10 @@ def browser_mockup(sc: Scene) -> str:
             else f'<div class="mg-site"><h3>{head}</h3><p class="mg-skel"></p><p class="mg-skel s"></p><em>{btn}</em><div class="mg-tiles"><i></i><i></i><i></i></div></div>')
     sc.tw(sc.sel(".mg-browser"), {"opacity": 0, "y": 400 * sc.k, "rotateY": -28, "rotateX": 18},
           {"opacity": 1, "y": 0, "rotateY": -10, "rotateX": 6, "duration": 1.1, "ease": "expo.out"}, 0.1)
-    sc.tw(sc.sel(".mg-shot, .mg-site"), {"y": 0}, {"y": -220 * sc.k, "duration": max(sc.d - 1.2, 0.5), "ease": "sine.inOut"}, 1.0)
+    if sc.item.get("media"):  # a screenshot fills the window and drifts closer; a generated page scrolls
+        sc.tw(sc.sel(".mg-shot"), {"scale": 1}, {"scale": 1.12, "duration": max(sc.d - 1.0, 0.5), "ease": "sine.inOut"}, 1.0)
+    else:
+        sc.tw(sc.sel(".mg-site"), {"y": 0}, {"y": -220 * sc.k, "duration": max(sc.d - 1.2, 0.5), "ease": "sine.inOut"}, 1.0)
     sc.tw(sc.sel(".mg-sweep"), {"xPercent": -150}, {"xPercent": 250, "duration": 1.0, "ease": "power2.inOut"}, 0.9)
     return sc.wrap(SCENE, f'<h2 class="mg-h2">{_f(sc.item, "title")}</h2><div class="mg-browser"><div class="mg-bar"><i></i><i></i><i></i><span>{url}</span></div>'
                           f'<div class="mg-view">{page}</div><div class="mg-sweep"></div></div>')
@@ -372,7 +376,7 @@ def css(ctx: dict) -> str:
       .mg-bar i {{ width: 22px; height: 22px; border-radius: 50%; background: #d0d0d0; }} .mg-bar i:first-child {{ background: #ff6159; }} .mg-bar i:nth-child(2) {{ background: #ffbd2e; }} .mg-bar i:nth-child(3) {{ background: #28c941; }}
       .mg-bar span {{ margin-left: 18px; flex: 1; padding: 10px 24px; border-radius: 18px; background: #fff; font: 500 30px/1 "{body}", sans-serif; color: #555; }}
       .mg-view {{ position: absolute; top: 76px; inset-inline: 0; bottom: 0; overflow: hidden; }}
-      .mg-shot {{ width: 100%; display: block; }}
+      .mg-shot {{ width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; transform-origin: 50% 0; }}
       .mg-site {{ padding: 80px 64px; color: #151515; display: flex; flex-direction: column; gap: 30px; }}
       .mg-site h3 {{ margin: 0; font: 800 80px/1.05 "{body}", sans-serif; letter-spacing: -0.03em; }}
       .mg-skel {{ margin: 0; height: 28px; border-radius: 14px; background: #e6e6e6; }} .mg-skel.s {{ width: 70%; }}

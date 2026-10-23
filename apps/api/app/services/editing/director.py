@@ -260,7 +260,7 @@ def direct(
         style_line=f"The user chose the style '{style}'; keep it." if style != "auto" else "",
         n=len(clips), clips=lines, more=more, music=m, reference=ref,
         templates="; ".join(f"{k} [fields: {', '.join(v['fields']) or 'none'}] = {v['description']}" for k, v in templates.items()) or "none",
-        voice=("yes, script given by the user" if settings.get("narration") else "yes, write a short script") if has_voice else "no",
+        voice=("yes, script given by the user" if settings.get("narration") else f"yes, write a short script in {dict(en='English', hi='Hindi (Devanagari)', hinglish='Hinglish (Hindi in Roman script mixed with English)')[settings.get('language', 'en')]} sized for the duration") if has_voice else "no",
     )
     errors = []
     for attempt in range(2):

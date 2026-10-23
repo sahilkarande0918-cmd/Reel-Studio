@@ -127,6 +127,9 @@ FONT_FILES = {  # family → (file in fonts/, weight); all SIL OFL, bundled
     "JetBrains Mono": ("jetbrains-mono-700.woff2", 700),
     "Fira Code": ("fira-code-600.woff2", 600),
     "Fraunces": ("fraunces-600.woff2", 600),  # display serif for motion-graphics headings
+    "Bebas Neue": ("bebas-neue-400.ttf", 400),  # caption presets: condensed display
+    "Caveat": ("caveat-700.ttf", 700),  # caption presets: handwritten
+    "Press Start 2P": ("press-start-2p-400.ttf", 400),  # caption presets: pixel / retro
 }
 
 
@@ -134,7 +137,59 @@ def font_families(doc: dict) -> list[str]:
     fams = list(dict.fromkeys(doc["brand"]["fonts"].values()))
     if any(i["type"] == "motion" for t in doc["tracks"] for i in t["items"]):
         fams.append("Fraunces")
-    return fams
+    look = doc["captionStyle"].get("look")
+    if look and doc["captionStyle"].get("enabled", True):
+        fams.append(look["font"])
+    return list(dict.fromkeys(fams))
+
+
+SHADOWS = {"none": "", "soft": "0 2px 12px rgba(0,0,0,.75)", "hard": "4px 4px 0 rgba(0,0,0,.85)",
+           "long": "5px 5px 0 rgba(0,0,0,.6), 10px 10px 0 rgba(0,0,0,.3)"}
+# per-word entrance at the moment the word is spoken: (from, to); words with a hiding "from" stay invisible until then
+ENTRANCES = {
+    "pop": ({"scale": 0.3, "opacity": 0}, {"scale": 1, "opacity": 1, "duration": 0.22, "ease": "back.out(3)"}),
+    "bounce": ({"y": 46, "opacity": 0}, {"y": 0, "opacity": 1, "duration": 0.42, "ease": "bounce.out"}),
+    "slide": ({"x": -36, "opacity": 0}, {"x": 0, "opacity": 1, "duration": 0.25, "ease": "power3.out"}),
+    "fade": ({"opacity": 0}, {"opacity": 1, "duration": 0.25, "ease": "power1.out"}),
+    "blur": ({"opacity": 0, "filter": "blur(12px)"}, {"opacity": 1, "filter": "blur(0px)", "duration": 0.3, "ease": "power2.out"}),
+    "drop": ({"y": -70, "opacity": 0}, {"y": 0, "opacity": 1, "duration": 0.3, "ease": "power4.out"}),
+    "swing": ({"rotation": -28, "opacity": 0, "transformOrigin": "0% 100%"}, {"rotation": 0, "opacity": 1, "duration": 0.35, "ease": "back.out(2)"}),
+    "typewriter": ({"opacity": 0}, {"opacity": 1, "duration": 0.01, "ease": "none"}),
+    "wave": ({"y": 0}, {"y": -16, "duration": 0.14, "yoyo": True, "repeat": 1, "ease": "sine.out"}),
+    "zoom": ({"scale": 1.9, "opacity": 0}, {"scale": 1, "opacity": 1, "duration": 0.24, "ease": "power3.out"}),
+}
+
+
+def look_states(look: dict) -> dict:
+    """Word on/off states for a caption preset look (see caption_presets.py)."""
+    active, color = look["active"], look["color"]
+    hi = look.get("highlight", "fill")
+    if hi == "karaoke":
+        on, off = {"color": active}, None
+    elif hi == "chip":
+        chip = look.get("chip") or active
+        on, off = {"backgroundColor": chip, "color": brand_ink(chip)}, {"backgroundColor": "rgba(0, 0, 0, 0)", "color": color}
+    elif hi == "underline":
+        on, off = {"boxShadow": f"inset 0 -0.16em 0 {active}"}, {"boxShadow": "inset 0 0 0 rgba(0, 0, 0, 0)"}
+    elif hi == "scale":
+        on, off = {"scale": 1.15, "color": active}, {"scale": 1, "color": color}
+    elif hi == "none":
+        on, off = {}, None
+    else:
+        on, off = {"color": active}, {"color": color}
+    return {"on": on, "off": off}
+
+
+def look_css(look: dict, fs: int) -> str:
+    glow = look.get("glow", 0)
+    shadows = [x for x in (SHADOWS[look.get("shadow", "soft")],
+                           f"0 0 {glow}px {look['active']}, 0 0 {glow * 2}px {look['active']}" if glow else "") if x]
+    stroke = look.get("stroke", 0)
+    weight = FONT_FILES[look["font"]][1]
+    return (f'      #caps .w {{ font: {"italic " if look.get("italic") else ""}{weight} {round(fs * look.get("sizeScale", 1))}px/1.15 '
+            f'"{look["font"]}", sans-serif; color: {look["color"]}; letter-spacing: {look.get("tracking", 0)}em; '
+            f'text-transform: {"uppercase" if look.get("uppercase") else "none"}; text-shadow: {", ".join(shadows) or "none"}; '
+            f'-webkit-text-stroke: {stroke}px {look.get("strokeColor", "#000000")}; paint-order: stroke fill; display: inline-block; }}')
 SAFE_Y = 150  # keep corner marks clear of the platforms' top/bottom UI
 
 
@@ -206,9 +261,15 @@ def compile_html(doc: dict) -> str:
     shadow = "0 3px 0 rgba(0, 0, 0, 0.7), 0 0 20px rgba(0, 0, 0, 0.8)"
     chip = rgba(bg, 0.85)
     states = word_states(preset, text, accent, ink, chip, shadow)
+    captions_on = style.get("enabled", True)
+    clook = style.get("look") if captions_on else None
+    enter = None
+    if clook:
+        states = {**states, **look_states(clook)}
+        enter = ENTRANCES.get(clook.get("entrance", "none"))
 
     media_html, cameras, overlays, code_sequences, fx, pushes, motion_js = [], [], [], [], [], [], []
-    mctx = {"w": w, "h": h, "bg": bg, "text": text, "accent": accent, "ink": ink, "body_font": body_font, "code_font": code_font,
+    mctx = {"w": w, "h": h, "dur": dur, "bg": bg, "text": text, "accent": accent, "ink": ink, "body_font": body_font, "code_font": code_font,
             "display_font": "Fraunces", "assets": doc["assets"], "logo": logo_src, "name": brand.get("name", "")}
 
     look = STYLES[doc.get("stylePreset", "focus")]
@@ -226,7 +287,7 @@ def compile_html(doc: dict) -> str:
             tag = item["type"]
             media = (f'<{tag} id="media-{idx}" class="clip" src="{html.escape(asset["src"])}" '
                      f'data-start="{start}" data-duration="{duration}" data-media-start="{item["sourceStart"]}" '
-                     f'data-has-audio="true" data-volume="{item.get("volume", 1)}"></{tag}>')
+                     f'data-has-audio="{"true" if item.get("volume", 1) > 0 else "false"}" data-volume="{item.get("volume", 1)}"></{tag}>')
             if tag == "video":
                 cams = camera_track(item["cropKeyframes"], w, h, panel_center(style, h))
                 for c in cams:
@@ -265,7 +326,7 @@ def compile_html(doc: dict) -> str:
                 code_sequences.append({"selector": f"#{selector} .char", "at": start + at,
                                        "duration": min(revision["typingDuration"], end - at)})
     pages = []
-    for caption in (i for i in items if i["type"] == "caption"):
+    for caption in (i for i in items if i["type"] == "caption" and captions_on):
         for page in paginate(caption["words"], style["maxCharsPerLine"], style["maxLines"], caption["duration"]):
             pages.append({**page, "offset": caption["start"]})
     page_html, word_times, n = [], [], 0
@@ -290,8 +351,8 @@ def compile_html(doc: dict) -> str:
         )
 
     fonts_css = "\n".join(
-        f'      @font-face {{ font-family: "{f}"; src: url("fonts/{FONT_FILES[f][0]}") format("woff2"); '
-        f"font-weight: {FONT_FILES[f][1]}; }}"
+        f'      @font-face {{ font-family: "{f}"; src: url("fonts/{FONT_FILES[f][0]}") '
+        f'format("{"truetype" if FONT_FILES[f][0].endswith(".ttf") else "woff2"}"); font-weight: {FONT_FILES[f][1]}; }}'
         for f in dict.fromkeys([body_font, code_font, *font_families(doc)])
     )
     bw, cw = FONT_FILES[body_font][1], FONT_FILES[code_font][1]
@@ -374,6 +435,7 @@ def compile_html(doc: dict) -> str:
                 background: {rgba(bg, 0.72)}; }}
       #mark img {{ height: 84px; max-width: 260px; object-fit: contain; }}
 {motion.css(mctx) if motion_js else ""}
+{look_css(clook, fs) if clook else ""}
       #mark span {{ font: {bw} 34px/1 "{body_font}", sans-serif; color: {text}; text-shadow: {shadow}; }}
     </style>
   </head>
@@ -391,6 +453,7 @@ def compile_html(doc: dict) -> str:
       const CODE = {json.dumps(code_sequences)};
       const WORDS = {json.dumps(word_times)};
       const S = {json.dumps(states)};
+      const ENTER = {json.dumps(enter)};
       const FX = {json.dumps(fx)};
       const PUSH = {json.dumps(pushes)};
       const TD = {look["duration"]};
@@ -409,6 +472,7 @@ def compile_html(doc: dict) -> str:
       }});
       WORDS.forEach(([id, on, off, code]) => {{
         const el = "#w" + id;
+        if (ENTER) tl.fromTo(el, ENTER[0], ENTER[1], on);
         tl.set(el, code ? S.code_on : S.on, on);
         const after = code ? S.code_off : S.off;
         if (after) tl.set(el, after, off);
