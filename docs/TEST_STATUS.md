@@ -1,4 +1,4 @@
-> **Reel Studio 2.0 (2026-10-24) — read first:** `docs/REEL_STUDIO_2_MASTER_PLAN.md` (full approved spec + status map) and `docs/REEL_STUDIO_2_HANDOFF.md` (technical handoff). They supersede the 1.0 status below, which is kept as history. Work folder `C:\Users\Sahil\OneDrive\Desktop\Reel Studio 2.0`, repo https://github.com/sahilkarande0918-cmd/Reel-Studio. 2.0 so far: migration ✅, reference analysis ✅, Mode B engine core (beats, 24 effects, 21 transitions, beat planner, reference style transfer, audio, QA) ✅ via scripts; Mode B UI/API, motion templates, AI Director, Blender, voice, 100 captions, collections, campaigns, localisation, results tracking ⬜.
+> **Reel Studio 2.0 (updated 2026-10-24, session 2) — read first:** `docs/REEL_STUDIO_2_MASTER_PLAN.md` (full approved spec + status map) and `docs/REEL_STUDIO_2_HANDOFF.md` (technical handoff). They supersede the 1.0 status below, which is kept as history. Work folder `C:\Users\Sahil\OneDrive\Desktop\Reel Studio 2.0`, repo https://github.com/sahilkarande0918-cmd/Reel-Studio. 2.0 status (second session, HEAD ac322a5+docs): ✅ Mode B web app + AI director, 26 motion templates, 35 effects / 33 transitions + ONNX composites, headless Blender 3D shots, 100 caption presets + ON/OFF, clip collections; 🟡 voice profiles (built, speech not yet synthesised), campaign agent + EN/HI/Hinglish + click/inquiry tracking, Instagram cover/suggestions (nothing published), Phase D/Test B/E/H renders; ⬜ production migrations + Vercel deploy. Next task: handoff §18.
 
 ## Reel Studio 2.0 checks (2026-10-23/24)
 | Test | Result |
@@ -9,7 +9,18 @@
 | Effects gallery | ✅ 24/24 effects change the picture; 21/21 transitions exact frame count |
 | Owner phonk reel (17 clips, phonk audio, Ref 4 style) | ✅ 480/480 frames, hard cuts 0 ms off plan and ≤10 ms off beat, transitions ≤15 ms off beat, −14.0 LUFS, −2.2 dBTP |
 | Reference analysis (6 reels) | ✅ profiles + contact sheets; Ref 4 89 % cuts within 60 ms of a beat |
-| Mode B in the app, Tests B–E, G, H | ⬜ not built / not run |
+| Mode B in the app (UI edit, downloaded MP4) | ✅ 15.000 s 1080×1920 (session 2) |
+| Director: same 8 clips, 3 prompts | ✅ distinct phonk / cinematic (all QA pass) / tech-promo edits |
+| Motion templates gallery | ✅ 26/26 animated, Hyperframes lint clean |
+| Effects + transitions gallery (35 + 33) | ✅ 69/69 |
+| Phase C ad (24 s) | ✅ all QA pass (weak look; re-render `ad2` pending) |
+| 3D edit (Blender title + turntable, 16 s) | ✅ all QA pass |
+| 100 caption presets | ✅ unit test (all valid, distinct); 23-family render gallery; Mode A preset + captions-OFF renders |
+| Clip collections | ✅ unit test + synthetic lecture (2 collections) |
+| Campaign agent (Hinglish) | 🟡 runs; copy quality weak (repeated hooks) |
+| pgTAP RLS (incl. 20 new 2.0 tests) / db lint | ✅ 72/72 / clean |
+| API pytest / ruff (session 2) | ✅ 118 passed, 6 skipped / clean |
+| Voice synthesis, Phase D acceptance, Tests B/E/H, next build, production | ⬜ not run yet |
 
 > **2026-10-17: Feature A (context-aware AI editing) verified on the owner's real physics class (production) and the synthetic React fixture (local). Read [CHECKPOINT.md](CHECKPOINT.md) first.** B/C not implemented.
 

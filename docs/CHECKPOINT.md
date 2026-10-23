@@ -1,4 +1,5 @@
-# Reel Studio 2.0 — read this first (updated 2026-10-24)
+# Reel Studio 2.0 — read this first (updated 2026-10-24, session 2)
+- **Session 2 (commits 40c090b, e7a7805, 86306f4, ac322a5 + checkpoint docs):** Mode B web app + AI director, motion templates, effects/composites, Blender 3D worker + MCP config, 100 caption presets, collections, campaign agent + tracking, voice profiles (not yet run), Instagram cover/suggestions (nothing published). Status map: master plan Part 1. Next task: handoff §18.
 - **Authoritative now:** `docs/REEL_STUDIO_2_MASTER_PLAN.md` (spec + status map) and `docs/REEL_STUDIO_2_HANDOFF.md`.
 - Since 2026-10-23: owner phonk reel from 17 clips + phonk audio in Reference 4 style (all QA checks pass), reference style transfer, measured QA module, frame-exact transitions, relative drop detection (HEAD `de9729a` + checkpoint docs).
 - Repository: https://github.com/sahilkarande0918-cmd/Reel-Studio (migrated with full history, verified: `docs/MIGRATION.md`).

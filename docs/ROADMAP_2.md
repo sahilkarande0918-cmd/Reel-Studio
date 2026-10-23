@@ -47,16 +47,16 @@ picture and sound rendered separately and muxed; QA measures the actual file.
 | 3 | Reference Style Analyzer (reusable, report) | 🟡 analyzer built (`services/reference/analyzer.py`), UI/report pending |
 | 4 | Music + beat sync, pacing profiles, phonk | 🟡 engine verified on the owner's phonk reel; app integration pending |
 | 5 | Effects engine (typed registry, every effect renders) | 🟡 24 effects + 21 transitions verified; velocity/composites/shaders pending |
-| 6 | Motion design engine (Hyperframes templates) | ⬜ |
-| 7 | AI Editing Director | ⬜ |
-| 8 | Renderer router (+ Blender worker) | ⬜ |
-| 9 | Voice profiles (Chatterbox) | ⬜ |
-| 10 | 100 caption styles + ON/OFF | ⬜ |
-| 11 | AI clip collections (Mode A) | ⬜ |
-| 12 | Business campaign agent | ⬜ |
-| 13 | Instagram automation extensions | ⬜ (existing integration preserved) |
+| 6 | Motion design engine (Hyperframes templates) | 🟡 26 templates verified; ad re-render pending |
+| 7 | AI Editing Director | ✅ distinct outputs per prompt (session 2) |
+| 8 | Renderer router (+ Blender worker) | ✅ FFmpeg / Hyperframes / Blender routing; shader layer ⬜ |
+| 9 | Voice profiles (Chatterbox) | 🟡 built, not yet run |
+| 10 | 100 caption styles + ON/OFF | ✅ |
+| 11 | AI clip collections (Mode A) | ✅ (synthetic lecture) |
+| 12 | Business campaign agent | 🟡 works; copy quality open; tracking built |
+| 13 | Instagram automation extensions | 🟡 cover/suggestions/campaign link; nothing published |
 | 14 | Video quality engine | 🟡 `editing/qa.py` (length, cuts, beats, black/frozen, loudness) |
-| 15 | End-to-end validation tests A–H | ⬜ |
+| 15 | End-to-end validation tests A–H | 🟡 A ✅, C/D/F/G/H partial, B/E ⬜ |
 
 ## Inputs still needed from the owner
 Real test media the product may legally use: raw product clips (e.g. a shoe store), a licensed or self-made phonk

@@ -25,7 +25,7 @@ Repo: https://github.com/sahilkarande0918-cmd/Reel-Studio (public, `main`).
 Trust repo docs and git history over remembered assumptions.
 
 ## Current next work
-**Reel Studio 2.0** (supersedes the 1.0 note below): continue the phases in `docs/REEL_STUDIO_2_MASTER_PLAN.md`; the owner has not yet chosen the order (proposed: canonical-timeline extension + Mode B API/UI + AI Director → motion templates + 100 captions → campaigns/localisation/tracking → voice → Blender). Old 1.0 note:
+**Reel Studio 2.0** (supersedes the 1.0 note below): the owner fixed the order in master plan Appendix D (phases A→L, then deploy to Vercel with the same UI). Status: master plan Part 1. **Next task: `docs/REEL_STUDIO_2_HANDOFF.md` §18 (Phase F voice verification).** Owner rule: publish NOTHING on Instagram. Old 1.0 note:
 Feature A (context-aware AI editing) is done and verified (`docs/CURRENT_TASK.md`). Features B (five caption
 personalities) and C (AI clip collections) are approved but postponed until the owner explicitly asks. Start the engine with
 `apps/api/start-engine.cmd` (also a Windows logon task).

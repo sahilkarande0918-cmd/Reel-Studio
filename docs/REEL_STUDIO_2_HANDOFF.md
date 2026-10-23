@@ -1,209 +1,251 @@
-# Reel Studio 2.0 — Technical Handoff (2026-10-24)
+# Reel Studio 2.0 — Technical Handoff (updated 2026-10-24, end of the second 2.0 session)
 
-Read with `docs/REEL_STUDIO_2_MASTER_PLAN.md` (full spec + status map). These two files take precedence over every
-1.0 document. History of 1.0 lives in `CHECKPOINT.md` (below its 2.0 header), `IDE_HANDOFF.md`, `HANDOFF.md`, `PHASES.md`.
+Standalone: a new session can continue from this file plus `docs/REEL_STUDIO_2_MASTER_PLAN.md` (full spec, status map,
+owner prompts verbatim) without any chat history. These two files take precedence over every 1.0 document
+(`CHECKPOINT.md` below its 2.0 header, `IDE_HANDOFF.md`, `HANDOFF.md`, `PHASES.md` are history). The first 2.0
+session's handoff (engine internals, reference analysis, phonk reel) is in git: `git show 6b29ec7:docs/REEL_STUDIO_2_HANDOFF.md`.
+**Trust the code over this text if they ever disagree.** Nothing below is called "verified" unless it was run.
 
-## 1. Repository and directory
-| | Value |
+## 1. What the project is
+Reel Studio — an AI video-editing and content-marketing platform (₹0 mandatory cost, local GPU engine).
+- **Mode A — Recording → Reels**: long class/business recording → Hinglish/English ASR with technical-term correction →
+  context-aware highlights (teaching-step outline, five-component score) → code-aware 9:16 crop → captions/brand →
+  editor → Hyperframes MP4 → Instagram (with approval).
+- **Mode B — Prompt → Professional edit** (replaces Topic → Video): any practical number of clips/images + optional
+  music + optional reference reel + a prompt → AI director → beat planner → FFmpeg base picture + separate audio →
+  optional Hyperframes overlays (motion graphics, text, captions) and Blender 3D shots → measured QA → MP4 → editor.
+- Business layer: AI clip collections (Mode A series), campaign agent (EN/HI/Hinglish), tracked links/inquiries,
+  Instagram publishing extras (cover frame, suggestions). Voice profiles for narration.
+
+Architecture:
+```
+Next.js 16 (apps/web, Vercel sin1)  ──JWT──►  FastAPI + durable worker (apps/api, owner's RTX 5050 laptop, Dev Tunnel)
+   │  Supabase Auth/Postgres+RLS/Realtime (project adjwycjsxtxvjockxtan)        │
+   │  public: /r/<slug> (click redirect), /i/<slug> (inquiry form) → RPCs     ├─ jobs: transcribe, analyze, render,
+   │                                                                          │   publish, insights, generate (old topic),
+   │                                                                          │   ingest, edit, voice_preview, campaign
+Mode B edit job:  assets ─ingest→ analysis ─► director.py (LLM directive, validated) ─► planner.py (beats, slots,
+   sources, effects, cues) ─► render.py/base.py (FFmpeg segments, composites, xfade) + audio.py (music/SFX/voice mix)
+   ─► qa.py (measured) ─► overlay.py (canonical timeline: base video + 3D shots + motion items + text + captions)
+   ─► Hyperframes render only if overlays exist (else base is the export) ─► render_jobs row ─► editor/download
+3D: blender.py launches headless Blender with our blender_scene.py (validated params only) → MP4 → timeline video item
+Voice: voice_profiles.py → subprocess voice-venv/python voice_worker.py (torch + Chatterbox) → WAV → ASR word timing
+```
+
+## 2. Implemented and verified (run, with evidence)
+| Feature | Evidence |
 |---|---|
-| Work folder (only place to develop) | `C:\Users\Sahil\OneDrive\Desktop\Reel Studio 2.0` |
-| Repository | https://github.com/sahilkarande0918-cmd/Reel-Studio.git, branch `main` |
-| Remotes | `origin` = Reel-Studio (fetch+push); `source` = `Open_PS04_` (fetch only, push URL disabled) |
-| Latest commit before this checkpoint | `de9729a` (see §18; the checkpoint commit follows it) |
-| Git identity | `sahilkarande0918-cmd <sahilkarande0918@gmail.com>`; never AI authors/co-authors/trailers |
-| Old folder / old repo | `C:\dev\Reel-Studio` → `origin` = https://github.com/sahilkarande0918-cmd/Open_PS04_ (the renamed original). Read-only history, BUT it still hosts the running production engine (Windows task "Reel Studio Engine" → `C:\dev\Reel-Studio\apps\api\start-engine.cmd`) and the Vercel project is still linked to `Open_PS04_` |
+| Repo migration, owner-only history | `docs/MIGRATION.md` |
+| Mode B web flow (Phase A) | UI edit in the browser (2 clips + phonk): 15.000 s, 1080×1920 H.264+AAC downloaded from the app; editor opens the Mode B timeline |
+| AI director (Phase B) | Same 8 clips, 3 prompts → phonk/fast/vintage (16 cuts), cinematic/slow/cool (all QA pass), tech promo with floating cards + browser mockup; logs `data/mode-b-tests/phase-b/*.log` |
+| Motion templates (Phase C) | 26/26 templates animated + Hyperframes lint clean (`tests/motion_gallery.py`, `data/motion-gallery/sheet.jpg`); 24 s ad rendered, all QA pass (`phase-c/ad.mp4`) |
+| Effects (Phase D) | 35 effects + 33 transitions: 69/69 gallery renders pass (`data/effects-gallery-3`, `effects-gallery-2`); subject cutout, depth parallax, minterpolate slow-mo checked visually (`data/composite-test/sheet.jpg`) |
+| Blender worker (Phase E) | Headless Blender 5.2.3 renders text_3d + product_turntable (`data/blender-test`); 3D edit 16.000 s, all QA pass, timeline has b3d-0 (title) + b3d-1 (turntable) (`phase-e/3d.mp4`) |
+| 100 caption presets + ON/OFF (Phase G) | `tests/test_caption_presets.py` validates + compiles all 100 (no colour-only duplicates); 23-family render gallery (`data/caption-gallery/sheet.jpg`); Mode A render with `phonk-red` and with captions OFF (`data/mode-a-test/{preset,off}.mp4`, 46.53 s) |
+| Clip collections (Phase H) | `tests/test_collections.py`; generated on the synthetic React lecture: "UseEffect" (6) + "Full class series" (6) |
+| DB security | pgTAP 72/72 incl. 20 new 2.0 tests (`supabase/tests/database/v2.test.sql`); `supabase db lint` clean |
+| Phonk reel from owner footage (first session) | `data/mode-b-tests/grind-phonk-ref4/edit.mp4`, 480/480 frames, −14.0 LUFS |
 
-## 2. Architecture (2.0)
-```
-Next.js 16 web (Vercel, sin1)  ──JWT──►  FastAPI + durable worker (owner's RTX 5050 laptop, Dev Tunnel)
-        │                                   │
-   Supabase (Auth, Postgres+RLS, Realtime)  ├─ Mode A (1.0, working): ASR → context-aware highlights → reframe →
-   project adjwycjsxtxvjockxtan (ap-se-1)   │   captions → Hyperframes compose → MP4 → Instagram
-                                            └─ Mode B engine (2.0, script-driven so far):
-     clips ─► clips/analysis.py ─┐
-     music ─► music/beats.py ────┼─► editing/planner.py (+ pacing.py profiles, style_transfer.py from
-     reference ─► reference/analyzer.py ─┘     a reference profile) ─► plan JSON
-                                            plan ─► editing/render.py: base.py (FFmpeg segments + effects.py + xfade)
-                                                    + audio.py (music, SFX, ducking, loudnorm) ─► mux ─► MP4
-                                                    ─► editing/qa.py (measured checks on the file)
-```
-Planned (not built): Hyperframes motion-template layer over the base picture, AI Director (local Qwen JSON plan →
-schema validation), renderer router incl. shader + headless Blender, Mode B API/UI/tables.
+## 3. Partially implemented
+- **Phase D acceptance**: two-clip 18 s and eight-clip 20 s edits were queued at checkpoint (scratchpad
+  `acceptance2.py` → `data/mode-b-tests/phase-d/`); results NOT recorded. Rerun with `tests/e2e_mode_b.py` (§13).
+- **Phase C ad quality**: first ad used the local test workspace's brand kit (Nimbu watermark) and landscape
+  screenshots left white space; fixed (`brand_kit_id: "none"`, cover-fit mockups, keep director scenes, no closing
+  fade, required-content check). Re-render `phase-c/ad2.mp4` was running at checkpoint (not verified).
+- **Voice (Phase F)**: everything built (table, API, consent, quality checks, owner-only use, pronunciations, preview job,
+  deletion, Settings UI, Mode B narration path); isolated venv installed; model files downloaded to
+  `data/models/chatterbox` (ve.pt, t3_mtl23ls_v2.safetensors, s3gen.pt, grapheme json, conds.pt, Cangjie5_TC.json).
+  **No speech has been synthesised yet.** Test job at `data/voice-test/job.json` (synthetic Kokoro reference voice;
+  add `"model_dir"`). The owner's consented voice sample has not been provided.
+- **Campaign agent (Phase I)**: works end to end (Ollama → plan → tracked links → UI → project with prefilled prompt);
+  staged planner (strategy + one call per reel format). Latest direct run (`data/campaign-test-3.json`, 239 s): full
+  concept sentence, Hinglish hooks, but hooks still repeat across reels and scripts drift to English. Needs better
+  prompts or the optional stronger model.
+- **Localisation/tracking (Phase J)**: EN/HI/Hinglish prompts + checks; Marathi disabled ("not yet: model output not
+  validated"); `/r` and `/i` public routes + RPCs tested in pgTAP; no real visitor click yet (not deployed).
+- **Instagram (Phase K)**: cover frame (`cover_ms` → `thumb_offset`), campaign id on posts, caption/hashtag suggestions
+  (campaign → director → highlight), UI. **Nothing was published or scheduled (owner rule: publish nothing).**
+- **Phase L**: suites green (§16); `next build` not run this session; Tests B, E, H not rendered.
 
-## 3. Implemented 2.0 code (all under `apps/api/`)
-| File | What it does | Status |
-|---|---|---|
-| `app/services/reference/analyzer.py` | Reference Style Analyzer: probe, PySceneDetect shots (Content → Adaptive fallback), Farneback flow (motion, zoom divergence, pan), flashes, k-means palette, RapidOCR text, librosa beats + cut-to-beat offsets, optional Qwen-VL key-frame descriptions, techniques, contact sheet | ✅ run on 6 references |
-| `app/services/music/beats.py` | `analyze()`: tempo from kick-band onsets folded to 80–160 BPM, beat grid, 4/4 downbeat phase, onsets, accents, energy (0.5 s), relative beat-snapped drops; `snap()`, `cut_offsets()` | ✅ ±3 BPM on 95–150 BPM tests; drops found on owner track (15.19 s), Ref 4 (3.67 s) |
-| `app/services/music/score.py` | Original synthesized score (phonk / cinematic / commercial), royalty-free by construction | ✅ self-check |
-| `app/services/clips/analysis.py` | Per-clip: motion, sharpness, brightness, framing centre (motion + visual interest), best moments; images; `proxy()` | ✅ on 17 owner clips |
-| `app/services/editing/effects.py` | Typed registry: 24 effects (push_in, pull_out, punch_zoom, zoom_bounce, shake, pan, rotate, whip_pan, gaussian_blur, motion_blur, directional_blur, blur_reveal, zoom_blur, flash, rgb_split, glitch, contrast_snap, bright_pulse, vignette, grain, grade, glow, vhs, black_white) + 21 transitions mapped to FFmpeg xfade; param clamping; photosensitivity validation | ✅ 45/45 gallery |
-| `app/services/editing/base.py` | `Segment`; cover-crop around focus + zoom; constant speed / eased ramps / reverse / freeze; effects chain; frame-count guard; `assemble()` concat/xfade with normalised timebase, padded to exact frames; even-frame transitions | ✅ |
-| `app/services/editing/pacing.py` | 9 profiles (phonk, energetic, cinematic, clean_commercial, minimal, educational, product_showcase, motion_graphics, tech_ad), `hook_share`, `fx_params`, keyword `guess()` | ✅ unit-tested |
-| `app/services/editing/planner.py` | Beat planner: music offset (drop at 30 % or hook end), slots on beats, best-moment source picking across clips, honest reuse (shift/zoom/reverse, recorded), ramps, hit effects on accents, flash rate limit (≤1/s), centred transitions, SFX cues | ✅ unit-tested |
-| `app/services/editing/style_transfer.py` | Reference profile → pacing profile (hook, shot lengths in beats, transition mix, flash colour, punch-ins) + evidence list | ✅ unit-tested + used for owner reel |
-| `app/services/editing/audio.py` | Synth SFX (whoosh peak-aligned, impact, riser, tick), `mix()` (music trim/fade, sidechain ducking under voice, two-pass loudnorm −14 LUFS / −2.5 dBTP), `measure()`, `mux()` with true-peak auto-repair (≤ −1 dBTP) | ✅ |
-| `app/services/editing/render.py` | Plan → segments (frame-exact) → base picture → SFX → mix → mux | ✅ |
-| `app/services/editing/qa.py` | Measured QA on the MP4 (length, hard cuts on frame, beat offsets, transition visibility, black/frozen, loudness) | ✅ |
-| `tests/test_editing.py` | 10 unit tests | ✅ |
-| `tests/effects_gallery.py`, `tests/auto_edit.py`, `tests/analyze_references.py` | Manual measured tools (render galleries, end-to-end edit + QA report, reference profiles) | ✅ run |
+## 4. Not started
+Deploy (production Supabase migrations, 2.0 engine for production, Vercel deploy of the 2.0 web); Test B (infographic)
+and E (before/after) renders; collection scheduling; manual beat correction UI; reference visual report page; tracked
+overlays (MediaPipe/SAM 2); gl-transitions shader layer; Marathi.
 
-## 4. Incomplete 2.0 features
-Everything marked 🟡/⬜ in the master plan status map: Mode B API/UI/tables and the replacement of Topic → Video;
-multi-file resumable ingestion + `media_assets`; Hyperframes motion templates; AI Director; renderer router, GPU shader
-layer, Blender + Blender MCP + headless worker; voice profiles (Chatterbox); 100 caption presets + ON/OFF; clip
-collections; campaign agent; EN/HI/Hinglish localisation; UTM/click/WhatsApp results tracking; Instagram 2.0
-extensions; quality engine items beyond §3 (`qa.py`); E2E tests B, C, D, E, G, H; Category G composites, frame
-interpolation, region-of-interest shot detection, manual beat correction.
+## 5. Work completed in this session (commits after `6b29ec7`)
+- `40c090b` Mode B web app + AI director + migrations (media_assets, edit_generations, project mode `edit`), ingest/edit jobs, assets/edits APIs, Create page, media bin, edit studio, motion library start.
+- `e7a7805` 26 motion templates, 11 new effects + 11 transitions, minterpolate, ONNX composites, Blender worker + MCP config.
+- `86306f4` voice profiles, 100 caption presets + ON/OFF, clip collections, campaign agent + tracking, Instagram cover/suggestions.
+- `ac322a5` grounded scenes, staged campaign planner, 3D shot length, hydration fix, QA/RLS tests, licences, D-045…D-048.
+- checkpoint docs commit (this file, master plan, synced docs).
 
-## 5. Mode A / Mode B status
-- **Mode A (1.0, preserved):** working in production from the old folder (upload → Hinglish ASR → context-aware
-  highlights with teaching-step outline → reframing → captions/brand kits → editor → Hyperframes MP4 → Instagram).
-  2.0 additions (music, effects, 100 captions, collections…) not started.
-- **Mode B:** the old Topic → Video (JSON/XML storyboard) is still what the app shows. The new prompt-to-edit engine
-  exists as Python services + scripts only; no API endpoints, worker job type, tables or UI yet.
+## 6. Source files changed and why (apps/api unless noted)
+| File | Purpose |
+|---|---|
+| `app/api/assets.py`, `app/core/upload.py`, `app/core/storage.py` | Mode B uploads: resumable chunks, kinds clip/image/audio/reference, SHA-256 dedupe, limits, signed media/thumb URLs |
+| `app/api/edits.py`, `app/workers/edit.py` | Edit request (prompt, duration, aspect, style, music, reference, captions+preset+overrides, voice, language, quality, brand kit) and the edit job |
+| `app/workers/ingest.py` | Per-asset analysis (clip moments, beats, reference profile, thumbnail, VLM subject tags) |
+| `app/services/llm.py` | Ollama JSON calls (seeded) + optional OpenAI-compatible endpoint; vision `look()` |
+| `app/services/editing/director.py` | AI director directive, schema, rules fallback, sanitising, profile/weights |
+| `app/services/editing/planner.py` | clip weights, pinned first/last clip, no same-clip back-to-back, composite budget, depth parallax for stills |
+| `app/services/editing/effects.py` | 35 effects, 33 transitions (registry) |
+| `app/services/editing/base.py` | composites hook, minterpolate slow-mo, 1 s clone pad before exact trim, source height ≤ 1920 |
+| `app/services/editing/composite.py` | OpenCV + ONNX subject cutout and depth parallax |
+| `app/services/editing/overlay.py` | plan → canonical timeline (base, 3D shots, motion, text, captions), designed-scene structure, 3D split/fallback |
+| `app/services/editing/qa.py` | black-frame test (p98), planned dip-to-black allowance, cut spike detection |
+| `app/services/clips/analysis.py` | optical flow sampled ~15/s at any fps |
+| `app/services/rendering/motion.py` | 26 templates, CSS, SFX cues, required-content rule |
+| `app/services/rendering/caption_presets.py` | 100 presets, overrides model, style_for, catalog |
+| `app/services/rendering/compose.py` | motion items, caption looks/entrances/ON-OFF, new fonts, silent-video flag |
+| `app/services/rendering/timeline.py` | motion item validation |
+| `app/services/rendering/blender.py`, `blender_scene.py` | validated 3D scenes, headless render, completion via done/error files |
+| `app/services/voice.py`, `voice_profiles.py`, `voice_worker.py`, `app/api/voices.py`, `app/workers/voice.py` | narration (Kokoro or profile), consent + quality, isolated synthesis, preview job |
+| `app/api/collections.py` | grounded series from outline topics, edit, batch render |
+| `app/services/campaign.py`, `app/api/campaigns.py`, `app/workers/campaign.py` | campaign planning, grounding, tracked links |
+| `app/api/publishing.py`, `services/publishing/instagram.py`, `workers/publish.py` | cover_ms/thumb_offset, campaign id, suggestions |
+| `app/api/renders.py` | captions ON/OFF + preset for Mode A, `/captions/presets`, shared `enqueue_highlight_render` |
+| `packages/timeline-schema/src/index.ts` (+ json) | `motion` item, `source.editId`, `captionStyle.enabled`, `captionStyle.look`, `CAPTION_FONTS` |
+| `supabase/migrations/20261024*` (7) | mode `edit`; media_assets/edit_generations; voice_profiles; clip_collections; campaigns/tracked_links/link_clicks/inquiries + public RPCs; projects.campaign_*; publish_jobs.cover_ms/campaign_id |
+| web: `app/(app)/create`, `components/studio/{media-bin,edit-studio,caption-picker,collections}.tsx`, `components/campaigns/*`, `app/(app)/campaigns/*`, `app/r/[slug]`, `app/i/[slug]`, `components/settings/voice-profiles.tsx`, publishing/editor/renders/sidebar/projects/dashboard edits, `lib/backend.ts` (hydration), `proxy.ts` (public /r /i), `public/caption-fonts` | UI for all of the above in the existing forest-green/ivory theme |
+| tests: `test_caption_presets.py`, `test_collections.py`, `test_campaign.py`, `test_editing.py` (+3), `e2e_mode_b.py`, `motion_gallery.py`, `caption_gallery.py`; `supabase/tests/database/v2.test.sql` | checks |
+| `.mcp.json` | Blender MCP for Claude Code (`uvx mcp-for-blender`, safe mode, telemetry off) |
 
-## 6. Commands
+## 7. Models, tools, dependencies, skills
+See master plan Part 4. Local models: Ollama `qwen2.5vl:7b`; Oriserve Hinglish Whisper CT2; Kokoro (Hyperframes);
+U²-Netp + Depth-Anything-V2-Small ONNX (`data/models/onnx`); Chatterbox Multilingual (`data/models/chatterbox`).
+Python venv `C:\Users\Sahil\AppData\Local\reel-studio\venv` (no torch); voice venv
+`C:\Users\Sahil\AppData\Local\reel-studio\voice-venv` (Python 3.11, torch 2.7.1+cu128, torchaudio 2.7.1,
+chatterbox-tts 0.1.7 installed `--no-deps` + its dependencies, numpy<2). Blender 5.2.3 LTS (Microsoft Store; run via
+`%LOCALAPPDATA%\Microsoft\WindowsApps\blender-launcher.exe`, which returns before Blender finishes). uv/uvx in
+`%LOCALAPPDATA%\hermes\bin`. Blender add-on lives in the Store's virtualised AppData
+(`%LOCALAPPDATA%\Packages\BlenderFoundation.Blender_ppwjx1n5r4v9t\LocalCache\Roaming\Blender Foundation\Blender\5.2\scripts\addons\blender_mcp.py`).
+Claude Code skills used: hyperframes*, ponytail. Licences: `THIRD_PARTY_LICENSES.md`.
+
+## 8. Mode A and Mode B today
+- **Mode A**: unchanged pipeline + new: captions ON/OFF and 100 presets in "Create reel" and the editor, clip
+  collections panel. Mode A upload→transcribe→analyze was not re-run this session (only render paths).
+- **Mode B**: `/create` → project → media bin → direction form → Generate → live stages (analyze, direct, voice,
+  plan, render_base, blender, qa, compose/render, verify) → storyboard stills + director reasons + QA flags → preview,
+  download, Open in editor, Publish link. Campaign ideas create Mode B projects with the prompt prefilled.
+
+## 9. Renderer status
+FFmpeg base picture ✅ (all effects/transitions); Hyperframes overlays ✅ (motion, text, captions, watermark;
+~150 s for a 16 s overlay pass); Blender ✅ headless worker (EEVEE, ~35–55 s per second of 3D at 1080×1920);
+GPU shader layer ⬜.
+
+## 10. Working effects, transitions, templates
+Effects (35): push_in, pull_out, punch_zoom, zoom_bounce, shake, pan, rotate, whip_pan, gaussian_blur, motion_blur,
+directional_blur, blur_reveal, zoom_blur, flash, rgb_split, glitch, contrast_snap, bright_pulse, vignette, grain, grade,
+glow, vhs, black_white, wobble, crash_zoom, tilt, drift, light_leak, bloom, color_pulse, exposure, focus_blur, edge_glow,
+strobe (≤ 3 Hz); composites subject_pop, depth_parallax. Transitions (33): cut, crossfade, dip_black, dip_white, flash,
+swipe_left/right/up, wipe, zoom_through, whip, blur, radial, circle_reveal, pixelize, smooth_left, squeeze, diagonal,
+cover_up, reveal_down, slice, wind, dissolve, circle_close, open_vertical, open_horizontal, smooth_up, rect_crop,
+distance, fade_grays, squeeze_vertical, wipe_up, slide_down. Motion templates (26): kinetic_title, blur_reveal,
+stagger_lines, typewriter, masked_text, counter, floating_cards, browser_mockup, phone_mockup, laptop_mockup,
+split_screen, info_list, chat_bubbles, calendar, bar_chart, stat_ring, logo_reveal, cta_button, pricing_card,
+lower_third, light_sweep, glow_arc, shape_burst, grid_gallery, notifications, media_card. 3D: 3d_title, 3d_product.
+
+## 11. UI and backend status
+UI: unchanged forest-green/ivory theme; new pages Create, Campaigns, campaign detail, public /r and /i; Settings voice
+section; caption picker; collections panel; publishing cover/suggest. Phone width checked (no horizontal overflow).
+Backend: all routers in `app/main.py`; worker handlers in `app/workers/run.py`.
+
+## 12. Supabase, Vercel, Instagram
+- Supabase: 7 new migrations applied **locally only**. Production project `adjwycjsxtxvjockxtan` has NOT been migrated
+  (`supabase/.temp/project-ref` = adjwycjsxtxvjockxtan; review then `pnpm exec supabase db push`).
+- Vercel: project `reel-studio` (team_N7gyjjdCHX9K8ifMie5nzuV6, prj_VVWevgFfCwq7LgQauMu1B11RGzua, domain
+  reel-studio-taupe.vercel.app, latest prod deployment dpl_EG8TUnJnEjRxVTsWqqfRkPBfUttU built from the OLD repo
+  `Open_PS04_`). No Vercel CLI on this machine; the Vercel MCP tools work (get_project verified). The owner asked to
+  deploy "at last", with the same dashboard UI.
+- Production engine still runs from `C:\dev\Reel-Studio` (old code; Windows task "Reel Studio Engine"); the deployed
+  2.0 web needs the 2.0 engine (`apps/api/start-engine.cmd` in this folder; production `.env` already copied) or Mode B
+  calls will 404.
+- Instagram: unchanged OAuth/queue; **owner rule: publish nothing**. No publish/schedule jobs exist locally.
+
+## 13. Local setup and commands
 ```bash
-# Python venv (shared, outside the repo)
-C:/Users/Sahil/AppData/Local/reel-studio/venv/Scripts/python
-# install API deps (librosa added to requirements/vision.txt)
-C:/Users/Sahil/AppData/Local/reel-studio/venv/Scripts/python -m pip install -r apps/api/requirements/dev.txt
-# web
-pnpm install --frozen-lockfile
-cd apps/web && npx next typegen && pnpm dev            # :3000 (uses apps/web/.env.local)
-# local Supabase stack (Docker) — only for local tests
-pnpm exec supabase start
-# API + worker locally against the local stack (port 8001), from apps/api:
-SUPABASE_URL=http://127.0.0.1:54321 SUPABASE_SECRET_KEY=<local secret> PUBLIC_API_URL=http://127.0.0.1:8001 \
-  C:/Users/Sahil/AppData/Local/reel-studio/venv/Scripts/python -m app.serve --tunnel none --port 8001
-# production engine (API :8000 + worker + Dev Tunnel) — currently runs from C:\dev\Reel-Studio:
-C:\dev\Reel-Studio\apps\api\start-engine.cmd   (also Windows task "Reel Studio Engine" at logon)
-# Ollama (does NOT auto-start after reboot)
-"%LOCALAPPDATA%\Programs\Ollama\ollama.exe" serve      # check: curl localhost:11434/api/tags
-# Mode B engine, end to end (from apps/api, PYTHONPATH=.):
-python tests/auto_edit.py OUT_DIR --profile phonk --duration 16 --music "C:/Users/Sahil/Downloads/phonk audio.mpeg" \
-  --reference C:/Users/Sahil/AppData/Local/reel-studio/data/reference-analysis/reel-template-4/style.json CLIP...
-python tests/effects_gallery.py SOURCE.mp4 OUT_DIR 60
-python tests/analyze_references.py OUT_DIR VIDEO... --describe 4
+# local test stack
+pnpm exec supabase start && pnpm exec supabase migration up --local
+sh .claude/local-engine.sh          # API :8001 + worker against local Supabase (git-ignored file; local demo secret only)
+cd apps/web && pnpm dev             # :3000; apps/web/.env.development.local points at the local stack + engine :8001
+# local login (local stack only): upload-owner@test.local, password in apps/api/tests/test_upload_integration.py
+"%LOCALAPPDATA%\Programs\Ollama\ollama.exe" serve     # Ollama does not auto-start
+# end-to-end Mode B through the API (same calls as the web app)
+C:/Users/Sahil/AppData/Local/reel-studio/venv/Scripts/python apps/api/tests/e2e_mode_b.py OUT.mp4 --prompt "..." \
+  --settings '{"duration_s":18,"use_reference":false,"brand_kit_id":"none"}' --music "C:/Users/Sahil/Downloads/phonk audio.mpeg" CLIP1 CLIP2
+# galleries
+python apps/api/tests/motion_gallery.py OUT IMG...
+python apps/api/tests/effects_gallery.py SRC.mp4 OUT 5
+python apps/api/tests/caption_gallery.py OUT BG.mp4 [--all]
+# voice test (isolated env)
+C:/Users/Sahil/AppData/Local/reel-studio/voice-venv/Scripts/python apps/api/app/services/voice_worker.py JOB.json
 # checks
 cd apps/api && python -m pytest -q && python -m ruff check .
 cd apps/web && pnpm lint && npx tsc --noEmit && npx next build
 cd packages/timeline-schema && pnpm test
+pnpm exec supabase test db && pnpm exec supabase db lint --local --level warning
 ```
+Restarting the engine: kill the `python … app.serve` / `app.workers` processes, then start again (a killed job is
+requeued after 3 min). Never restart during an upload. Shell-scripted Python edits on this machine turn `\b`/`\n`
+escapes into control characters — edit files with the editor tool and scan for `[\x00-\x08]` after bulk edits.
 
-## 7. Rendering pipelines
-- 1.0 (Mode A, Topic): timeline JSON → `services/rendering/compose.py` → Hyperframes 0.8.164 CLI → MP4
-  (`workers/render.py`, silent-render guard, Instagram delivery copy).
-- 2.0 engine: plan JSON → `editing/render.py` (FFmpeg segments, xfade, separate audio, mux) → `editing/qa.py`. Picture
-  and sound are rendered separately and muxed (no drift). Not yet merged with the Hyperframes layer.
+## 14. Media, references, outputs
+Owner inputs: `C:\Users\Sahil\Downloads\` (reel template*.mp4, clip 1–17.mp4, phonk audio.mpeg, guide PDF).
+Outputs under `C:\Users\Sahil\AppData\Local\reel-studio\data\`: `mode-b-tests\phase-b\{phonk,cinematic,ad}.mp4`,
+`phase-b\compare.jpg`, `phase-c\ad.mp4` (+ `ad2` pending), `phase-d\` (pending), `phase-e\3d.mp4`,
+`app-e2e\phonk.mp4`, `grind-phonk-ref4\`, `motion-gallery\`, `effects-gallery-2\`, `effects-gallery-3\`,
+`caption-gallery\`, `composite-test\`, `blender-test\`, `mode-a-test\{preset,off}.mp4`, `campaign-test*.json`,
+`voice-test\`, `models\onnx\`, `models\chatterbox\`. Local renders also in `data\orgs\<org>\renders\<id>\`.
 
-## 8. Beat detection, effects, transitions — source files
-`app/services/music/beats.py`, `app/services/editing/effects.py` (`EFFECTS`, `TRANSITIONS`), `app/services/editing/base.py`
-(`assemble`), `app/services/editing/planner.py`, `app/services/editing/pacing.py`, `app/services/editing/style_transfer.py`.
+## 15. Known bugs and limitations
+- Campaign copy from qwen2.5vl:7b repeats hooks and mixes English into Hinglish; grounding removes invented numbers.
+- Director sometimes picks `cinematic` for promos; model scene durations are short (now stretched to the next scene).
+- Ingest ~50 s per clip (VLM tag ~8 s warm / 25 s cold + analysis); one GPU worker runs jobs one at a time.
+- Hyperframes overlay pass is slow (~150 s for 16 s); a brand watermark alone triggers it.
+- Blender Store build only reachable through the launcher alias (no stdout); completion detected via files.
+- Local test workspace has a default "Nimbu Academy (test kit)" brand kit → watermark unless `brand_kit_id:"none"`.
+- `subject_pop` is CPU-heavy (~15 s per output second at 1080p), budgeted to 2 shots per edit.
+- Old test clips are 478×850 (upscaled, soft); night clips are genuinely dark.
+- `next build` not run this session; landing page card still says Topic → Video.
+- Production not migrated/deployed (§12).
 
-## 9. Canonical timeline schema
-`packages/timeline-schema/src/index.ts` (Zod, source of truth) → `timeline.schema.json` (`pnpm build:schema`) → Python
-`jsonschema` validation (`services/rendering/timeline.py`). Items: video (crop keyframes), caption, audio, code, text;
-`Brand`, `CaptionStyle`, `StylePreset`. **Not yet extended for 2.0**: the Mode B plan JSON is separate today
-(`planner.plan()` output). The master plan requires extending the canonical schema (speed/ramps, effects with keyframes,
-transitions, graphics templates, beat anchors, music automation, renderer selection, reuse metadata) instead of a
-competing format — do this before building the Mode B UI/editor integration.
+## 16. Test results (this session)
+API pytest 118 passed / 6 skipped; ruff clean; web `tsc` clean, `eslint` clean; schema vitest 12/12; pgTAP 72/72;
+`supabase db lint` no errors; motion gallery 26/26; effects+transitions 69/69; caption gallery 23/23 families animate;
+Phase B three prompts → three distinct edits (cinematic all QA pass; phonk had one cut-detection miss caused by two
+shots of the same clip — planner fixed); Phase C ad 24.000 s all QA pass; 3D edit 16.000 s all QA pass; Mode A preset
+and captions-OFF renders ready. Not run: voice synthesis, `next build`, Tests B/E/H, production checks.
 
-## 10. UI status
-Forest-green/ivory UI is final (no redesign). Shared logo (Aperture mark) on landing, sign-in and app. No 2.0 screens
-exist yet. Topic Studio (old Mode B) still present.
+## 17. Remaining phases (priority order)
+1. Finish Phase F: run `voice_worker.py` with the synthetic sample (EN ×2, HI, Hinglish), check consistency and the
+   Perth watermark; then ask the owner for a consented sample.
+2. Record Phase D (two-clip 18 s, eight-clip 20 s) and Phase C `ad2` results; render Tests B (infographic) and E
+   (before/after).
+3. Campaign copy quality (stronger per-reel prompts, dedupe, optional external model) and Test H (campaign → Mode B
+   reel → caption + tracked link, no publish).
+4. `next build`, then deploy: review + apply the 7 migrations to production Supabase, switch the production engine to
+   this folder, deploy the 2.0 web to Vercel project `reel-studio` with the same UI, verify /create, /campaigns, /r, /i.
+5. Polish: landing card, collection scheduling, reference report page, manual beat correction.
 
-## 11. Supabase and Vercel
-- Supabase project `adjwycjsxtxvjockxtan` only; `supabase/.temp/project-ref` copied locally (ignored). No 2.0
-  migrations yet; every new table needs RLS + explicit grants (D-025).
-- Vercel project `reel-studio` (team `team_N7gyjjdCHX9K8ifMie5nzuV6`, prj_VVWevgFfCwq7LgQauMu1B11RGzua) is linked to the
-  **old** repo `Open_PS04_` (Vercel status checks appear there, none on Reel-Studio commits). Pushing to Reel-Studio does
-  not deploy. Re-linking production to the new repo is a deliberate owner decision (check env vars, regions sin1).
+## 18. Precise next task
+**Phase F voice verification.** Files: `apps/api/app/services/voice_worker.py`, `voice_profiles.py`, `voice.py`.
+Steps: add `"model_dir": "C:\\Users\\Sahil\\AppData\\Local\\reel-studio\\data\\models\\chatterbox"` to
+`data/voice-test/job.json`; make sure the GPU is idle (no edit job, Ollama unloaded); run the voice worker; check
+`result.json` (4 WAVs, durations, `watermarked`), listen/ASR-check that the two English scripts sound like the same
+speaker and that Hindi/Hinglish are intelligible; then create a profile through `/voices` with that sample and run a
+Mode B edit with `voice: "profile:<id>"`, `captions: true`, `language: "hinglish"`. Acceptance: two narrations from one
+profile, recognisably consistent, word-timed captions in the MP4, watermark reported; record in TEST_STATUS.
 
-## 12. Environment variable NAMES (values only in ignored files / dashboards)
-- `apps/web/.env.local` / Vercel: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_SITE_URL`,
-  `NEXT_PUBLIC_API_URL` (optional).
-- `apps/api/.env`: `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `TOKEN_ENCRYPTION_KEY`, `ALLOWED_ORIGINS`, `DATA_DIR`, `OLLAMA_URL`,
-  `PUBLIC_API_URL`, `WHISPER_MODEL`, `WHISPER_LANGUAGE`, `INSTAGRAM_CLIENT_ID`, `INSTAGRAM_CLIENT_SECRET`, `INSTAGRAM_REDIRECT_URI`.
-- Both env files were copied into the 2.0 folder (ignored by git).
+## 19. Git
+Branch `main`, remote `origin` = https://github.com/sahilkarande0918-cmd/Reel-Studio.git (in sync at checkpoint).
+Latest code commit `ac322a5`; the checkpoint docs commit follows it. `source` remote = Open_PS04_ (fetch only).
+Identity `sahilkarande0918-cmd <sahilkarande0918@gmail.com>`; never AI authors/co-authors/trailers.
 
-## 13. Models and dependencies
-Local: faster-whisper with converted Oriserve Hinglish model (`%LOCALAPPDATA%\reel-studio\data\models`), Ollama
-`qwen2.5vl:7b`, Kokoro (via `hyperframes tts`), RapidOCR ONNX, FFmpeg 8.1.2 full (gyan.dev), Hyperframes 0.8.164 (npx),
-Node + pnpm, Python 3.11 venv with OpenCV 5.0, PySceneDetect 0.6.7, librosa 0.11.0 (new, ISC). Hardware: RTX 5050
-Laptop 8 GB — load one heavy model at a time.
-
-## 14. Blender
-**Not installed** (`C:\Program Files\Blender Foundation` absent; no `blender` on PATH). **Blender MCP
-(`ahujasid/mcp-for-blender`, MIT) is NOT configured.** Phase 8 must install Blender (free, GPL) and the MCP add-on for
-development only, and build a separate headless worker that accepts validated scene templates (no user Python).
-
-## 15. Model downloads still required for future phases
-Chatterbox (MIT; multilingual weights, PerTh watermark) for voice profiles; optionally MediaPipe segmentation models
-(Apache-2.0), SAM 2 tiny/small (Apache-2.0), Depth-Anything-V2 **Small only** (Apache-2.0; larger sizes CC-BY-NC),
-Practical-RIFE (MIT) for interpolation. None downloaded yet. Downloads need internet once; the owner approved these tools
-in the master prompt, but state filename/size when downloading.
-
-## 16. Known bugs and limitations
-- Production engine on :8000 was **not responding** at checkpoint time (it runs from the old folder; restart with
-  `start-engine.cmd`). Ollama does not auto-start after a reboot.
-- Owner test clips are ~478×850 → upscaled 2.3× to 1080×1920 (soft).
-- Shot detection under-counts on fixed layouts / filmed screens (Ref 1, 2, 6): needs region-of-interest detection.
-- Local VLM descriptions invent details; treat as model text only.
-- Clip 17 (owner) is nearly black and is never picked (dark penalty).
-- `opencv-python-headless==4.*` in requirements while the venv has OpenCV 5.0 (works; pin later).
-- Two class recordings in production data carry third-party branding (e.g. "Pradeep Giri"); internal tests only.
-- The 2.0 plan JSON is not yet the canonical timeline (see §9).
-- The working folder is inside OneDrive: avoid syncing `node_modules`/`.next` (consider excluding them from OneDrive).
-
-## 17. Testing evidence (2026-10-23/24)
-| Test | Result |
-|---|---|
-| API pytest / ruff | 107 passed, 6 skipped / clean |
-| Web tsc / lint | clean / clean (route types via `npx next typegen` in a fresh clone) |
-| Timeline schema vitest | 12 passed |
-| Effects gallery (`effects_gallery.py`) | 24/24 effects visibly change the picture, 21/21 transitions exact frame counts |
-| Two-clip engine test | 16 s, 480 frames, −14.5 LUFS, −1.6 dBTP (internal, third-party footage) |
-| Owner phonk reel (17 clips + phonk audio + Ref 4 style) | 480/480 frames; 3 hard cuts on planned frame (0 ms), ≤10 ms from beat; 7 whips/flashes centred ≤15 ms from beat and visible; no unplanned black/frozen; −14.0 LUFS, −2.2 dBTP; render 65 s |
-| Reference analysis | Ref 4: 143.6 BPM, 89 % cuts ≤60 ms of a beat (median 28 ms), median shot 0.87 s |
-
-## 18. Commit history (2.0, newest first)
-`de9729a` style transfer + QA + frame-exact transitions · `5022673` checkpoint pointer · `6580218` engine core ·
-`8f3fef0` reference analyzer + research · `2653a14` migration record · `6e94ddf` (rewritten history tip of 1.0:
-context-aware AI editing). Full log: `git log --oneline`.
-
-## 19. Local outputs and reference assets
-See master plan Part 1 ("Generated outputs", "Owner-supplied inputs"). Data root:
-`C:\Users\Sahil\AppData\Local\reel-studio\data\` (`mode-b-tests\`, `effects-gallery\`, `reference-analysis\`, `orgs\…`
-recordings/renders, `models\`). Owner inputs in `C:\Users\Sahil\Downloads\`. Nothing of this is in git.
-
-## 20. Offline vs online
-Offline OK: Mode B engine (clip analysis, beats, planning, FFmpeg render, audio, QA), reference analysis, local Ollama,
-Whisper, Kokoro, Hyperframes render (fonts/GSAP bundled), tests. Needs internet: Supabase (auth, DB, Realtime), Vercel
-frontend, Dev Tunnel, Instagram API, GitHub push, first-time model/package downloads, `npx hyperframes` first fetch.
-
-## Next step (owner has not chosen yet)
-Proposed order: (1) extend the canonical timeline for 2.0 + Mode B API/worker job + Mode B UI replacing Topic → Video +
-AI Director (local Qwen JSON plan, validated); (2) Hyperframes motion templates + 100 caption presets/ON-OFF;
-(3) campaign agent + EN/HI/Hinglish + results tracking; (4) voice profiles; (5) Blender + router.
-
-## 2026-10-24 session progress (after compaction) — resume here
-- ✅ Phase A (`40c090b`): Mode B in the web app (Create page, media bin, direction form, live progress, storyboard,
-  QA, preview, download, open in editor). Verified locally: UI edit → 15.000 s 1080×1920 H.264+AAC MP4 downloaded.
-- ✅ Phase B: AI director (local Qwen, schema-validated, rule fallback). Same 8 clips, three prompts → phonk/fast,
-  cinematic/slow (all QA pass), tech-promo with motion scenes; logs in `data/mode-b-tests/phase-b/`.
-- ✅ Phase C: 26 Hyperframes motion templates (`rendering/motion.py`, timeline item `motion`); gallery
-  `tests/motion_gallery.py` → all animated, lint clean. Reference-6-style ad acceptance render still to do.
-- 🟡 Phase D: +11 FFmpeg effects (35 total), +11 transitions (33), minterpolate slow motion, OpenCV/ONNX composites
-  (`editing/composite.py`: subject_pop via U²-Netp, depth_parallax via Depth-Anything-V2-Small; models in
-  `data/models/onnx`). Planner: no back-to-back same-clip shots, composite budget. Effects gallery re-run pending.
-- 🟡 Phase E: Blender 5.2.3 (Store; headless via `%LOCALAPPDATA%\Microsoft\WindowsApps\blender-launcher.exe`).
-  `.mcp.json` adds Blender MCP (`uvx mcp-for-blender`, safe mode, telemetry off); addon installed+enabled in the
-  Store's virtualised AppData. Headless worker `rendering/blender.py` + `blender_scene.py` (text_3d, product_turntable)
-  rendered real 3D MP4s; wired into the edit job (only for 3D requests). End-to-end 3D edit not yet run.
-- ⏳ Phase F: voice venv install started (`%LOCALAPPDATA%\reel-studio\voice-venv`, torch 2.7.1 cu128 + chatterbox 0.1.7).
-- ⏳ Phase G: OFL fonts Caveat, Press Start 2P, Bebas Neue added; 100-preset library not written yet.
-- ⬜ Phases H–L and the Vercel deploy (Vercel is still linked to `Open_PS04_`; the owner asked to deploy at the end).
-- Local test stack: `pnpm exec supabase start`, migrations applied locally only (NOT yet on production Supabase);
-  engine `sh .claude/local-engine.sh` (:8001); web `apps/web/.env.development.local` points at local stack.
+## 20. Environment variable names (values never in git)
+- `apps/api/.env`: SUPABASE_URL, SUPABASE_SECRET_KEY, TOKEN_ENCRYPTION_KEY, ALLOWED_ORIGINS, DATA_DIR, OLLAMA_URL,
+  OLLAMA_MODEL, PUBLIC_API_URL, SITE_URL (new: public web URL for inquiry links), WHISPER_MODEL, WHISPER_LANGUAGE,
+  INSTAGRAM_CLIENT_ID, INSTAGRAM_CLIENT_SECRET, INSTAGRAM_REDIRECT_URI, DIRECTOR_API_URL / DIRECTOR_API_KEY /
+  DIRECTOR_MODEL (new, optional external planner), VOICE_PYTHON (optional), BLENDER_PATH (optional),
+  HYPERFRAMES_CLI (optional).
+- `apps/web/.env.local` / Vercel: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, NEXT_PUBLIC_SITE_URL,
+  NEXT_PUBLIC_API_URL (optional). `apps/web/.env.development.local` (ignored) points dev at the local stack.

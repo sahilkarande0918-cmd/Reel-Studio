@@ -1,4 +1,4 @@
-> **Reel Studio 2.0 (2026-10-24) — read first:** `docs/REEL_STUDIO_2_MASTER_PLAN.md` (full approved spec + status map) and `docs/REEL_STUDIO_2_HANDOFF.md` (technical handoff). They supersede the 1.0 status below, which is kept as history. Work folder `C:\Users\Sahil\OneDrive\Desktop\Reel Studio 2.0`, repo https://github.com/sahilkarande0918-cmd/Reel-Studio. 2.0 so far: migration ✅, reference analysis ✅, Mode B engine core (beats, 24 effects, 21 transitions, beat planner, reference style transfer, audio, QA) ✅ via scripts; Mode B UI/API, motion templates, AI Director, Blender, voice, 100 captions, collections, campaigns, localisation, results tracking ⬜.
+> **Reel Studio 2.0 (updated 2026-10-24, session 2) — read first:** `docs/REEL_STUDIO_2_MASTER_PLAN.md` (full approved spec + status map) and `docs/REEL_STUDIO_2_HANDOFF.md` (technical handoff). They supersede the 1.0 status below, which is kept as history. Work folder `C:\Users\Sahil\OneDrive\Desktop\Reel Studio 2.0`, repo https://github.com/sahilkarande0918-cmd/Reel-Studio. 2.0 status (second session, HEAD ac322a5+docs): ✅ Mode B web app + AI director, 26 motion templates, 35 effects / 33 transitions + ONNX composites, headless Blender 3D shots, 100 caption presets + ON/OFF, clip collections; 🟡 voice profiles (built, speech not yet synthesised), campaign agent + EN/HI/Hinglish + click/inquiry tracking, Instagram cover/suggestions (nothing published), Phase D/Test B/E/H renders; ⬜ production migrations + Vercel deploy. Next task: handoff §18.
 
 # Third-party inventory
 
@@ -27,7 +27,8 @@ Reviewed 2026-10-16 via GitHub API (licence SPDX, archived flag, last push). Re-
 | FastAPI / Pydantic / Uvicorn | MIT / MIT / BSD-3 | — | Backend |
 | pyca/cryptography (50.0.2) | Apache-2.0 OR BSD-3-Clause | active | Backend AES-GCM encryption of OAuth credentials |
 | supabase-js / @supabase/ssr / supabase-py | MIT | — | Supabase clients |
-| resemble-ai/chatterbox (0.1.7, Multilingual weights) | MIT (code + weights) | active (2.0) | Consented voice profiles; runs in an isolated venv (`%LOCALAPPDATA%eel-studiooice-venv`); outputs carry Resemble's Perth watermark |
+| resemble-ai/chatterbox (0.1.7, Multilingual weights) | MIT (code + weights) | active (2.0) | Consented voice profiles; runs in an isolated venv (`%LOCALAPPDATA%
+eel-studiooice-venv`); outputs carry Resemble's Perth watermark |
 | PyTorch 2.7.1 + torchaudio (CUDA 12.8 wheels) | BSD-3-Clause | active (2.0) | Voice venv only; not loaded by the API/worker |
 | resemble-ai/Perth (resemble-perth) | MIT | active (2.0) | Synthetic-speech watermark detection |
 | xuebinqin/U-2-Net (u2netp.onnx, via rembg release) | Apache-2.0 | active (2.0) | Salient-subject masks for the `subject_pop` composite (`data/models/onnx`) |

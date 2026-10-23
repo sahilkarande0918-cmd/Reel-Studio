@@ -5,55 +5,67 @@ agent must be able to continue from this file and `docs/REEL_STUDIO_2_HANDOFF.md
 Where this file conflicts with 1.0 documents (`MASTER_PROMPT.md`, `PHASES.md`, `ORIGINAL_PS.md`), **this file wins**;
 those stay as history and must not be deleted.
 
-- Part 1: status map (what is VERIFIED / PARTIAL / UNTESTED / NOT IMPLEMENTED), as of 2026-10-24, HEAD `de9729a`.
+- Part 1: status map (what is VERIFIED / PARTIAL / UNTESTED / NOT IMPLEMENTED), as of 2026-10-24 (second session),
+  HEAD `ac322a5` plus the checkpoint docs commit. Details, evidence and commands: `docs/REEL_STUDIO_2_HANDOFF.md`.
 - Part 2: standing owner rules (non-negotiable).
-- Part 3: the owner's Reel Studio 2.0 master prompt, preserved verbatim (Appendix A) with the working-directory /
-  authorship addendum (Appendix B) and later owner instructions (Appendix C).
+- Part 3: the owner's master prompt (Appendix A, verbatim), working-directory/authorship addendum (Appendix B), later
+  owner instructions (Appendix C) and the 2026-10-24 continuation prompt "finish all remaining features" (Appendix D).
 
 ---
 
-## Part 1 — Status map (2026-10-24)
+## Part 1 — Status map (2026-10-24, after the second 2.0 session)
 
-Legend: ✅ VERIFIED (code + run + evidence) · 🟡 PARTIAL (some parts built/verified) · ⚪ UNTESTED (code exists, not
-run end to end) · ⬜ NOT IMPLEMENTED.
+Legend: ✅ VERIFIED (code + real run + evidence) · 🟡 PARTIAL (built, some acceptance still open) · ⚪ UNTESTED (code
+exists, not run end to end) · ⬜ NOT IMPLEMENTED. Everything below was run on the LOCAL test stack (local Supabase in
+Docker + local engine on :8001 + web dev on :3000). Production Supabase has NOT received the 2.0 migrations and Vercel
+has NOT been redeployed (see handoff §12).
 
-| Requirement (prompt section) | Status | Evidence / what exists | What is missing |
+| Requirement | Status | Evidence / what exists | Still open |
 |---|---|---|---|
-| Stage A — repository migration | ✅ | `docs/MIGRATION.md`: same main SHA `a28eaca` + tree `02ae2cf`, 295 files, 87 commits verified before rewrite; owner then asked to drop two other people's placeholder commits (`docs/sk`, `docs/sahil`) → new history, all commits by the owner, new main `6e94ddf`, force-pushed once to the new repo only | — |
-| Stage B — project restoration (read docs, keep stack, keep UI) | ✅ | New folder runs: API pytest 107 passed / 6 skipped, web tsc + lint clean, schema vitest 12 passed | Production engine + Vercel still run from the OLD folder/repo (see handoff) |
-| Phase 1 — reference analysis + tool audit | ✅ | `docs/REFERENCE_STYLE_ANALYSIS.md` (all 6 references + guide PDF, measured + time-coded), `docs/OPEN_SOURCE_TOOL_AUDIT.md` (licences checked on GitHub) | Region-of-interest shot detection for layout/screen references |
-| Phase 2 — unrestricted clip ingestion | 🟡 | `app/services/clips/analysis.py` (per-clip motion, sharpness, brightness, moments, motion+interest framing, proxy function) used on 17 real clips | No `media_assets` table, no multi-file/resumable upload API or UI, no dedupe, no queue/cancel, no 1/2/10/30+ acceptance run |
-| Phase 3 — Reference Style Analyzer | 🟡 | `app/services/reference/analyzer.py` (+ `tests/analyze_references.py`), 6 profiles + contact sheets; optional local-VLM key-frame descriptions | Not exposed in the app (no API/UI, no stored profile table, no visual report page) |
-| Phase 4 — music, phonk, beat sync | 🟡 | `app/services/music/beats.py` (tempo from kick band, beats, downbeats, accents, energy, relative drop detection), `editing/pacing.py` (9 profiles), `editing/planner.py`, `editing/style_transfer.py`; **real 16 s reel from 17 owner clips + owner phonk track in Reference 4 style, QA all pass** | Manual beat correction UI, phrase detection, per-profile acceptance renders, app integration |
-| Phase 5 — effects engine | 🟡 | `app/services/editing/effects.py`: 24 FFmpeg effects (camera/blur/impact/light) + 21 xfade transitions; `tests/effects_gallery.py` measured 45/45 change the picture / exact frame counts | Category E velocity beyond eased ramps/reverse/freeze (no frame interpolation yet), Category G composites (cutout, text-behind-subject, PiP, split screen, depth), shader (gl-transitions) layer, preview/export parity UI, substitution explanations |
-| Phase 6 — motion design engine (Hyperframes) | ⬜ | Existing 1.0 Hyperframes compiler (`services/rendering/compose.py`) for Mode A captions/code cards only | Template library (kinetic type, cards, mockups, chat, counters, calendars, lists, CTA, light sweeps…), 15–30 s ad render |
-| Phase 7 — AI Editing Director | ⬜ | Keyword fallback `pacing.guess()` only | LLM planning with schema validation, storyboard, distinct outputs per prompt |
-| Phase 8 — renderer router (+ Blender) | 🟡 | FFmpeg base picture + separate audio + mux is the footage path (`editing/render.py`) | Router across FFmpeg/Hyperframes/shader/Blender; **Blender not installed, Blender MCP not configured**, no headless Blender worker |
-| Phase 9 — voice cloning | ⬜ | — | Chatterbox evaluation, consent flow, profile storage, Hindi/Hinglish tests |
-| Phase 10 — 100 caption styles + ON/OFF | ⬜ | 1.0 caption presets (`highlight-word`, `karaoke`, `boxed`) + style presets | 100 presets, gallery, ON/OFF, render parity |
-| Phase 11 — AI clip collections | ⬜ | 1.0 context-aware highlights (teaching steps, scores) in Mode A | Topic clustering into series, grounded titles, batch render, scheduling |
-| Phase 12 — business campaign agent, localization, results tracking | ⬜ | 1.0 Instagram insights refresh | Campaign generator, EN/HI/Hinglish localisation, UTM/click/WhatsApp tracking, grounded suggestions |
-| Phase 13 — Instagram automation extensions | 🟡 | 1.0 OAuth, publish queue, retries, dedupe, delivery copy, insights (3 real Reels published in 1.0) | Campaign-aware scheduling, cover selection, caption suggestions in 2.0 flow |
-| Phase 14 — quality engine | 🟡 | `app/services/editing/qa.py`: exact length, hard cuts on planned frame, cuts/transitions vs beat, transition visibility, black/frozen frames, LUFS/true peak; mux auto-repairs true peak | Text clipping/safe zones, A/V sync per range, masked words, motion jitter, contact sheets in app, VERIFY report, automatic repair loop |
-| Phase 15 — E2E tests A–H | 🟡 | Test F-like (2 clips) and Test A-like (17 clips + phonk + Ref 4) rendered with the engine script | Tests B, C, D, E, G, H; all through the app UI |
-| Mode B UI (replace Topic → Video) | ⬜ | Topic Studio (1.0) still in the app | New Mode B project flow, removal of old topic entry points while keeping old projects readable |
+| Stage A migration · Stage B restoration | ✅ | `docs/MIGRATION.md`; repo history by the owner only | Production engine + Vercel still point at the old folder/repo |
+| Phase 1 reference analysis + tool audit | ✅ | `REFERENCE_STYLE_ANALYSIS.md`, `OPEN_SOURCE_TOOL_AUDIT.md`, `services/reference/analyzer.py` | ROI shot detection for layout references |
+| Phase A (owner order) — Mode B web app | ✅ | Create page, media bin (multi-file, resumable, parallel, dedupe, limits), direction form, live progress, storyboard stills, QA panel, preview, download, open in editor; edit made entirely in the UI and downloaded (15.000 s 1080×1920 H.264+AAC) | Landing page still advertises Topic → Video in one card |
+| Phase 2 ingestion (unrestricted count) | 🟡 | `media_assets`, `/assets` API, `ingest` job (analysis + thumbnail + VLM tags), project limits 300 files / 40 GB | Acceptance with 1/2/10/30+ clips not all run in one go (2, 8 and 17 clips run) |
+| Phase 3 Reference Style Analyzer in app | 🟡 | Reference upload slot in Mode B; analysis stored on the asset; style transfer applied | No visual report page |
+| Phase 4 music/beat sync | ✅ | Beat grid, drops, hook timing, whole-beat pacing; QA cuts on beat in Phase B/E runs | Manual beat correction UI |
+| Phase B (owner order) — AI Director | ✅ | `editing/director.py` (local Qwen JSON + optional external endpoint + rule fallback, schema/registry validation, scale normalisation, placeholder filter, intent gates for designed scenes and 3D); same 8 clips + 3 prompts → phonk/fast, cinematic/slow (all QA pass), tech promo with scenes | Model sometimes picks a generic style for promos |
+| Phase C — motion graphics | 🟡 | `rendering/motion.py`: 26 templates, `motion` timeline item, SFX cues; gallery 26/26 animated, Hyperframes lint clean; 24 s Reference-6-style ad rendered (all QA pass) | Ad looked weak (test brand-kit watermark, landscape screenshots); fixes made; re-render `ad2` was running at checkpoint |
+| Phase D — advanced effects, reuse | 🟡 | 35 effects + 33 transitions (69/69 gallery renders pass), minterpolate slow motion, ONNX composites `subject_pop` (U²-Netp) and `depth_parallax` (Depth-Anything-V2-Small), composite budget, no same-clip back-to-back | Two-clip 18 s and eight-clip 20 s acceptance renders were queued at checkpoint (results not recorded) |
+| Phase E — Blender + MCP | ✅ (worker) / ⚪ (MCP) | Blender 5.2.3 headless via Store alias; `rendering/blender.py` + `blender_scene.py` (text_3d, product_turntable); 3D edit rendered (3D title + turntable, all QA pass) | Blender MCP configured (`.mcp.json`, add-on enabled) but the live socket session was not exercised |
+| Phase F — voice cloning | 🟡 | `voice_profiles` table, `/voices` API (consent statement, quality checks, owner-only use, pronunciations, preview job, delete), Settings UI, isolated `voice-venv` (torch 2.7.1 cu128 + Chatterbox 0.1.7), model files in `data/models/chatterbox` | Speech never synthesised yet; owner voice sample not provided; Hinglish/Hindi quality untested |
+| Phase G — 100 caption presets + ON/OFF | ✅ | `rendering/caption_presets.py` (100 behaviourally distinct, 23 families), `captionStyle.look`/`enabled`, compiler support, picker in Mode B/Mode A/editor; unit test validates all 100; 23-family render gallery; Mode A render with `phonk-red` and with captions OFF | Pixel-font line-height fix not re-rendered |
+| Phase H — AI clip collections | ✅ (synthetic) | `clip_collections`, `/collections` API, grounded grouping by outline topics, reorder/rename/remove, batch render, UI panel; unit test; generated on the synthetic React lecture | Owner's real class not used; scheduling of a series not built |
+| Phase I — campaign agent | 🟡 | `services/campaign.py` (staged: strategy + one call per reel format), grounding (exact name, no invented numbers/claims), tracked links, campaign pages, idea → Mode A/B project with prompt prefill | Copy quality from the 7B model still weak (repeated hooks, mixed English/Hinglish) |
+| Phase J — localisation + tracking | 🟡 | EN/HI/Hinglish prompts, Marathi disabled; `tracked_links`, `link_clicks`, `inquiries`, public `/r/<slug>` + `/i/<slug>`, member-recorded inquiries, results + rule suggestions; pgTAP tests for the RPCs | No real click/inquiry from a visitor yet (deploy needed) |
+| Phase K — Instagram enhancements | 🟡 | Cover frame (`thumb_offset`, `cover_ms`), campaign link per post, caption/hashtag suggestions, existing queue/schedule/retry/dedupe | Never published or scheduled anything (owner: do NOT publish on Instagram) |
+| Phase L — QA + E2E | 🟡 | API 118 passed/6 skipped, ruff clean, web tsc+lint clean, schema 12/12, pgTAP 72/72, db lint clean; measured QA module; phone-width check of new pages (no overflow) | `next build` not run this session; Test B (infographic), Test D re-render, Test H full flow, Test G on a real class |
+| Mode B replaces Topic → Video | ✅ | `/create`, `edit` project mode; `/topics` redirects to old topic projects in the library | Landing card copy |
+| Deploy to Vercel (owner asked: last step) | ⬜ | Project `reel-studio` (prj_VVWevgFfCwq7LgQauMu1B11RGzua, domain reel-studio-taupe.vercel.app) still built from `Open_PS04_` | Apply migrations to production Supabase, run 2.0 engine for production, deploy 2.0 web |
 
-### Generated outputs (local, not in git)
-| Output | Path |
-|---|---|
-| Phonk reel (17 clips + owner phonk track, Reference 4 style), 16 s, QA all pass | `C:\Users\Sahil\AppData\Local\reel-studio\data\mode-b-tests\grind-phonk-ref4\edit.mp4` (copy: `C:\Users\Sahil\OneDrive\Desktop\grind-phonk-reel.mp4`); plan `…\grind-phonk-ref4\plan.json`; QA `…\grind-phonk-ref4\report.json` |
-| First engine test (2 class recordings + synthesized phonk score) — internal only, contains third-party branding | `…\data\mode-b-tests\f-two-clips-phonk\edit.mp4` |
-| Effects/transitions gallery (45 renders + sheet + gallery.json) | `…\data\effects-gallery\` |
-| Reference profiles (style.json + contact sheets) | `…\data\reference-analysis\` |
-| Owner music analysis | `…\data\mode-b-tests\phonk-audio.json` |
+### Generated outputs (local, not in git) — see handoff §14 for the full list
+`C:\Users\Sahil\AppData\Local\reel-studio\data\` → `mode-b-tests\{grind-phonk-ref4,phase-b,phase-c,phase-d,phase-e,app-e2e}`,
+`motion-gallery\`, `effects-gallery-2\`, `effects-gallery-3\`, `caption-gallery\`, `composite-test\`, `blender-test\`,
+`mode-a-test\`, `campaign-test*.json`, `voice-test\`, `models\{onnx,chatterbox}`.
 
 ### Owner-supplied inputs (local, never committed)
 - Reference reels: `C:\Users\Sahil\Downloads\reel template.mp4`, `reel template 2.mp4`, `reel template 3.mp4`,
-  `reel template 4.mp4`, `reel template 5.mp4` (extra), `reel template 6.mp4`.
-- Guide: `C:\Users\Sahil\Downloads\VenomsTechAI_Claude_Video_Editor_Guide.pdf`.
-- Test footage: `C:\Users\Sahil\Downloads\clip 1.mp4` … `clip 17.mp4` (copies with underscores in
-  `…\data\mode-b-tests\src\clip_N.mp4`); music `C:\Users\Sahil\Downloads\phonk audio.mpeg` (129.2 BPM, drop 15.19 s).
-- Owner instruction: use **Reference 4 (`reel template 4.mp4`) as the template** for the phonk edit.
+  `reel template 4.mp4`, `reel template 5.mp4` (extra), `reel template 6.mp4`; guide `VenomsTechAI_Claude_Video_Editor_Guide.pdf`.
+- Test footage: `C:\Users\Sahil\Downloads\clip 1.mp4` … `clip 17.mp4` (copies `…\data\mode-b-tests\src\clip_N.mp4`);
+  music `C:\Users\Sahil\Downloads\phonk audio.mpeg`. Owner instruction: Reference 4 is the template for the phonk edit.
+- Still needed from the owner: a consented voice recording (Phase F), real business details (Test H), approval of the
+  production Supabase migrations + Vercel re-link (deploy).
+
+### Acceptance tests (Phase 15 / Phase L) and their state
+| Test | Required | State |
+|---|---|---|
+| A Phonk product montage | beat cuts, impact zooms, velocity, blur, flash/shake, product framing | ✅ owner phonk reel (17 clips + Ref 4) and Phase B phonk edit |
+| B Animated infographic | text, lists, video cards, layout, transitions (Ref 2) | ⬜ templates exist (`info_list`, `media_card`, `stagger_lines`), not rendered as a test |
+| C Motion graphics | chat bubbles, cards, kinetic type, counters (Ref 3) | 🟡 all templates render in the gallery; no dedicated test edit |
+| D Premium ad | editorial text, website cards, mockups, light sweeps, CTA, sound design (Ref 6) | 🟡 rendered once (QA pass, weak look); re-render in progress |
+| E Before/After | comparison layout, transforms, transitions (Ref 1) | ⬜ `split_screen` template exists, not rendered as a test |
+| F Two clips, 15 s, reuse | meaningful reuse without obvious looping | 🟡 earlier runs pass QA; 18 s acceptance run queued |
+| G Mode A regression | upload, transcribe, highlights, crop, captions, edit, export | 🟡 render path + presets + captions OFF verified on the synthetic lecture; full upload→transcribe not re-run |
+| H Business workflow | campaign, exported reel, caption, posting plan, trackable CTA, no publish | 🟡 campaign + links + UI work; no exported campaign reel yet |
 
 ---
 
@@ -67,7 +79,9 @@ run end to end) · ⬜ NOT IMPLEMENTED.
    read-only history (the old folder still runs the production engine until deliberately re-pointed).
 4. Supabase: only project `adjwycjsxtxvjockxtan`; never the owner's separate SaaS project; never disable RLS; every new
    table needs explicit grants.
-5. Never publish an Instagram post without explicit approval of the exact account, video and caption. Never use the
+5. **Owner, 2026-10-24: "do not publish on insta anything"** — no posts, test posts or scheduled posts at all; verify
+   Instagram features with tests and the UI only. (Earlier rule, still valid: never publish without explicit approval
+   of the exact account, video and caption.) Never use the
    personal account `@sahil_karande`. YouTube postponed.
 6. No secrets, tokens, private media, voice samples, model weights or generated files in git.
 7. The forest-green / warm-ivory UI is FINAL: no redesign; new features use existing tokens and components.
@@ -281,3 +295,68 @@ After migration, continue all development, testing, commits and pushes from this
   yet; proposed order: Mode B screen + AI Director → motion graphics + captions → campaigns/localisation/tracking →
   voice → Blender. Owner has not yet chosen the order.
 - Pre-compaction checkpoint requested (this file, the handoff, doc sync); no new development during the checkpoint.
+
+- 2026-10-24 (second session) "RESTORE COMPLETE CONTEXT AND FINISH ALL REMAINING FEATURES" — full text in Appendix D.
+- Same session: "and at last deploy it on vercel with same dashboard ui as it was previous" → deploy is the final step
+  (not done yet; see handoff §12 and §17).
+- Same session: "do not publish on insta anything" → never publish, test-post or schedule anything on Instagram.
+- Same session: pre-compaction checkpoint request (this documentation update; no new development during it).
+
+## Part 4 — Tools, repositories, skills and models (status 2026-10-24)
+| Tool / model | Licence | Status in Reel Studio |
+|---|---|---|
+| Hyperframes 0.8.164 (+ GSAP 3.14.2 bundled) | Apache-2.0 | Overlay/motion/caption renderer; editor preview |
+| FFmpeg 8.1.2 full | GPL build, separate process | Base picture, xfade, minterpolate, audio mix, loudnorm |
+| OpenCV 5, PySceneDetect 0.6.7, librosa 0.11 | Apache-2.0 / BSD-3 / ISC | Clip analysis, reference shots, beats/drops |
+| Ollama `qwen2.5vl:7b` | model licence via Ollama | Director, clip VLM tags, campaign copy, highlight outline |
+| faster-whisper + Oriserve Hinglish CT2 | MIT / model licence | Mode A ASR, narration word timing |
+| Kokoro (via `hyperframes tts`) | Apache-2.0 | Built-in narration voices |
+| Chatterbox Multilingual 0.1.7 (+ Perth watermark) | MIT | Voice profiles (installed, not yet run) |
+| OpenVoice V2 | MIT | Evaluated on paper only; not installed (Chatterbox chosen) |
+| U²-Netp (onnx) | Apache-2.0 | `subject_pop` composite |
+| Depth-Anything-V2 **Small** (onnx) | Apache-2.0 | `depth_parallax` composite (Base/Large are CC-BY-NC: not used) |
+| SAM 2 | Apache-2.0 | Not adopted (U²-Netp is enough for salient-subject masks on CPU) |
+| MediaPipe | Apache-2.0 | Not adopted yet |
+| Practical-RIFE | MIT | Not adopted; FFmpeg `minterpolate` gives interpolated slow motion |
+| gl-transitions | MIT | Not adopted; 33 xfade transitions + Hyperframes scene transitions used |
+| frei0r, natron-plugins | GPL/LGPL | Not adopted |
+| Blender 5.2.3 LTS (Microsoft Store) | GPL | Headless 3D worker (`--factory-startup`, our script only) |
+| ahujasid/mcp-for-blender | MIT | Configured for Claude Code (`.mcp.json`, safe mode, telemetry off); add-on installed/enabled |
+| Herk Edit Kit, Video Director Skill, AIvideokit, free247editor, Vertical Video Editing Skill, Claude Motion Graphics | various (see OPEN_SOURCE_TOOL_AUDIT.md) | Studied for techniques only; nothing copied; techniques reimplemented as templates/effects |
+| Fonts: Archivo, Poppins, Noto Sans, JetBrains Mono, Fira Code, Fraunces, Bebas Neue, Caveat, Press Start 2P | SIL OFL | Bundled for renders and caption previews |
+
+## Appendix D — 2026-10-24 continuation prompt (verbatim)
+
+REEL STUDIO 2.0 — RESTORE COMPLETE CONTEXT AND FINISH ALL REMAINING FEATURES
+We have just completed Claude Code compaction.
+You are continuing development of our existing Reel Studio 2.0 application.
+You have no reliable memory of the previous conversation. The repository and persistent handoff documentation are your source of truth.
+YOUR OBJECTIVE: Restore the entire project context, then implement ALL remaining Reel Studio 2.0 features continuously, with testing, meaningful commits and GitHub pushes at each completed milestone.
+Do not rebuild the project.
+Do not stop after planning.
+Do not repeatedly ask me to authorize routine development steps.
+STEP 1 — Restore full context before writing code
+Working directory: `C:\Users\Sahil\OneDrive\Desktop\Reel Studio 2.0`
+GitHub: https://github.com/sahilkarande0918-cmd/Reel-Studio.git
+Read the following files COMPLETELY and IN THIS ORDER: 1. `AGENTS.md` 2. `docs/REEL_STUDIO_2_MASTER_PLAN.md` — MOST IMPORTANT: full approved requirements. 3. `docs/REEL_STUDIO_2_HANDOFF.md` — MOST IMPORTANT: exact recent work and technical status. 4. `docs/CHECKPOINT.md` 5. `docs/IDE_HANDOFF.md` 6. `CLAUDE.md` 7. `docs/CURRENT_TASK.md` 8. `docs/PHASES.md` 9. `docs/ARCHITECTURE.md` 10. `docs/DECISIONS.md` 11. `docs/TEST_STATUS.md` 12. `docs/DEPLOYMENT.md` 13. `docs/ENVIRONMENT.md` 14. `docs/THIRD_PARTY_LICENSES.md` 15. `docs/REFERENCE_STYLE_ANALYSIS.md`, if present. 16. `docs/OPEN_SOURCE_TOOL_AUDIT.md`, if present. 17. Historical master prompt and original PS for reference.
+Also read any additional files referenced by the latest handoff. The new 2.0 specification supersedes old product requirements where they conflict. Check Git status, latest commits, remotes, source files and actual implementation. Do not rely solely on documentation if actual code contradicts it.
+STEP 2 — Understand exactly what we are building
+Reel Studio 2.0 is an AI-powered professional video-editing and content marketing platform. There are TWO creation modes.
+MODE A — Recording to Reels. User uploads long recordings. AI: Transcribes Hinglish/English. Corrects technical terms. Understands complete explanations. Finds meaningful highlights. Performs smart 9:16 cropping. Adds captions/effects. Supports music, voice and branding. Renders MP4. Publishes to Instagram with approval. Preserve all existing working Mode A functionality.
+MODE B — Prompt-to-Pro-Edit. User uploads any practical number of video clips, optionally adds a song and reference Reel, then describes the desired edit. Example: "Create a premium phonk shoe-store Reel with smooth velocity ramps, flashes, motion blur, wobble, cinematic zooms and perfectly timed transitions." Another example: "Create a professional motion-designed advertisement using kinetic typography, animated website cards, browser mockups, smooth camera motion, light effects and a beautiful brand reveal." AI analyzes footage, audio and reference styles, creates an executable timeline, selects effects/renderers, produces a professional MP4 and checks the output. The previous JSON/XML Topic-to-Video mode is being replaced by this new Mode B. Retire its user-facing workflow safely, without deleting existing projects or shared rendering utilities unnecessarily. Keep the approved forest-green/ivory dashboard. No complete UI redesign.
+STEP 3 — Preserve and verify previous achievements. According to the pre-compaction session, we already have: Full GitHub migration into the new repository. Existing application code and history. Mode A recording pipeline. Context-Aware AI Editing. Instagram publishing and analytics. Reference-video analysis. Basic Mode B editing engine. Working music/beat synchronization. 24 effects. 21 transitions. One real 16-second beat-synchronized phonk Reel. Real MP4 output checks. Verify all of these against the actual code and test artifacts. Do not rebuild existing features that are genuinely working. Enhance and integrate them instead. The previous session also identified many 2.0 features that were unfinished. I have now installed Blender locally. Check the installation path and version. Do not assume Blender MCP is configured merely because Blender is installed.
+STEP 4 — IMPLEMENT ALL REMAINING FEATURES. Work continuously in the following implementation order, respecting dependencies.
+PHASE A — COMPLETE MODE B WEB APPLICATION. Build the actual Mode B UI inside our existing Next.js application. Required: Multiple-clip upload. Resumable/batched uploads. Asset thumbnails and previews. Audio upload. Reference Reel upload. Prompt input. Duration and aspect-ratio settings. Creative style selector. Music options. Captions ON/OFF. Voice profile selector. Generate Professional Edit button. Real processing progress. Storyboard preview. Render preview. Download/export. Open in existing timeline editor. Connect all controls to real backend functionality. Remove the obsolete Topic-to-Video mode from the creation interface. Do not create fake processing indicators or decorative buttons. The current forest-green/ivory theme must remain unchanged. Acceptance: Generate and download a professional edit entirely from the web application, not just from a Python script. Run tests, verify the actual MP4, update docs, commit and push.
+PHASE B — INTELLIGENT AI EDITING DIRECTOR. Upgrade the existing keyword-based style selector into a genuine AI planning system. Use the existing local Ollama/Qwen model, with optional external LLM configuration. The Director must understand: User instructions. Footage content. Scene quality. Camera movement estimates. Reference editing style. Music beats and energy. Product/subject importance. Story structure. Desired pacing. Available effect registry. Available motion templates. Renderer capabilities. Generate a validated canonical edit plan. It must decide: Which footage to select. Clip order. Source timestamps. Cut positions. Beat alignment. Effect selection. Effect intensity. Transitions. Camera reframing. Typography. Motion graphics. Sound design. Ending. When the prompt is vague, infer sensible creative defaults. Support: Cinematic. Phonk/Velocity. Product Showcase. Minimal. Educational. Infographic. Motion Graphics. Premium Advertisement. Modern Tech Promo. Do not blindly apply random effects. Reuse the existing canonical timeline schema. Acceptance: The same footage edited with different instructions produces distinctly different, appropriate video outputs. Test, commit and push.
+PHASE C — PROFESSIONAL MOTION GRAPHICS. Build our full Hyperframes motion-design system. Study the legitimate free editing skills and repositories described in the 2.0 master plan: Herk Edit Kit. Video Director Skill. AIvideokit. Claude Motion Graphics. Vertical Video Editing Skill. free247editor. Also inspect the five reference Reels and our previously uploaded editing guide. Implement actual reusable motion templates for: Kinetic typography. Blur-to-sharp text. Staggered animated text. Floating cards. Phone mockups. Laptop/browser mockups. Animated website previews. Split-screen layouts. Infographics. UI components. Chat bubbles. Counters. Calendar scenes. Charts. Shape animation. Logo reveals. Layered compositions. Masks. Light sweeps. Smooth camera moves. Morph-like transitions. Perspective movement. Cinematic typography. Use Hyperframes for complex 2D motion. Create reusable editable templates, not hardcoded animations for a single test Reel. Acceptance: Render an original motion-designed advertisement inspired by Reference 6, with actual scene animation, typography and sound effects. Test, commit and push.
+PHASE D — ADVANCED EFFECTS, MUSIC AND FOOTAGE REUSE. Preserve the already working 24 effects and 21 transitions. Expand missing capabilities from the approved 2.0 specification. Support relevant equivalents of: Flash. Blur. Wobble. Shake. Zoom. Velocity ramps. Whip transitions. RGB split. Glitch. Glow. Bloom. Light leaks. Mask transitions. Motion blur. Camera pan/tilt. Depth parallax. Product outlines. Speed ramps. Frame interpolation. Tracked overlays. Subject cutouts. Evaluate compatible free tools: GL Transitions. frei0r. Practical RIFE. SAM 2. Depth Anything V2 Small. MediaPipe. OpenCV. librosa. PySceneDetect. Check licensing and technical compatibility. Improve phonk beat synchronization and the intelligent clip reuse system. Support arbitrary practical clip counts with transparent storage/processing limits, batching and bounded GPU memory. If the user supplies only a few clips, reuse footage creatively without obvious looping. Acceptance: Real 15–20-second edits from two clips and from a larger clip collection, with measurable beat alignment. Test, commit and push.
+PHASE E — BLENDER + BLENDER MCP. Blender is now installed on my Windows machine. Verify the installation, executable path and version. Integrate: https://github.com/ahujasid/mcp-for-blender Configure Blender MCP for Claude Code following the official repository documentation. For the actual web application, create a separate safe Blender rendering worker. Use Blender only when genuine 3D capabilities are necessary: 3D typography. 3D products. Real 3D scenes. Authored camera paths. Advanced 3D lighting. Complex depth-based compositions. Do not use Blender for simple cuts, flash, shake, basic zooms or ordinary 2D graphics. Protect the runtime from arbitrary user-generated Python/script execution. The platform must keep functioning when Blender is unavailable. Acceptance: Render and integrate a small genuine 3D scene through the approved worker and shared timeline. Test, commit and push.
+PHASE F — VOICE CLONING. Implement consent-based reusable voice profiles. Evaluate: Chatterbox Multilingual. OpenVoice V2. Requirements: Upload personal voice recording once. Audio quality validation. Explicit ownership/permission confirmation. Reusable stored voice profile. Secure profile storage. Hindi/English and tested Hinglish. Pronunciation rules. Persistent voice selection. Voice preview. Voice deletion. Synthetic speech identification where supported. Integration with both modes. The cloned voice should remain recognizably consistent between scripts. Do not promise perfect identical voice reproduction. Test actual generated speech using multiple scripts. Commit and push.
+PHASE G — 100 CAPTION PRESETS. Create a real caption system with: Captions ON/OFF. When ON, users may select from 100 distinct presets. Support: Different typography. Licensed fonts. Color palettes. Glow. Outline. Shadows. Animated entrances. Karaoke. Word highlighting. Pop and bounce. Creator captions. Cinematic captions. Learning captions. Brand captions. Phonk captions. Kinetic text. Other genuinely distinct styles. Do not create 100 meaningless color variations. Styles must affect the final rendered video. Provide previews and customization. Use the canonical timeline and Hyperframes renderer. When captions are OFF, do not burn captions into the video. Verify all preset definitions and representative exports. Commit and push.
+PHASE H — AI CLIP COLLECTIONS. Use Mode A's context-aware highlight detection to group related clips into educational series. Implement: Topic clustering. Collection generation. Accurate grounded titles. Episode ordering. Source timestamps. Persistent collections. Manual reordering. Individual editing. Batch export. Branding. Optional scheduling. Do not invent concepts absent from the recording. Test with an educational recording. Commit and push.
+PHASE I — AI CAMPAIGN AGENT. Build the local-business content automation system. Inputs: Business name. Industry. Target audience. Marketing goal. Offer. Brand assets. Available footage. Generate: Campaign concepts. Content strategy. Reel ideas. Hooks. Scripts. Captions. CTAs. Content series. Suggested publishing schedule. Connect actual generated campaigns to Mode A and Mode B. The feature should create usable content, not merely provide text advice. Test with a realistic local-business scenario. Commit and push.
+PHASE J — LOCALIZATION AND BUSINESS TRACKING. Implement: English content. Hindi content. Hinglish content. Marathi only after genuine model testing. Brand vocabulary preservation. Local audience adaptation. Add measurable business tracking: Campaign IDs. UTM tracking. Clickable CTA links. WhatsApp inquiry links. Actual recorded clicks. Real inquiry records. Campaign analytics. Grounded AI suggestions. Do not fabricate leads, conversions or revenue. Commit and push.
+PHASE K — INSTAGRAM ENHANCEMENTS. Preserve existing verified Instagram functionality. Implement missing improvements: Campaign-aware publishing. Scheduled posting UI. Cover-frame selection. Hashtag and caption suggestions. Reel preview. Publish status. Duplicate prevention. Failure handling. Campaign analytics. Never publish real content without my explicit approval of the final media, account and caption. YouTube remains postponed. Commit and push.
+PHASE L — FULL AUTOMATED QA AND END-TO-END TESTING. Implement and run: Real video playback checks. FFprobe checks. Audio sync. Loudness. Black-frame detection. Missing-effect detection. Beat-offset measurement. Transition continuity. Caption safety. Motion jitter. Duplicate clip analysis. Missing overlays. Scene duration accuracy. Media permission checks. RLS and authentication tests. Backend tests. Timeline tests. Frontend lint/typecheck. Production build. Responsive UI inspection. Run the original planned end-to-end cases: 1. Phonk product montage. 2. Motion-graphics advertisement. 3. Animated infographic. 4. Before/After video. 5. Two-clip footage reuse. 6. Mode A recording-to-Reels regression. 7. Business campaign workflow. 8. Instagram integration verification without an unapproved post. Use actual MP4 outputs rather than simulated videos. Record results honestly. Commit and push final verified work.
+STEP 5 — AUTONOMOUS DEVELOPMENT RULES. You have approval to proceed through all normal engineering phases without asking me for each individual feature. After every meaningful completed phase: 1. Run relevant tests. 2. Verify real functionality. 3. Inspect video output where relevant. 4. Fix identified defects. 5. Update persistent documentation. 6. Commit meaningful changes. 7. Push to the NEW repository. 8. Record the latest SHA. 9. Continue to the next phase. If context becomes limited, preserve a complete checkpoint before compaction. Never invent test results or mark unfinished work as complete. Never perform a real Instagram post, use a paid service, delete user data, or make consequential external account changes without the required authorization. Keep the ₹0 mandatory-cost architecture. Keep the dashboard's existing theme unchanged. Preserve existing source history and genuine human Git attribution. NEVER add Claude, Anthropic, Codex, Cursor or any AI agent as a Git author, co-author, contributor or team member. Never include `Co-Authored-By` trailers. Use only the established genuine Git identity. Never push secrets or private media. Do not force-push unrelated branches. Avoid paid APIs where local/open-source alternatives are available. Never represent unavailable capabilities as implemented.
+FINAL DIRECTIVE. First restore the full project context from all handoff documents. Then continue implementing ALL remaining Reel Studio 2.0 features in the specified order. The already completed Mode B beat-sync engine and effects library must be reused, not rewritten. The immediate first development task is to implement the functional Mode B web interface and integrate the existing editing engine with a proper AI Director. Then continue automatically through motion graphics, advanced effects, Blender, voice cloning, caption styles, collections, campaigns, localization, Instagram enhancements and final testing. Do not stop after a single phase to ask what to work on next. Only interrupt for genuinely necessary permissions, unavailable assets, major blockers or external account actions. Our objective is a functioning, professional AI video-editing and marketing automation platform — not another static prototype. START BY READING ALL MANDATORY HANDOFF FILES, THEN CONTINUE DEVELOPMENT.
