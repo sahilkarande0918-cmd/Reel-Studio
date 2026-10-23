@@ -1,5 +1,7 @@
 # Reel Studio 2.0 — roadmap and architecture (from 2026-10-23)
 
+> Full spec and the authoritative status map: `REEL_STUDIO_2_MASTER_PLAN.md`; handoff: `REEL_STUDIO_2_HANDOFF.md`.
+
 The owner's Reel Studio 2.0 master prompt supersedes the old roadmap where they conflict. `ORIGINAL_PS.md`,
 `MASTER_PROMPT.md` and `PHASES.md` stay as history. Repository: https://github.com/sahilkarande0918-cmd/Reel-Studio
 (migrated with full history, see `MIGRATION.md`); local folder `C:\Users\Sahil\OneDrive\Desktop\Reel Studio 2.0`.
@@ -40,11 +42,11 @@ picture and sound rendered separately and muxed; QA measures the actual file.
 | # | Phase | Status |
 |---|---|---|
 | A | Repository migration (full history, verified) | ✅ `2653a14` |
-| 1 | Reference analysis + open-source tool audit | 🟡 in progress (`REFERENCE_STYLE_ANALYSIS.md`, `OPEN_SOURCE_TOOL_AUDIT.md`) |
-| 2 | Unrestricted-count clip ingestion (chunked/resumable, proxies, dedupe, analysis queue) | ⬜ |
+| 1 | Reference analysis + open-source tool audit | ✅ (`REFERENCE_STYLE_ANALYSIS.md`, `OPEN_SOURCE_TOOL_AUDIT.md`) |
+| 2 | Unrestricted-count clip ingestion (chunked/resumable, proxies, dedupe, analysis queue) | 🟡 per-clip analysis only (`clips/analysis.py`) |
 | 3 | Reference Style Analyzer (reusable, report) | 🟡 analyzer built (`services/reference/analyzer.py`), UI/report pending |
-| 4 | Music + beat sync, pacing profiles, phonk | 🟡 `services/music/beats.py` built |
-| 5 | Effects engine (typed registry, every effect renders) | ⬜ |
+| 4 | Music + beat sync, pacing profiles, phonk | 🟡 engine verified on the owner's phonk reel; app integration pending |
+| 5 | Effects engine (typed registry, every effect renders) | 🟡 24 effects + 21 transitions verified; velocity/composites/shaders pending |
 | 6 | Motion design engine (Hyperframes templates) | ⬜ |
 | 7 | AI Editing Director | ⬜ |
 | 8 | Renderer router (+ Blender worker) | ⬜ |
@@ -53,7 +55,7 @@ picture and sound rendered separately and muxed; QA measures the actual file.
 | 11 | AI clip collections (Mode A) | ⬜ |
 | 12 | Business campaign agent | ⬜ |
 | 13 | Instagram automation extensions | ⬜ (existing integration preserved) |
-| 14 | Video quality engine | ⬜ |
+| 14 | Video quality engine | 🟡 `editing/qa.py` (length, cuts, beats, black/frozen, loudness) |
 | 15 | End-to-end validation tests A–H | ⬜ |
 
 ## Inputs still needed from the owner

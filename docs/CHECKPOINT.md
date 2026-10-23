@@ -1,4 +1,6 @@
-# Reel Studio 2.0 — read this first (2026-10-23)
+# Reel Studio 2.0 — read this first (updated 2026-10-24)
+- **Authoritative now:** `docs/REEL_STUDIO_2_MASTER_PLAN.md` (spec + status map) and `docs/REEL_STUDIO_2_HANDOFF.md`.
+- Since 2026-10-23: owner phonk reel from 17 clips + phonk audio in Reference 4 style (all QA checks pass), reference style transfer, measured QA module, frame-exact transitions, relative drop detection (HEAD `de9729a` + checkpoint docs).
 - Repository: https://github.com/sahilkarande0918-cmd/Reel-Studio (migrated with full history, verified: `docs/MIGRATION.md`).
   Work folder: `C:\Users\Sahil\OneDrive\Desktop\Reel Studio 2.0`. The old folder `C:\dev\Reel-Studio` now points at the
   renamed original repo `Open_PS04_` and still runs the production engine and Vercel deployment (not yet re-pointed).

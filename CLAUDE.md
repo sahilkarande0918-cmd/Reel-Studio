@@ -7,6 +7,7 @@ Two modes, one pipeline: **Recording → Reels** (class recording → 30–60 s 
 Repo: https://github.com/sahilkarande0918-cmd/Reel-Studio (public, `main`).
 
 ## Mandatory reading order (new or compacted session)
+00. **`docs/REEL_STUDIO_2_MASTER_PLAN.md`** then **`docs/REEL_STUDIO_2_HANDOFF.md`** (Reel Studio 2.0: authoritative spec, status, commands). Work only in `C:\Users\Sahil\OneDrive\Desktop\Reel Studio 2.0` → https://github.com/sahilkarande0918-cmd/Reel-Studio.
 0. **`docs/CHECKPOINT.md`**, then **`docs/IDE_HANDOFF.md`** and **`docs/CURRENT_TASK.md`** (backlog A/B/C) — latest state, rules, next steps.
 1. `CLAUDE.md` (this file)
 2. `docs/MASTER_PROMPT.md` (+ `docs/MASTER_PROMPT_SUPABASE_ADDENDUM.md`)
@@ -24,6 +25,7 @@ Repo: https://github.com/sahilkarande0918-cmd/Reel-Studio (public, `main`).
 Trust repo docs and git history over remembered assumptions.
 
 ## Current next work
+**Reel Studio 2.0** (supersedes the 1.0 note below): continue the phases in `docs/REEL_STUDIO_2_MASTER_PLAN.md`; the owner has not yet chosen the order (proposed: canonical-timeline extension + Mode B API/UI + AI Director → motion templates + 100 captions → campaigns/localisation/tracking → voice → Blender). Old 1.0 note:
 Feature A (context-aware AI editing) is done and verified (`docs/CURRENT_TASK.md`). Features B (five caption
 personalities) and C (AI clip collections) are approved but postponed until the owner explicitly asks. Start the engine with
 `apps/api/start-engine.cmd` (also a Windows logon task).
@@ -51,7 +53,7 @@ personalities) and C (AI clip collections) are approved but postponed until the 
 - Public backend tunnel: **Microsoft Dev Tunnels** (`python -m app.serve --tunnel devtunnel`, stable URL). Tailscale/Cloudflare are blocked by the owner's Fortinet network; **never use ngrok** (owner's choice). D-024.
 
 ## Local paths (this machine)
-- Repo: `C:\dev\Reel-Studio` (moved out of OneDrive; the old OneDrive copy is obsolete).
+- Repo (2.0, current): `C:\Users\Sahil\OneDrive\Desktop\Reel Studio 2.0`. The old 1.0 folder `C:\dev\Reel-Studio` now tracks the renamed original repo `Open_PS04_` and still runs the production engine.
 - Python venv: `C:\Users\Sahil\AppData\Local\reel-studio\venv` (there is **no** `apps/api/.venv`).
 - Data/models/test recordings: `C:\Users\Sahil\AppData\Local\reel-studio\data`.
 

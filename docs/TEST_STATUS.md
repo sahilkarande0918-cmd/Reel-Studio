@@ -1,3 +1,16 @@
+> **Reel Studio 2.0 (2026-10-24) — read first:** `docs/REEL_STUDIO_2_MASTER_PLAN.md` (full approved spec + status map) and `docs/REEL_STUDIO_2_HANDOFF.md` (technical handoff). They supersede the 1.0 status below, which is kept as history. Work folder `C:\Users\Sahil\OneDrive\Desktop\Reel Studio 2.0`, repo https://github.com/sahilkarande0918-cmd/Reel-Studio. 2.0 so far: migration ✅, reference analysis ✅, Mode B engine core (beats, 24 effects, 21 transitions, beat planner, reference style transfer, audio, QA) ✅ via scripts; Mode B UI/API, motion templates, AI Director, Blender, voice, 100 captions, collections, campaigns, localisation, results tracking ⬜.
+
+## Reel Studio 2.0 checks (2026-10-23/24)
+| Test | Result |
+|---|---|
+| API pytest / ruff | ✅ 107 passed, 6 skipped / clean (new folder) |
+| Web tsc / lint | ✅ clean |
+| Schema vitest | ✅ 12 passed |
+| Effects gallery | ✅ 24/24 effects change the picture; 21/21 transitions exact frame count |
+| Owner phonk reel (17 clips, phonk audio, Ref 4 style) | ✅ 480/480 frames, hard cuts 0 ms off plan and ≤10 ms off beat, transitions ≤15 ms off beat, −14.0 LUFS, −2.2 dBTP |
+| Reference analysis (6 reels) | ✅ profiles + contact sheets; Ref 4 89 % cuts within 60 ms of a beat |
+| Mode B in the app, Tests B–E, G, H | ⬜ not built / not run |
+
 > **2026-10-17: Feature A (context-aware AI editing) verified on the owner's real physics class (production) and the synthetic React fixture (local). Read [CHECKPOINT.md](CHECKPOINT.md) first.** B/C not implemented.
 
 ## Context-aware AI editing (2026-10-17)

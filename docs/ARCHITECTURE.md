@@ -1,3 +1,8 @@
+> **Reel Studio 2.0 (2026-10-24) — read first:** `docs/REEL_STUDIO_2_MASTER_PLAN.md` (full approved spec + status map) and `docs/REEL_STUDIO_2_HANDOFF.md` (technical handoff). They supersede the 1.0 status below, which is kept as history. Work folder `C:\Users\Sahil\OneDrive\Desktop\Reel Studio 2.0`, repo https://github.com/sahilkarande0918-cmd/Reel-Studio. 2.0 so far: migration ✅, reference analysis ✅, Mode B engine core (beats, 24 effects, 21 transitions, beat planner, reference style transfer, audio, QA) ✅ via scripts; Mode B UI/API, motion templates, AI Director, Blender, voice, 100 captions, collections, campaigns, localisation, results tracking ⬜.
+
+## 2.0 Mode B engine (current)
+clips/analysis.py + music/beats.py + reference/analyzer.py → editing/planner.py (pacing.py, style_transfer.py) → editing/render.py (base.py FFmpeg segments + effects.py + xfade; audio.py separate mix) → mux → editing/qa.py. Planned: Hyperframes template layer, AI Director, renderer router (FFmpeg/Hyperframes/shader/headless Blender). Details: `REEL_STUDIO_2_HANDOFF.md` §2–§9.
+
 # Architecture
 
 ## Overview

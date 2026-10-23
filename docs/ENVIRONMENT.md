@@ -1,3 +1,8 @@
+> **Reel Studio 2.0 (2026-10-24) — read first:** `docs/REEL_STUDIO_2_MASTER_PLAN.md` (full approved spec + status map) and `docs/REEL_STUDIO_2_HANDOFF.md` (technical handoff). They supersede the 1.0 status below, which is kept as history. Work folder `C:\Users\Sahil\OneDrive\Desktop\Reel Studio 2.0`, repo https://github.com/sahilkarande0918-cmd/Reel-Studio. 2.0 so far: migration ✅, reference analysis ✅, Mode B engine core (beats, 24 effects, 21 transitions, beat planner, reference style transfer, audio, QA) ✅ via scripts; Mode B UI/API, motion templates, AI Director, Blender, voice, 100 captions, collections, campaigns, localisation, results tracking ⬜.
+
+## 2.0 notes
+The 2.0 folder has its own copies of `apps/api/.env` and `apps/web/.env.local` (ignored). Variable names are unchanged (list in `REEL_STUDIO_2_HANDOFF.md` §12). New Python dependency: librosa 0.11 (`requirements/vision.txt`). Fresh clones need `npx next typegen` before `tsc`.
+
 # Environment
 
 Never commit real values. `.env`, `.env.*` (except `.env.example`) are git-ignored.

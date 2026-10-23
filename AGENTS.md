@@ -1,6 +1,8 @@
 # AGENTS.md — Reel Studio engineering rules
 
-> **Start here:** read `docs/IDE_HANDOFF.md` (complete current state, rules, commands, next task), then `docs/CHECKPOINT.md`.
+> **Reel Studio 2.0 — start here instead:** `docs/REEL_STUDIO_2_MASTER_PLAN.md`, then `docs/REEL_STUDIO_2_HANDOFF.md`. Work only in `C:\Users\Sahil\OneDrive\Desktop\Reel Studio 2.0` (repo Reel-Studio). Commits only as `sahilkarande0918-cmd`; never AI authors, co-authors or `Co-Authored-By` trailers.
+>
+> (1.0) **Start here:** read `docs/IDE_HANDOFF.md` (complete current state, rules, commands, next task), then `docs/CHECKPOINT.md`.
 > Never publish a real Reel without the owner's explicit approval of account, video and caption. YouTube is postponed.
 > Feature A (context-aware AI editing) is done and verified. Features B (caption personalities) and C (clip collections) are approved but postponed until the owner asks.
 
