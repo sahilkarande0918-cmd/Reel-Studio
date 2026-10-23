@@ -1,3 +1,16 @@
+# Reel Studio 2.0 — read this first (2026-10-23)
+- Repository: https://github.com/sahilkarande0918-cmd/Reel-Studio (migrated with full history, verified: `docs/MIGRATION.md`).
+  Work folder: `C:\Users\Sahil\OneDrive\Desktop\Reel Studio 2.0`. The old folder `C:\dev\Reel-Studio` now points at the
+  renamed original repo `Open_PS04_` and still runs the production engine and Vercel deployment (not yet re-pointed).
+- Plan and phase status: `docs/ROADMAP_2.md`. Research: `docs/REFERENCE_STYLE_ANALYSIS.md`, `docs/OPEN_SOURCE_TOOL_AUDIT.md`.
+- Built so far (verified): reference analyzer, beat analysis (±3 BPM on 95–150 BPM tests), 24 effects + 21 transitions
+  (each measured to change the picture), beat planner, synthesized score/SFX, separate audio mix (−14 LUFS, ≤ −1.5 dBTP),
+  first end-to-end 16 s two-clip phonk edit (exactly 480 frames). Not built yet: Mode B UI/API/ingestion tables,
+  Hyperframes motion templates, AI Director, voice profiles, 100 caption styles, collections, campaigns, QA engine.
+- Ollama does not auto-start after a reboot; start it (`ollama serve`) before LLM stages.
+
+---
+
 # Reel Studio — checkpoint (2026-10-17, after Feature A)
 
 **Read first after compaction**, then `docs/IDE_HANDOFF.md` (full detail), `docs/CURRENT_TASK.md` (backlog), `AGENTS.md`,
