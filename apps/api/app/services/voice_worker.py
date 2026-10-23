@@ -20,7 +20,10 @@ def main() -> None:
     from chatterbox.mtl_tts import ChatterboxMultilingualTTS
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    model = ChatterboxMultilingualTTS.from_pretrained(device=device)
+    local = Path(job.get("model_dir") or "")
+    # weights fetched once into DATA_DIR/models/chatterbox (the hub's chunked download stalls on this network)
+    model = (ChatterboxMultilingualTTS.from_local(local, device) if (local / "t3_mtl23ls_v2.safetensors").is_file()
+             else ChatterboxMultilingualTTS.from_pretrained(device=device))
     out = []
     try:
         import perth

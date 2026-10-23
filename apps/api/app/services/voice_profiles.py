@@ -92,7 +92,7 @@ def synthesize(sample: Path, items: list[dict], work: Path, timeout_s: int = 900
     llm.unload()
     work.mkdir(parents=True, exist_ok=True)
     job = work / f"job-{uuid.uuid4().hex[:8]}.json"
-    job.write_text(json.dumps({"sample": str(sample), "items": [{**i, "language": LANGS.get(i.get("language", "en"), "en")} for i in items]},
+    job.write_text(json.dumps({"model_dir": str(get_settings().data_dir / "models" / "chatterbox"), "sample": str(sample), "items": [{**i, "language": LANGS.get(i.get("language", "en"), "en")} for i in items]},
                               ensure_ascii=False), encoding="utf-8")
     env = {**os.environ, "HF_HUB_DISABLE_TELEMETRY": "1", "PYTHONIOENCODING": "utf-8", "HF_HUB_DISABLE_SYMLINKS_WARNING": "1"}
     r = subprocess.run([str(python()), str(WORKER), str(job)], capture_output=True, text=True, encoding="utf-8",

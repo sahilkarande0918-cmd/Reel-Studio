@@ -76,7 +76,7 @@ export function CampaignView({ id, orgId, canEdit, siteUrl }: { id: string; orgI
       {c.status !== "ready" && <p className="flex items-center gap-2 text-[14px]">{c.status === "failed" ? <span className="text-danger">Planning failed: {c.error}</span> : <><LoaderCircle size={15} className="animate-spin" aria-hidden />The local AI is writing the campaign…</>}</p>}
       {p && <>
         <section className="studio-panel space-y-2 p-5"><h2 className="text-[17px] font-semibold">{p.concept}</h2><p className="text-[13px] leading-6">{p.strategy}</p>
-          <p className="text-[12px] text-muted">Pillars: {p.pillars.join(" · ")} · written by {c.provenance?.engine === "rules" ? "the rule-based planner (no AI model answered)" : c.provenance?.engine}</p>
+          <p className="text-[12px] text-muted">Pillars: {p.pillars.join(" · ")} · written by {c.provenance?.engine === "rules" ? `the rule-based planner (${c.provenance.errors.some((e) => /unreachable|returned 5/i.test(e)) ? "no AI model answered" : "the AI plan did not pass the checks"})` : c.provenance?.engine}</p>
           {!!c.provenance?.grounding.length && <p className="text-[11px] text-muted">Fact checks applied: {c.provenance.grounding.join("; ")}</p>}</section>
         <section className="grid gap-4 lg:grid-cols-2">{p.reels.map((r) => <article key={r.key} className="studio-panel space-y-2 p-5 text-[13px]">
           <div className="flex items-start justify-between gap-3"><h3 className="text-[15px] font-semibold">{r.title}</h3><span className="studio-pill">{r.mode === "edit" ? "Prompt → Edit" : "Recording → Reels"} · {r.duration_s}s</span></div>

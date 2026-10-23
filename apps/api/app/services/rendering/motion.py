@@ -458,6 +458,24 @@ def render(item: dict, idx: int, ctx: dict) -> tuple[str, str]:
     return markup, "\n      ".join(sc.js)
 
 
+# What a scene must be given to say anything real; sample defaults exist for the gallery only, never for an edit.
+REQUIRED: dict[str, tuple[tuple[str, ...], int]] = {  # (text fields, all needed; media items needed)
+    "kinetic_title": (("text",), 0), "blur_reveal": (("text",), 0), "stagger_lines": (("lines",), 0), "typewriter": (("text",), 0),
+    "masked_text": (("text",), 0), "counter": (("value", "label"), 0), "floating_cards": (("cards",), 0), "info_list": (("items",), 0),
+    "chat_bubbles": (("messages",), 0), "calendar": (("day", "note"), 0), "bar_chart": (("labels", "values"), 0),
+    "stat_ring": (("percent", "label"), 0), "cta_button": (("button",), 0), "pricing_card": (("features",), 0),
+    "lower_third": (("name",), 0), "glow_arc": (("text",), 0), "shape_burst": (("text",), 0), "notifications": (("items",), 0),
+    "phone_mockup": ((), 1), "laptop_mockup": ((), 1), "media_card": ((), 1), "split_screen": ((), 2), "grid_gallery": ((), 2),
+}
+
+
+def complete(template: str, fields: dict, media: list) -> bool:
+    texts, n = REQUIRED.get(template, ((), 0))
+    if template == "browser_mockup":  # a real screenshot, or at least a real headline for the generated page
+        return bool(media) or bool(str(fields.get("headline", "")).strip())
+    return all(str(fields.get(k, "")).strip() for k in texts) and len(media) >= n
+
+
 def items_from_directive(graphics, dur: float, w: int, h: int, media: dict[int, str] | None = None) -> list[dict]:
     """Director graphics → timeline motion items (clamped inside the edit, never overlapping each other)."""
     out, busy_until = [], 0.0
@@ -471,6 +489,8 @@ def items_from_directive(graphics, dur: float, w: int, h: int, media: dict[int, 
             continue
         fields = {k: str(v)[: t["fields"][k]] for k, v in (g.fields or {}).items() if k in t["fields"]}
         refs = [media[int(x)] for x in str((g.fields or {}).get("media", "")).replace(",", " ").split() if x.isdigit() and media and int(x) in media]
+        if not complete(g.template, fields, refs):
+            continue  # missing content is skipped, never filled with sample text
         out.append({"id": f"mg-{n}", "type": "motion", "start": start, "duration": length, "template": g.template,
                     "fields": fields, "media": refs[: t["media"]], "intensity": 0.6})
         busy_until = start + length

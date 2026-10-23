@@ -186,7 +186,7 @@ def look_css(look: dict, fs: int) -> str:
                            f"0 0 {glow}px {look['active']}, 0 0 {glow * 2}px {look['active']}" if glow else "") if x]
     stroke = look.get("stroke", 0)
     weight = FONT_FILES[look["font"]][1]
-    return (f'      #caps .w {{ font: {"italic " if look.get("italic") else ""}{weight} {round(fs * look.get("sizeScale", 1))}px/1.15 '
+    return (f'      #caps .w {{ font: {"italic " if look.get("italic") else ""}{weight} {round(fs * look.get("sizeScale", 1))}px/{1.7 if look["font"] == "Press Start 2P" else 1.15} '
             f'"{look["font"]}", sans-serif; color: {look["color"]}; letter-spacing: {look.get("tracking", 0)}em; '
             f'text-transform: {"uppercase" if look.get("uppercase") else "none"}; text-shadow: {", ".join(shadows) or "none"}; '
             f'-webkit-text-stroke: {stroke}px {look.get("strokeColor", "#000000")}; paint-order: stroke fill; display: inline-block; }}')

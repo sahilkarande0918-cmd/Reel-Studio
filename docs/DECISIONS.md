@@ -199,3 +199,28 @@ supabase-py's PostgREST session uses HTTP/2; after an idle stretch the server cl
 backend now gives PostgREST an HTTP/1.1 httpx client (idle connections are checked before reuse) and the worker resets
 its cached client after any transport error.
 
+
+## D-045 — Mode B: LLM decides, deterministic code executes (2026-10-24)
+The AI director (local Qwen, optional OpenAI-compatible endpoint) only returns a schema-validated *directive*: style,
+pacing, look, transitions/effects from the registries, hero/skipped clips, on-screen lines, motion/3D scenes. The beat
+planner turns it into frame-exact, beat-snapped segments. A model therefore cannot produce an unrenderable timeline;
+when no model answers or validation fails twice, a rule-based director decides from the same inputs and the UI says so.
+Model scales are normalised (0–10 → 0–1), placeholder text is dropped, scenes without real content are skipped.
+
+## D-046 — One timeline, three renderers (2026-10-24)
+FFmpeg renders the base picture (cuts, camera, effects, xfade) with audio mixed separately; Hyperframes renders the
+overlay layers (motion templates, text, captions, watermark) on top of that base only when the timeline has overlays;
+headless Blender renders genuine 3D shots (validated templates, our own script, `--factory-startup`) that enter the
+same timeline as video items. Mode B output is a canonical timeline, so the existing editor opens and re-renders it.
+
+## D-047 — Heavy models run outside the API process (2026-10-24)
+Voice cloning (torch + Chatterbox Multilingual) runs in its own venv as a subprocess per job and the local LLM is
+unloaded first (8 GB GPU). ONNX composites (U²-Netp, Depth-Anything-V2-Small) run on the CPU with a per-edit budget.
+Model files live in `DATA_DIR/models`, never in git; the Chatterbox files are fetched over plain HTTPS because the
+hub's chunked transfer stalls at 256 MB on this network.
+
+## D-048 — Business results are recorded, never estimated (2026-10-24)
+Tracked links are `/r/<slug>` on the web app (Vercel + Supabase RPC `track_click`, no IP or identity stored) and
+inquiries arrive through `/i/<slug>` (`submit_inquiry`, rate-limited) or are recorded by a member. Suggestions are
+computed from those counts with fixed thresholds. Campaign copy is grounded: exact business-name spelling, numbers and
+social-proof claims not in the owner's input are removed. Marathi stays disabled until a model is tested for it.

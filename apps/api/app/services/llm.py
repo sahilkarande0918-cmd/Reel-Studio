@@ -18,7 +18,7 @@ class LLMUnavailable(RuntimeError):
     pass
 
 
-def _ollama(messages: list[dict], schema: dict, keep_alive: str, temperature: float) -> dict:
+def _ollama(messages: list[dict], schema: dict, keep_alive: str, temperature: float, seed: int = 7) -> dict:
     s = get_settings()
     for attempt in range(2):
         try:
@@ -30,7 +30,7 @@ def _ollama(messages: list[dict], schema: dict, keep_alive: str, temperature: fl
                     "format": schema,
                     "stream": False,
                     "keep_alive": keep_alive,
-                    "options": {"temperature": temperature, "seed": 7, "num_ctx": NUM_CTX},
+                    "options": {"temperature": temperature, "seed": seed, "num_ctx": NUM_CTX},
                 },
                 timeout=600,
             )
@@ -64,7 +64,7 @@ def _external(prompt: str, schema: dict, temperature: float) -> dict:
     return json.loads(r.json()["choices"][0]["message"]["content"])
 
 
-def chat_json(prompt: str, schema: dict, temperature: float = 0.2, keep_alive: str = "5m") -> tuple[dict, str]:
+def chat_json(prompt: str, schema: dict, temperature: float = 0.2, keep_alive: str = "5m", seed: int = 7) -> tuple[dict, str]:
     """(parsed JSON, engine name). Raises LLMUnavailable when no model answered with JSON."""
     s = get_settings()
     if s.director_api_url and s.director_api_key.get_secret_value() and s.director_model:
@@ -73,7 +73,7 @@ def chat_json(prompt: str, schema: dict, temperature: float = 0.2, keep_alive: s
         except (httpx.HTTPError, KeyError, ValueError) as e:
             log.warning("external director failed, using local model: %s", e)
     try:
-        return _ollama([{"role": "user", "content": prompt}], schema, keep_alive, temperature), f"ollama:{s.ollama_model}"
+        return _ollama([{"role": "user", "content": prompt}], schema, keep_alive, temperature, seed), f"ollama:{s.ollama_model}"
     except (KeyError, ValueError) as e:
         raise LLMUnavailable(f"model did not return JSON: {e}") from e
 

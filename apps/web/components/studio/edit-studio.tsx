@@ -171,7 +171,7 @@ function GenerationCard({ g, base, projectId }: { g: Generation; base: string | 
         <div className="space-y-2 text-[13px]">
           <p><span className="font-semibold">Treatment:</span> {d.treatment}</p>
           <p className="text-muted">Style {d.profile.replaceAll("_", " ")} · pacing {d.pacing.replaceAll("_", " ")} · look {d.look.replaceAll("_", " ")}{g.plan ? ` · ${g.plan.bpm} BPM · ${g.plan.segments.length} shots${g.plan.reused_shots ? ` (${g.plan.reused_shots} reused with new framing)` : ""}` : ""}</p>
-          <p className="text-[11px] text-muted">Planned by {d.provenance.engine === "rules" ? "the rule-based director (no AI model answered)" : d.provenance.engine}</p>
+          <p className="text-[11px] text-muted">Planned by {d.provenance.engine === "rules" ? `the rule-based director (${(d.provenance as { errors?: string[] }).errors?.some((e) => /unreachable|returned 5/i.test(e)) ? "no AI model answered" : "the AI plan did not pass validation"})` : d.provenance.engine}</p>
           {d.reasons.length > 0 && <ul className="list-disc space-y-0.5 pl-5 text-[12px] text-muted">{d.reasons.map((r, i) => <li key={i}>{r}</li>)}</ul>}
           {d.reference_evidence?.length > 0 && <p className="text-[12px] text-muted">From the reference: {d.reference_evidence.join(" · ")}</p>}
         </div>

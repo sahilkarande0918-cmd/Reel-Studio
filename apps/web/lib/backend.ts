@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { useSyncExternalStore } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 export type BackendStatus =
@@ -59,9 +60,13 @@ function remembered(): BackendStatus | undefined {
   }
 }
 
+const noop = () => () => {};
+
 export function useBackend() {
   // Start from the last working URL so engine-dependent UI renders immediately; the probe confirms it in the background.
-  return useQuery({ queryKey: ["backend"], queryFn: discover, refetchInterval: 20_000, staleTime: 15_000, placeholderData: remembered });
+  // Only after hydration: sessionStorage does not exist on the server, so using it in the first render mismatched the HTML.
+  const hydrated = useSyncExternalStore(noop, () => true, () => false);
+  return useQuery({ queryKey: ["backend"], queryFn: discover, refetchInterval: 20_000, staleTime: 15_000, placeholderData: hydrated ? remembered : undefined });
 }
 
 /** Authenticated call to the local API. */

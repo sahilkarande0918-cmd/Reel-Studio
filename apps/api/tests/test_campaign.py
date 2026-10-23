@@ -25,3 +25,13 @@ def test_tracked_links_carry_campaign_and_reel():
 def test_rules_plan_validates():
     p = cg.Plan.model_validate(cg.rules_plan(B, "en"))
     assert len(p.reels) == 4 and all(r.cta for r in p.reels)
+
+
+def test_language_check_asks_for_hinglish_or_devanagari():
+    assert cg._lang_issue("Big Diwali sale for sneakers", "hinglish")
+    assert not cg._lang_issue("Diwali ke liye naye sneakers dekho, abhi aao", "hinglish")
+    assert cg._lang_issue("Diwali sale", "hi") and not cg._lang_issue("दिवाली पर नए स्नीकर्स देखिए, अभी आइए और ऑफ़र पाइए", "hi")
+
+
+def test_every_goal_plans_distinct_formats():
+    assert all(len(set(v)) == len(v) == 5 and set(v) <= set(cg.FORMATS) for v in cg.BY_GOAL.values())

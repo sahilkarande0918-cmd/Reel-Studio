@@ -126,8 +126,10 @@ def run_edit(ctx: JobContext) -> dict:
     flat, scenes_3d, notes = overlay.split_3d(d)
     motion_items = overlay.graphics(d, pl["duration"], clips, flat)
     windows_3d = [(round(min(g.at, 0.95) * pl["duration"], 3), g) for g in scenes_3d]
-    windows_3d = [(s, g, round(round(min(g.duration_s, pl["duration"] - s) * 30) / 30, 3)) for s, g in windows_3d]
-    windows_3d = [w for w in windows_3d if w[2] >= 1.0]
+    # a 3D shot needs time to read (a turntable under 2.5 s is a blur): start earlier rather than cut it short
+    windows_3d = [(min(s, max(0.0, pl["duration"] - max(2.5, g.duration_s))), g) for s, g in windows_3d]
+    windows_3d = [(round(s, 3), g, round(round(min(max(2.5, g.duration_s), pl["duration"] - s) * 30) / 30, 3)) for s, g in windows_3d]
+    windows_3d = [w for w in windows_3d if w[2] >= 2.0]
     if d.sound_effects or motion_items or windows_3d:  # sound design follows the designed scenes
         extra = motion.sfx_cues(motion_items) + [c for s, _, n in windows_3d for c in (
             {"kind": "riser", "at": s, "gain_db": -9}, {"kind": "impact", "at": round(s + 0.35 * n, 3), "gain_db": -6})]

@@ -279,10 +279,11 @@ def direct(
     return d, {"engine": "rules", "attempts": len(errors), "errors": errors}
 
 
-DESIGN_WORDS = re.compile(r"motion|graphic|infographic|mockup|card|kinetic|typograph|advert|ads?|promo|saas|website|"
+DESIGN_WORDS = re.compile(r"motion|graphic|infographic|mockup|card|kinetic|typograph|advert|\bads?\b|promo|saas|website|"
                           r"browser|laptop|phone|chart|counter|calendar|chat|logo|brand reveal|cta|call to action|explainer")
 OVERLAY_ONLY = {"lower_third", "light_sweep", "shape_burst"}
-THREE_D = re.compile(r"3d|3-d|three[- ]dimensional|turntable|blender|rotating product|3d text|3d logo")
+PLACEHOLDER = re.compile(r"^\s*(your |the )?(brand|company|business|product)?\s*(name|logo|text here|tagline|title|cta)\s*$", re.I)
+THREE_D = re.compile(r"\b3d\b|3-d|three[- ]dimensional|turntable|blender|rotating product|3d text|3d logo")
 
 
 def _sanitise(d: Directive, n: int, templates: dict, style: str, prompt: str = "") -> Directive:
@@ -298,11 +299,13 @@ def _sanitise(d: Directive, n: int, templates: dict, style: str, prompt: str = "
         "close_with": d.close_with if 1 <= d.close_with <= n and d.close_with not in skip else 0,
         # full-screen designed scenes only when the request (or a designed style) asks for them; pure footage edits
         # keep their footage and may only get overlays
-        "graphics": [g for g in d.graphics if g.template in templates
+        "graphics": [g.model_copy(update={"fields": {k: v for k, v in g.fields.items() if not PLACEHOLDER.match(v)}})
+                     for g in d.graphics if g.template in templates
             and (not g.template.startswith("3d_") or THREE_D.search(prompt.lower())) and (  # Blender only for real 3D asks
             g.template in OVERLAY_ONLY or g.template.startswith("3d_") or (style if style in pacing.PROFILES else d.style) in ("motion_graphics", "tech_ad")
             or DESIGN_WORDS.search(prompt.lower()))],
-        "on_screen_text": sorted(d.on_screen_text, key=lambda t: t.at),
+        # template placeholders ("Brand Name", "Your Logo") are not content: drop them instead of printing them
+        "on_screen_text": sorted((t for t in d.on_screen_text if not PLACEHOLDER.match(t.text)), key=lambda t: t.at),
     })
 
 
