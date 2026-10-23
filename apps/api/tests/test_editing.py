@@ -79,7 +79,17 @@ def test_effect_params_are_clamped_and_unknown_effects_rejected():
 def test_every_effect_builds_a_filter():
     for eid in fx.EFFECTS:
         e, p = fx.resolve(eid, {"at": 0.2})
-        assert e.build(p, 1.5, 540, 960).strip(), eid
+        if e.renderer == "ffmpeg":  # OpenCV composites are drawn by composite.py, not a filter string
+            assert e.build(p, 1.5, 540, 960).strip(), eid
+
+
+def test_composites_are_budgeted_and_routed_by_shot_kind():
+    segs = [{"slot": [i, i + 1 + (i == 2)], "still": i == 4, "effects": [["subject_pop", {}], ["depth_parallax", {}]]}
+            for i in range(5)]
+    planner.limit_composites(segs, cutout_ok=True)
+    pops = [i for i, s in enumerate(segs) if any(e[0] == "subject_pop" for e in s["effects"])]
+    assert len(pops) == planner.COMPOSITE_BUDGET and 2 in pops and 4 not in pops
+    assert [i for i, s in enumerate(segs) if any(e[0] == "depth_parallax" for e in s["effects"])] == [4]
 
 
 def test_ramp_consumes_the_integral_of_its_speed():
@@ -122,3 +132,11 @@ def test_reference_style_transfers_hook_flashes_and_shot_lengths():
     assert len(evidence) >= 4
     p = planner.plan(clips(), prof, 12.0, music())
     assert p["segments"][1]["slot"][0] == 8.0 - p["music_start"]  # the first cut lands on the drop
+
+
+def test_no_back_to_back_shots_from_one_clip_when_others_exist():
+    clips = [{"kind": "video", "duration_s": 20, "moments": [{"start_s": i * 2, "end_s": i * 2 + 1.5, "score": 0.9 - i * 0.01,
+              "focus": [0.5, 0.5]} for i in range(8)]}, {"kind": "video", "duration_s": 3, "moments": [
+              {"start_s": 0, "end_s": 1.5, "score": 0.2, "focus": [0.5, 0.5]}]}]
+    picks = planner.pick_sources(clips, [0.5] * 10, [False] * 10)
+    assert all(a["clip"] != b["clip"] for a, b in zip(picks, picks[1:]))

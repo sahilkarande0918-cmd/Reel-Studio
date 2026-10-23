@@ -9,7 +9,7 @@ rendered separately and muxed, which avoids drift).
 
 import shutil
 import subprocess
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from app.services.editing import effects as fx
@@ -111,12 +111,25 @@ def _effects_chain(s: Segment, w: int, h: int) -> str:
     parts = []
     for n, (eid, params) in enumerate(s.effects):
         e, p = fx.resolve(eid, params)
+        if e.renderer != "ffmpeg":
+            continue
         parts.append(e.build(p, s.duration, w, h).replace("[g", f"[e{n}g"))
     return ",".join(parts)
 
 
 def render_segment(s: Segment, out: Path, w: int, h: int, fps: int, quality: str = "looks") -> None:
     """One segment → an intermediate H.264 file of exactly round(duration*fps) frames, no audio."""
+    comp = [(e, p) for e, p in s.effects if e in fx.EFFECTS and fx.EFFECTS[e].renderer == "opencv"]
+    if comp:  # OpenCV composites run on the framed shot, then the FFmpeg effects run on their result
+        from app.services.editing import composite
+
+        pre, mid = out.with_suffix(".pre.mp4"), out.with_suffix(".comp.mp4")
+        render_segment(replace(s, effects=[]), pre, w, h, fps, quality)
+        composite.apply(pre, mid, [(e, fx.resolve(e, p)[1]) for e, p in comp])
+        rest = [(e, p) for e, p in s.effects if (e, p) not in comp]
+        render_segment(Segment(asset=mid, src_in=0.0, src_out=s.duration, duration=s.duration, effects=rest,
+                               transition_out=s.transition_out, transition_dur=s.transition_dur), out, w, h, fps, quality)
+        return
     pieces = _speed_pieces(s, fps)
     total = frames(s.duration, fps)
     frame = _frame_filter(s, w, h)
@@ -129,8 +142,12 @@ def render_segment(s: Segment, out: Path, w: int, h: int, fps: int, quality: str
         off = min(lo, 0.5)  # we seeked 0.5 s early for accuracy; trims below are relative to the seek point
         chains, labels = [], []
         for k, (a, b, sp) in enumerate(pieces):
+            # real slow motion: below 0.6x, motion-compensated interpolation invents the in-between frames
+            # (frame duplication would stutter); draft renders keep plain duplication for speed
+            rate = (f"minterpolate=fps={fps}:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1"
+                    if sp < 0.6 and quality != "draft" else f"fps={fps}")
             chains.append(
-                f"[0:v]trim=start={a - lo + off:.4f}:end={b - lo + off:.4f},setpts=(PTS-STARTPTS)/{sp:.5f},fps={fps}[p{k}]"
+                f"[0:v]trim=start={a - lo + off:.4f}:end={b - lo + off:.4f},scale=-2:'min(ih,1920)',setpts=(PTS-STARTPTS)/{sp:.5f},{rate}[p{k}]"
             )
             labels.append(f"[p{k}]")
         src = labels[0]

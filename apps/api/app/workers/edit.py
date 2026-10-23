@@ -13,7 +13,7 @@ from app.core.db import service_client
 from app.core.storage import asset_path, render_dir
 from app.services import voice
 from app.services.editing import director, overlay, planner, qa, render, style_transfer
-from app.services.rendering import motion, timeline
+from app.services.rendering import blender, motion, timeline
 from app.workers.ingest import ingest
 from app.workers.jobs import JobContext, Permanent
 from app.workers.render import run_render, verify
@@ -123,10 +123,16 @@ def run_edit(ctx: JobContext) -> dict:
                       d.open_with - 1 if d.open_with else None, d.close_with - 1 if d.close_with else None)
     if st.get("music") == "score" or (st.get("music") == "upload" and not music):
         pl["generate_score"] = profile.score
-    motion_items = overlay.graphics(d, pl["duration"], [a for a in clips])
-    if d.sound_effects or motion_items:  # sound design follows the designed scenes: whooshes, ticks, risers, hits
-        pl["cues"] = sorted(pl["cues"] + motion.sfx_cues(motion_items), key=lambda c: c["at"])
-    director_doc = {**d.model_dump(), "provenance": provenance, "reference_evidence": evidence,
+    flat, scenes_3d, notes = overlay.split_3d(d)
+    motion_items = overlay.graphics(d, pl["duration"], clips, flat)
+    windows_3d = [(round(min(g.at, 0.95) * pl["duration"], 3), g) for g in scenes_3d]
+    windows_3d = [(s, g, round(round(min(g.duration_s, pl["duration"] - s) * 30) / 30, 3)) for s, g in windows_3d]
+    windows_3d = [w for w in windows_3d if w[2] >= 1.0]
+    if d.sound_effects or motion_items or windows_3d:  # sound design follows the designed scenes
+        extra = motion.sfx_cues(motion_items) + [c for s, _, n in windows_3d for c in (
+            {"kind": "riser", "at": s, "gain_db": -9}, {"kind": "impact", "at": round(s + 0.35 * n, 3), "gain_db": -6})]
+        pl["cues"] = sorted(pl["cues"] + extra, key=lambda c: c["at"])
+    director_doc = {**d.model_dump(), "provenance": provenance, "substitutions": notes, "reference_evidence": evidence,
                     "profile": profile.id, "clips": [a["filename"] for a in clips]}
     db.table("edit_generations").update({"director": director_doc, "plan": pl}).eq("id", gid).execute()
 
@@ -136,12 +142,32 @@ def run_edit(ctx: JobContext) -> dict:
                              work, base, music_path=asset_path(music_asset) if music_asset else None,
                              voice_path=narration["wav"] if narration else None, quality=st.get("quality", "looks"))
 
+    shots_3d = []
+    if windows_3d:
+        ctx.stage("blender", 0.5, "Rendering the 3D scenes in Blender (headless)")
+        colors = timeline.brand_snapshot(g.get("brand_snapshot"), "")[0]["colors"]
+        for n, (start, gr, length) in enumerate(windows_3d):
+            f = dict(gr.fields or {})
+            ref = next((int(x) for x in str(f.get("media", "")).split() if x.isdigit() and 1 <= int(x) <= len(clips)), None)
+            image = asset_path(clips[ref - 1]) if ref and clips[ref - 1]["kind"] == "image" else None
+            tmpl = overlay.BLENDER[gr.template][0]
+            scene = blender.Scene3D(template=tmpl, text=(f.get("text") or "")[:40], subtitle=(f.get("subtitle") or "")[:60],
+                                    accent=colors["accent"], text_color=colors["text"], background=colors["background"],
+                                    duration=length, width=w, height=h, portrait=h >= w)
+            try:
+                blender.render(scene, work / f"b3d-{n}", project / f"b3d-{n}.mp4", image)
+                shots_3d.append({"id": f"b3d-{n}", "src": f"b3d-{n}.mp4", "start": start, "duration": length})
+            except RuntimeError as e:  # a failed 3D shot never sinks the edit: the footage stays, the note says why
+                notes.append(f"{gr.template} at {start:.1f}s was not rendered: {str(e)[:200]}")
+        director_doc["substitutions"] = notes
+        db.table("edit_generations").update({"director": director_doc}).eq("id", gid).execute()
+
     ctx.stage("qa", 0.6, "Measuring the result: frames, cuts vs beats, black/frozen frames, loudness")
     report = qa.check(base, pl)
     stills = storyboard_stills(base, pl, project)
 
     doc = overlay.timeline(rid, pl, d, st, g.get("brand_snapshot"), narration, project, motion_items,
-                           [(a, asset_path(a)) for a in clips])
+                           [(a, asset_path(a)) for a in clips], shots_3d)
     doc["source"] = {"editId": gid}
     timeline.validate(doc)
     db.table("render_jobs").upsert({

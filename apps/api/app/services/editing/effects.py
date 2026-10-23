@@ -227,6 +227,81 @@ def black_white(p, d, w, h):
     return f"hue=s=0:{_enable(p, d)}"
 
 
+# --- 2.0 additions -----------------------------------------------------------------------------------------------
+def wobble(p, d, w, h):
+    """Decaying rotational wobble (impact/handheld feel) inside an overscanned frame."""
+    a, b = _win(p, d)
+    env = f"if(between(t,{a:.3f},{b:.3f}),exp(-{p['decay']:.2f}*(t-{a:.3f})),0)"
+    return (f"scale=ceil(iw*1.14/2)*2:ceil(ih*1.14/2)*2,"
+            f"rotate='{p['degrees']:.2f}*PI/180*{env}*sin(2*PI*{p['freq']:.2f}*t)':ow={w}:oh={h}:c=black")
+
+
+def crash_zoom(p, d, w, h):
+    """Very fast zoom in that holds (crash zoom), eased over a short window."""
+    a, b = _win(p, d)
+    x = f"clip((t-{a:.3f})/{max(b - a, 1e-3):.3f},0,1)"
+    return _zoom(f"1+{p['amount']:.3f}*(1-pow(1-{x},3))", w, h)
+
+
+def tilt(p, d, w, h):
+    """Vertical camera tilt across an overscanned frame (direction: -1 up, +1 down)."""
+    a, b = _win(p, d)
+    over = 1 + p["amount"]
+    return (f"scale=ceil(iw*{over:.3f}/2)*2:ceil(ih*{over:.3f}/2)*2,"
+            f"crop={w}:{h}:'(iw-{w})/2':'(ih-{h})*(0.5+0.5*{p['direction']:.0f}*(2*{_ease(a, b)}-1))'")
+
+
+def drift(p, d, w, h):
+    """Slow floating camera (gentle elliptical drift) for calm shots."""
+    amp = p["amount"] * min(w, h) * 0.05
+    return (f"scale=ceil(iw*1.1/2)*2:ceil(ih*1.1/2)*2,"
+            f"crop={w}:{h}:'(iw-{w})/2+{amp:.1f}*sin(2*PI*t/{max(d, 1):.2f})':'(ih-{h})/2+{amp:.1f}*cos(2*PI*t/{max(d, 1):.2f})'")
+
+
+def light_leak(p, d, w, h):
+    """Warm light leak sweeping across the frame, screen-blended (drawn at low resolution, then scaled)."""
+    a, b = _win(p, d)
+    pos = f"(T-{a:.3f})/{max(b - a, 1e-3):.3f}"
+    blob = f"exp(-(pow(X-W*(-0.2+1.4*{pos}),2)+pow(Y-H*0.35,2))/(W*W*0.09))"
+    return (f"format=gbrp,split[g0][g1];[g1]scale=90:160,geq=r='255*{blob}':g='150*{blob}':b='60*{blob}',"
+            f"scale={w}:{h},eq=brightness=0[g2];[g0][g2]blend=all_mode=screen:all_opacity={p['amount']:.2f}:{_enable(p, d)},format=yuv420p")
+
+
+def bloom(p, d, w, h):
+    """Bloom: only the highlights are blurred and screened back (glow blurs everything)."""
+    return (f"format=gbrp,split[g0][g1];[g1]curves=all='0/0 {p['threshold']:.2f}/0 1/1',gblur=sigma={p['radius']:.0f}[g2];"
+            f"[g0][g2]blend=all_mode=screen:all_opacity={p['amount']:.2f},format=yuv420p")
+
+
+def color_pulse(p, d, w, h):
+    a, b = _win(p, d)
+    return f"hue=h='{p['degrees']:.0f}*if(between(t,{a:.3f},{b:.3f}),sin(PI*(t-{a:.3f})/{max(b - a, 1e-3):.3f}),0)':s='1+{p['saturation']:.2f}*if(between(t,{a:.3f},{b:.3f}),1,0)'"
+
+
+def exposure(p, d, w, h):
+    return f"exposure=exposure={p['ev']:.2f}:{_enable(p, d)}"
+
+
+def focus_blur(p, d, w, h):
+    """Background/edge blur with a sharp centre (shallow depth-of-field look), radial mask at low resolution."""
+    mask = f"255*clip((hypot(X-W/2,Y-H*{p['centre_y']:.2f})/(H*{p['radius']:.2f})-0.5)*2,0,1)"
+    return (f"format=gbrp,split=3[g0][g1][g3];[g1]gblur=sigma={p['sigma']:.0f}[g2];"
+            f"[g3]scale=90:160,geq=r='{mask}':g='{mask}':b='{mask}',scale={w}:{h}[g4];"
+            f"[g0][g2][g4]maskedmerge,format=yuv420p")
+
+
+def edge_glow(p, d, w, h):
+    """Glowing outline around the subject's edges (product highlight)."""
+    return (f"format=gbrp,split[g0][g1];[g1]edgedetect=low=0.08:high=0.25:mode=colormix,gblur=sigma={p['radius']:.1f},"
+            f"eq=brightness=0.1:saturation=2[g2];[g0][g2]blend=all_mode=screen:all_opacity={p['amount']:.2f}:{_enable(p, d)},format=yuv420p")
+
+
+def strobe(p, d, w, h):
+    """Controlled strobe: brightness steps at ≤ 3 Hz (photosensitivity limit) inside the window."""
+    a, b = _win(p, d)
+    return f"eq=brightness='{p['amount']:.2f}*if(between(t,{a:.3f},{b:.3f}),lt(mod(t-{a:.3f},1/{p['freq']:.2f}),0.5/{p['freq']:.2f}),0)':eval=frame"
+
+
 EFFECTS: dict[str, Effect] = {
     e.id: e
     for e in [
@@ -384,6 +459,31 @@ EFFECTS: dict[str, Effect] = {
         ),
         Effect("vhs", "light", "VHS look (chroma shift, grain, soft)", {}, vhs),
         Effect("black_white", "light", "Desaturate over the window", {}, black_white),
+        Effect("wobble", "camera", "Decaying rotational wobble",
+               {"degrees": Param(0.5, 8, 3), "freq": Param(2, 14, 7), "decay": Param(0, 12, 4), "dur": Param(0.1, 2, 0.5)},
+               wobble, tags=("beat",)),
+        Effect("crash_zoom", "camera", "Very fast zoom in that holds", {"amount": Param(0.1, 0.8, 0.35), "dur": Param(0.08, 0.6, 0.18)},
+               crash_zoom, keyframed=True, tags=("beat",)),
+        Effect("tilt", "camera", "Vertical camera tilt", {"amount": Param(0.05, 0.5, 0.2), "direction": Param(-1, 1, 1)}, tilt, keyframed=True),
+        Effect("drift", "camera", "Slow floating camera drift", {"amount": Param(0.1, 1, 0.4)}, drift, keyframed=True),
+        Effect("light_leak", "light", "Warm light leak sweeping across", {"amount": Param(0.1, 0.9, 0.5), "dur": Param(0.3, 3, 1.2)},
+               light_leak, keyframed=True),
+        Effect("bloom", "light", "Highlight bloom", {"threshold": Param(0.4, 0.95, 0.7), "radius": Param(6, 60, 24), "amount": Param(0.1, 0.9, 0.5)}, bloom),
+        Effect("color_pulse", "light", "Hue/saturation pulse", {"degrees": Param(-90, 90, 30), "saturation": Param(0, 1, 0.4), "dur": Param(0.1, 1.5, 0.4)},
+               color_pulse, tags=("beat",)),
+        Effect("exposure", "light", "Exposure change over the window", {"ev": Param(-2, 2, 0.4)}, exposure),
+        Effect("focus_blur", "blur", "Sharp centre, blurred surroundings (shallow focus)",
+               {"sigma": Param(2, 30, 10), "radius": Param(0.2, 0.8, 0.45), "centre_y": Param(0.2, 0.8, 0.45)}, focus_blur),
+        Effect("edge_glow", "composite", "Glowing outline around edges (product highlight)", {"radius": Param(0.5, 6, 2), "amount": Param(0.2, 1, 0.6)},
+               edge_glow),
+        Effect("strobe", "impact", "Controlled strobe (≤ 3 Hz)", {"amount": Param(0.1, 0.6, 0.35), "freq": Param(1, 3, 3), "dur": Param(0.2, 1.5, 0.6)},
+               strobe, photosensitive=True),
+        # drawn frame by frame with OpenCV + local ONNX models (composite.py), before the FFmpeg effects
+        Effect("subject_pop", "composite", "Subject cutout: sharp subject, blurred/darkened background, glowing outline",
+               {"blur": Param(2, 30, 9), "darken": Param(0, 0.8, 0.45), "outline": Param(0, 1, 1)}, lambda p, d, w, h: "",
+               renderer="opencv"),
+        Effect("depth_parallax", "composite", "2.5D camera move from a depth map (stills)",
+               {"amount": Param(0.01, 0.1, 0.04), "direction": Param(-1, 1, 1)}, lambda p, d, w, h: "", renderer="opencv"),
     ]
 }
 
@@ -411,6 +511,17 @@ TRANSITIONS: dict[str, str] = {
     "reveal_down": "revealdown",
     "slice": "hlslice",
     "wind": "hrwind",
+    "dissolve": "dissolve",
+    "circle_close": "circleclose",
+    "open_vertical": "vertopen",
+    "open_horizontal": "horzopen",
+    "smooth_up": "smoothup",
+    "rect_crop": "rectcrop",
+    "distance": "distance",
+    "fade_grays": "fadegrays",
+    "squeeze_vertical": "squeezev",
+    "wipe_up": "wipeup",
+    "slide_down": "slidedown",
 }
 
 

@@ -29,7 +29,8 @@ LOOKS: dict[str, tuple[tuple[str, dict], ...]] = {
     "vintage": (("grade", {"warmth": 0.4, "contrast": 0.95, "saturation": 0.8}), ("grain", {"amount": 12}), ("vignette", {"angle": 0.6})),
     "moody": (("grade", {"warmth": -0.3, "contrast": 1.2, "saturation": 0.75}), ("vignette", {"angle": 0.7}), ("grain", {"amount": 6})),
 }
-HIT_EFFECTS = sorted(e.id for e in effects.EFFECTS.values() if "beat" in e.tags or e.id in ("push_in", "pull_out", "glow", "blur_reveal", "whip_pan", "motion_blur", "pan"))
+HIT_EFFECTS = sorted(e.id for e in effects.EFFECTS.values() if "beat" in e.tags or e.id in ("push_in", "pull_out", "glow", "blur_reveal", "whip_pan", "motion_blur", "pan", "tilt", "drift",
+                                                                               "light_leak", "bloom", "focus_blur", "edge_glow", "subject_pop"))
 TRANSITION_IDS = sorted(effects.TRANSITIONS)
 
 
@@ -267,7 +268,7 @@ def direct(
             raw, engine = llm.chat_json(text + ("\nYour previous answer was invalid: " + errors[-1] if errors else ""),
                                         schema(len(clips), templates), temperature=0.2 + 0.2 * attempt)
             d = Directive.model_validate(raw)
-            d = _sanitise(d, len(clips), templates, style)
+            d = _sanitise(d, len(clips), templates, style, prompt)
             return d, {"engine": engine, "attempts": attempt + 1, "errors": errors}
         except llm.LLMUnavailable as e:
             errors.append(str(e))
@@ -278,7 +279,13 @@ def direct(
     return d, {"engine": "rules", "attempts": len(errors), "errors": errors}
 
 
-def _sanitise(d: Directive, n: int, templates: dict, style: str) -> Directive:
+DESIGN_WORDS = re.compile(r"motion|graphic|infographic|mockup|card|kinetic|typograph|advert|ads?|promo|saas|website|"
+                          r"browser|laptop|phone|chart|counter|calendar|chat|logo|brand reveal|cta|call to action|explainer")
+OVERLAY_ONLY = {"lower_third", "light_sweep", "shape_burst"}
+THREE_D = re.compile(r"3d|3-d|three[- ]dimensional|turntable|blender|rotating product|3d text|3d logo")
+
+
+def _sanitise(d: Directive, n: int, templates: dict, style: str, prompt: str = "") -> Directive:
     ok = lambda xs: [x for x in dict.fromkeys(xs) if 1 <= x <= n]  # noqa: E731
     skip = ok(d.skip_clips)
     if n - len(skip) < 3:  # with few clips every clip is needed for variety; skipping one makes the edit loop
@@ -289,7 +296,12 @@ def _sanitise(d: Directive, n: int, templates: dict, style: str) -> Directive:
         "skip_clips": skip,
         "open_with": d.open_with if 1 <= d.open_with <= n and d.open_with not in skip else 0,
         "close_with": d.close_with if 1 <= d.close_with <= n and d.close_with not in skip else 0,
-        "graphics": [g for g in d.graphics if g.template in templates],
+        # full-screen designed scenes only when the request (or a designed style) asks for them; pure footage edits
+        # keep their footage and may only get overlays
+        "graphics": [g for g in d.graphics if g.template in templates
+            and (not g.template.startswith("3d_") or THREE_D.search(prompt.lower())) and (  # Blender only for real 3D asks
+            g.template in OVERLAY_ONLY or g.template.startswith("3d_") or (style if style in pacing.PROFILES else d.style) in ("motion_graphics", "tech_ad")
+            or DESIGN_WORDS.search(prompt.lower()))],
         "on_screen_text": sorted(d.on_screen_text, key=lambda t: t.at),
     })
 

@@ -128,7 +128,11 @@ def pick_sources(
         fresh = [m for m in pool if m["uses"] == 0]
         cands = fresh or sorted(pool, key=lambda m: (m["uses"], -m["score"]))
         # prefer a different clip from the previous shot (variety), then the best score
-        m = next((x for x in cands if x["clip"] != last_clip), cands[0])
+        # never two shots of the same clip back to back (an invisible jump cut): a fresh moment of another clip,
+        # else a reused moment of another clip, and only with a single usable clip the same one again
+        m = (next((x for x in cands if x["clip"] != last_clip), None)
+             or next((x for x in sorted(pool, key=lambda q: (q["uses"], -q["score"])) if x["clip"] != last_clip), None)
+             or cands[0])
         pin = first if i == 0 else last if i == len(durs) - 1 and i else None
         if pin is not None:
             m = next((x for x in cands if x["clip"] == pin), None) or next((x for x in pool if x["clip"] == pin), m)
@@ -170,6 +174,23 @@ def pick_sources(
     return out
 
 
+COMPOSITE_BUDGET = 2  # ponytail: subject cutouts run per frame on the CPU (~15 s per output second at 1080p)
+
+
+def limit_composites(segments: list[dict], cutout_ok: bool) -> None:
+    """Subject cutouts only on video shots, at most COMPOSITE_BUDGET per edit (the longest shots get them);
+    depth parallax only on stills. Anything else becomes a push-in, so the plan never asks for the impossible."""
+    pops = [i for i, s in enumerate(segments) if any(e[0] == "subject_pop" for e in s["effects"])]
+    keep = set(sorted(pops, key=lambda i: segments[i]["slot"][0] - segments[i]["slot"][1])[:COMPOSITE_BUDGET]) if cutout_ok else set()
+    for i, s in enumerate(segments):
+        s["effects"] = [
+            ["push_in", {"amount": 0.12}]
+            if (e[0] == "subject_pop" and (i not in keep or s["still"])) or (e[0] == "depth_parallax" and not s["still"])
+            else e
+            for e in s["effects"]
+        ]
+
+
 def plan(
     clips: list[dict],
     profile: Profile,
@@ -195,6 +216,9 @@ def plan(
     rel_acc = [a - start for a in accents if start <= a < start + duration]
     drop_rel = drops_rel
     k = profile.intensity
+    from app.services.editing import composite
+
+    depth_ok = composite.available("depth")
     segments, cues, last_flash = [], [], -9.0
     for i, (a, b) in enumerate(zip(cuts, cuts[1:], strict=False)):
         s = srcs[i]
@@ -225,8 +249,8 @@ def plan(
             else:
                 fxs.append(["contrast_snap", {"at": 0.0, "amount": 0.6}])
             cues.append({"kind": "impact", "at": round(a, 3), "gain_db": -4})
-        if s.get("ken_burns"):
-            fxs.append(["push_in", {"amount": 0.15}])
+        if s.get("ken_burns"):  # stills: real 2.5D parallax when the depth model is installed, else a push-in
+            fxs.append(["depth_parallax", {"amount": 0.045, "direction": (-1) ** i}] if depth_ok else ["push_in", {"amount": 0.15}])
         fxs += [[e, dict(p)] for e, p in profile.base_fx]
         tr = "cut"
         if i + 1 < len(durs) and (i + 1) % profile.transition_every == 0:
@@ -260,6 +284,7 @@ def plan(
                     "gain_db": -8,
                 }
             )
+    limit_composites(segments, composite.available("u2netp"))
     for d in drop_rel:
         if d > 1.6 and profile.sfx:
             cues.append({"kind": "riser", "at": round(d, 3), "gain_db": -12})

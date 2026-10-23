@@ -6,7 +6,7 @@ import os
 import shutil
 from pathlib import Path
 
-from app.services.rendering import motion
+from app.services.rendering import blender, motion
 from app.services.rendering import timeline as tl
 
 TEXT_ROLE = {  # (y as share of height, font size, seconds on screen)
@@ -17,12 +17,37 @@ TEXT_ROLE = {  # (y as share of height, font size, seconds on screen)
 DESIGNED = ("motion_graphics", "tech_ad")
 
 
+# genuine 3D scenes (headless Blender); a Hyperframes template stands in when Blender is not installed
+BLENDER = {"3d_title": ("text_3d", "blur_reveal"), "3d_product": ("product_turntable", "media_card")}
+
+
 def templates() -> dict[str, dict]:
-    return {k: {"description": t["description"], "fields": list(t["fields"])} for k, t in motion.TEMPLATES.items()}
+    out = {k: {"description": t["description"], "fields": list(t["fields"])} for k, t in motion.TEMPLATES.items()}
+    out["3d_title"] = {"description": "GENUINE 3D extruded title on a reflective floor, orbiting camera (only for 3D requests)",
+                       "fields": ["text", "subtitle"]}
+    out["3d_product"] = {"description": "GENUINE 3D turntable: one image on a rotating card on a glowing plinth (only for 3D requests)",
+                         "fields": ["media"]}
+    return out
+
+
+def split_3d(d) -> tuple[list, list[dict], list[str]]:
+    """(2D graphics, 3D scene requests, substitution notes). Without Blender, each 3D scene becomes its stand-in."""
+    flat, scenes, notes = [], [], []
+    for g in d.graphics:
+        if g.template not in BLENDER:
+            flat.append(g)
+        elif blender.available():
+            scenes.append(g)
+        else:
+            sub = BLENDER[g.template][1]
+            notes.append(f"{g.template} needs Blender, which is not installed: used the 2D '{sub}' template instead")
+            flat.append(_G(sub, g.at, g.duration_s, dict(g.fields or {})))
+    return flat, scenes, notes
 
 
 def has_overlays(doc: dict) -> bool:
-    return any(i["type"] in ("text", "caption", "motion", "code") for t in doc["tracks"] for i in t["items"]) or bool(
+    return any(i["type"] in ("text", "caption", "motion", "code") or i["id"] != "edit"
+               for t in doc["tracks"] for i in t["items"]) or bool(
         doc["brand"].get("watermark", {}).get("enabled")
     )
 
@@ -32,12 +57,12 @@ class _G:  # the director's Graphic shape, for scenes the structure fallback add
         self.template, self.at, self.duration_s, self.fields = template, at, duration_s, fields
 
 
-def graphics(d, dur: float, clips: list[dict]) -> list[dict]:
+def graphics(d, dur: float, clips: list[dict], chosen: list | None = None) -> list[dict]:
     """Motion items for the edit. Designed styles (motion graphics / tech ad) need scenes across most of the edit; when
     the model chose too few, a structure is added from what is known — the request's own on-screen lines and the
     uploaded media in mockups — never invented claims. `clips` are the media assets in director numbering (1-based)."""
     media = {n + 1: f"media-{n + 1}" for n in range(len(clips))}
-    chosen = list(d.graphics)
+    chosen = list(d.graphics if chosen is None else chosen)
     if d.style in DESIGNED and sum(g.duration_s for g in chosen) < 0.5 * dur:
         hook = next((t.text for t in d.on_screen_text if t.role == "hook"), "")
         points = [t.text for t in d.on_screen_text if t.role == "point"]
@@ -59,7 +84,7 @@ def graphics(d, dur: float, clips: list[dict]) -> list[dict]:
 
 
 def timeline(rid: str, plan: dict, d, settings: dict, kit: dict | None, narration: dict | None, project: Path,
-             motion_items: list[dict], clips: list[tuple[dict, Path]]) -> dict:
+             motion_items: list[dict], clips: list[tuple[dict, Path]], shots_3d: list[dict] | None = None) -> dict:
     w, h, dur = plan["width"], plan["height"], plan["duration"]
     brand, preset = tl.brand_snapshot(kit, d.treatment[:80])
     # Mode B branding is opt-in per edit: intro/outro cards would change the planned length and beat grid.
@@ -89,7 +114,8 @@ def timeline(rid: str, plan: dict, d, settings: dict, kit: dict | None, narratio
         "cropKeyframes": [{"t": 0, "crop_x": 0, "crop_y": 0, "crop_width": w, "crop_height": h, "layout": "crop",
                            "region": "full", "transition_mode": "start"}],
     }
-    scenes = [(m["start"], m["start"] + m["duration"]) for m in motion_items if motion.TEMPLATES[m["template"]]["fn"].__name__ not in ("lower_third", "light_sweep", "shape_burst")]
+    scenes = [(m["start"], m["start"] + m["duration"]) for m in motion_items if m["template"] not in ("lower_third", "light_sweep", "shape_burst")]
+    scenes += [(s["start"], s["start"] + s["duration"]) for s in shots_3d or []]
     texts = []
     for n, t in enumerate(d.on_screen_text):
         y, size, show = TEXT_ROLE[t.role]
@@ -101,6 +127,12 @@ def timeline(rid: str, plan: dict, d, settings: dict, kit: dict | None, narratio
                       "x": 80, "y": round(y * h), "fontSize": round(size * min(w, h) / 1080), "align": "left",
                       "box": True, "transition": "zoom" if t.role == "hook" else "fade"})
     tracks = [{"id": "video", "kind": "video", "items": [video]}]
+    if shots_3d:  # Blender renders sit above the footage for their window, on the same frame clock
+        for s in shots_3d:
+            assets[s["id"]] = {"id": s["id"], "kind": "video", "src": s["src"], "width": w, "height": h, "duration": s["duration"]}
+        tracks.append({"id": "3d", "kind": "video", "items": [
+            {"id": s["id"], "type": "video", "assetId": s["id"], "start": s["start"], "duration": s["duration"], "sourceStart": 0,
+             "sourceEnd": s["duration"], "volume": 0, "cropKeyframes": video["cropKeyframes"]} for s in shots_3d]})
     if motion_items:
         tracks.append({"id": "graphics", "kind": "overlay", "items": motion_items})
     if texts:

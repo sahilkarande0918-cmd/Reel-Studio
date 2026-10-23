@@ -187,3 +187,23 @@ frontend, Dev Tunnel, Instagram API, GitHub push, first-time model/package downl
 Proposed order: (1) extend the canonical timeline for 2.0 + Mode B API/worker job + Mode B UI replacing Topic → Video +
 AI Director (local Qwen JSON plan, validated); (2) Hyperframes motion templates + 100 caption presets/ON-OFF;
 (3) campaign agent + EN/HI/Hinglish + results tracking; (4) voice profiles; (5) Blender + router.
+
+## 2026-10-24 session progress (after compaction) — resume here
+- ✅ Phase A (`40c090b`): Mode B in the web app (Create page, media bin, direction form, live progress, storyboard,
+  QA, preview, download, open in editor). Verified locally: UI edit → 15.000 s 1080×1920 H.264+AAC MP4 downloaded.
+- ✅ Phase B: AI director (local Qwen, schema-validated, rule fallback). Same 8 clips, three prompts → phonk/fast,
+  cinematic/slow (all QA pass), tech-promo with motion scenes; logs in `data/mode-b-tests/phase-b/`.
+- ✅ Phase C: 26 Hyperframes motion templates (`rendering/motion.py`, timeline item `motion`); gallery
+  `tests/motion_gallery.py` → all animated, lint clean. Reference-6-style ad acceptance render still to do.
+- 🟡 Phase D: +11 FFmpeg effects (35 total), +11 transitions (33), minterpolate slow motion, OpenCV/ONNX composites
+  (`editing/composite.py`: subject_pop via U²-Netp, depth_parallax via Depth-Anything-V2-Small; models in
+  `data/models/onnx`). Planner: no back-to-back same-clip shots, composite budget. Effects gallery re-run pending.
+- 🟡 Phase E: Blender 5.2.3 (Store; headless via `%LOCALAPPDATA%\Microsoft\WindowsApps\blender-launcher.exe`).
+  `.mcp.json` adds Blender MCP (`uvx mcp-for-blender`, safe mode, telemetry off); addon installed+enabled in the
+  Store's virtualised AppData. Headless worker `rendering/blender.py` + `blender_scene.py` (text_3d, product_turntable)
+  rendered real 3D MP4s; wired into the edit job (only for 3D requests). End-to-end 3D edit not yet run.
+- ⏳ Phase F: voice venv install started (`%LOCALAPPDATA%\reel-studio\voice-venv`, torch 2.7.1 cu128 + chatterbox 0.1.7).
+- ⏳ Phase G: OFL fonts Caveat, Press Start 2P, Bebas Neue added; 100-preset library not written yet.
+- ⬜ Phases H–L and the Vercel deploy (Vercel is still linked to `Open_PS04_`; the owner asked to deploy at the end).
+- Local test stack: `pnpm exec supabase start`, migrations applied locally only (NOT yet on production Supabase);
+  engine `sh .claude/local-engine.sh` (:8001); web `apps/web/.env.development.local` points at local stack.

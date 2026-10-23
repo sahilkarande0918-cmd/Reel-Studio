@@ -208,7 +208,7 @@ def compile_html(doc: dict) -> str:
     states = word_states(preset, text, accent, ink, chip, shadow)
 
     media_html, cameras, overlays, code_sequences, fx, pushes, motion_js = [], [], [], [], [], [], []
-    mctx = {"bg": bg, "text": text, "accent": accent, "ink": ink, "body_font": body_font, "code_font": code_font,
+    mctx = {"w": w, "h": h, "bg": bg, "text": text, "accent": accent, "ink": ink, "body_font": body_font, "code_font": code_font,
             "display_font": "Fraunces", "assets": doc["assets"], "logo": logo_src, "name": brand.get("name", "")}
 
     look = STYLES[doc.get("stylePreset", "focus")]

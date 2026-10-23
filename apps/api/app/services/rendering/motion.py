@@ -94,8 +94,9 @@ def kinetic_title(sc: Scene) -> str:
 
 def blur_reveal(sc: Scene) -> str:
     title, sub = _f(sc.item, "text", "Designed to be seen"), _f(sc.item, "subtitle")
-    sc.tw(sc.sel(".mg-serif"), {"opacity": 0, "filter": "blur(30px)", "letterSpacing": "0.3em"},
-          {"opacity": 1, "filter": "blur(0px)", "letterSpacing": "-0.01em", "duration": 1.2, "ease": "expo.out"}, 0.1)
+    # spread → settle as a transform (letter-spacing reflows text and stutters under frame-by-frame capture)
+    sc.tw(sc.sel(".mg-serif"), {"opacity": 0, "filter": "blur(30px)", "scaleX": 1.25, "scaleY": 0.96},
+          {"opacity": 1, "filter": "blur(0px)", "scaleX": 1, "scaleY": 1, "duration": 1.2, "ease": "expo.out"}, 0.1)
     sc.tw(sc.sel(".mg-rule"), {"scaleX": 0}, {"scaleX": 1, "duration": 0.8}, 0.7)
     sc.tw(sc.sel(".mg-sub"), {"opacity": 0, "y": 30}, {"opacity": 1, "y": 0}, 0.9)
     return sc.wrap(SCENE, f'<div class="mg-center"><h1 class="mg-serif">{title}</h1><i class="mg-rule"></i><p class="mg-sub">{sub}</p></div>')
@@ -110,7 +111,8 @@ def stagger_lines(sc: Scene) -> str:
 
 def typewriter(sc: Scene) -> str:
     text = _f(sc.item, "text", "Type anything here")
-    chars = "".join(f'<span class="mg-ch">{c if c != " " else "&nbsp;"}</span>' for c in html.unescape(text)[:120])
+    words = html.unescape(text)[:120].split(" ")  # characters inside nowrap words, so lines break between words
+    chars = " ".join('<span class="mg-tw">' + "".join(f'<span class="mg-ch">{E(c)}</span>' for c in w) + "</span>" for w in words)
     n = max(len(html.unescape(text)[:120]), 1)
     sc.tw(sc.sel(".mg-ch"), {"opacity": 0}, {"opacity": 1, "duration": 0.01, "ease": "none"}, 0.2, min(0.06, (sc.d * 0.6) / n))
     sc.js.append(f'tl.fromTo("{sc.sel(".mg-caret")}", {{opacity:1}}, {{opacity:0, duration:0.4, repeat:{int(sc.d / 0.4)}, yoyo:true, ease:"steps(1)"}}, {sc.s});')
@@ -177,7 +179,7 @@ def laptop_mockup(sc: Scene) -> str:
 def split_screen(sc: Scene) -> str:
     a, b = _f(sc.item, "left", "Before"), _f(sc.item, "right", "After")
     sc.tw(sc.sel(".mg-half.r"), {"clipPath": "inset(0 0 0 100%)"}, {"clipPath": "inset(0 0 0 0%)", "duration": 1.0, "ease": "power3.inOut"}, 0.5)
-    sc.tw(sc.sel(".mg-divider"), {"left": "100%"}, {"left": "50%", "duration": 1.0, "ease": "power3.inOut"}, 0.5)
+    sc.tw(sc.sel(".mg-divider"), {"x": sc.ctx.get("w", 1080) / 2}, {"x": 0, "duration": 1.0, "ease": "power3.inOut"}, 0.5)
     sc.tw(sc.sel(".mg-tag"), {"opacity": 0, "y": -30}, {"opacity": 1, "y": 0}, 0.3, 0.6)
     return sc.wrap(SCENE, f'<div class="mg-split"><div class="mg-half l">{_media(sc.item, sc.ctx, 0)}<span class="mg-tag">{a}</span></div>'
                           f'<div class="mg-half r">{_media(sc.item, sc.ctx, 1)}<span class="mg-tag">{b}</span></div><i class="mg-divider"></i></div>')
@@ -237,7 +239,7 @@ def logo_reveal(sc: Scene) -> str:
     sc.tw(sc.sel(".mg-logo, .mg-wordmark"), {"opacity": 0, "scale": 1.4, "filter": "blur(24px)"},
           {"opacity": 1, "scale": 1, "filter": "blur(0px)", "duration": 1.0, "ease": "expo.out"}, 0.15)
     sc.tw(sc.sel(".mg-sweep"), {"xPercent": -150}, {"xPercent": 250, "duration": 1.1, "ease": "power2.inOut"}, 0.8)
-    sc.tw(sc.sel(".mg-tagline"), {"opacity": 0, "letterSpacing": "0.6em"}, {"opacity": 1, "letterSpacing": "0.18em", "duration": 1.0}, 1.0)
+    sc.tw(sc.sel(".mg-tagline"), {"opacity": 0, "scaleX": 1.4}, {"opacity": 1, "scaleX": 1, "duration": 1.0}, 1.0)
     return sc.wrap(SCENE, f'<div class="mg-center mg-brand">{mark}<div class="mg-sweep"></div><p class="mg-tagline">{_f(sc.item, "tagline")}</p></div>')
 
 
@@ -356,7 +358,7 @@ def css(ctx: dict) -> str:
       .mg-line {{ overflow: hidden; }} .mg-line span {{ display: block; font: 800 150px/1.0 "{body}", sans-serif; text-transform: uppercase; letter-spacing: -0.04em; }}
       .mg-line:nth-child(even) span {{ color: {accent}; }}
       .mg-type {{ font: 600 76px/1.3 "{ctx["code_font"]}", monospace; text-align: left; max-width: 920px; }}
-      .mg-caret {{ color: {accent}; }}
+      .mg-caret {{ color: {accent}; }} .mg-tw {{ white-space: nowrap; }}
       .mg-mask {{ margin: 0; font: 900 230px/0.95 "{body}", sans-serif; text-transform: uppercase; text-align: center; letter-spacing: -0.05em; }}
       .mg-mask-fill {{ background: linear-gradient(90deg, {text}, {accent}, {text}, {accent}); background-size: 300% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; }}
       .mg-count {{ font: 800 210px/1 "{body}", sans-serif; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }}
@@ -392,7 +394,7 @@ def css(ctx: dict) -> str:
       .mg-half {{ position: absolute; inset: 0; }} .mg-half .mg-fill {{ position: absolute; inset: 0; }}
       .mg-tag {{ position: absolute; top: 220px; padding: 16px 30px; border-radius: 14px; font: 800 44px/1 "{body}", sans-serif; text-transform: uppercase; background: rgba(0,0,0,.6); }}
       .mg-half.l .mg-tag {{ left: 60px; }} .mg-half.r .mg-tag {{ right: 60px; background: {accent}; color: {ink}; }}
-      .mg-divider {{ position: absolute; top: 0; bottom: 0; width: 8px; margin-left: -4px; background: #fff; box-shadow: 0 0 40px rgba(255,255,255,.8); }}
+      .mg-divider {{ position: absolute; top: 0; bottom: 0; left: 50%; width: 8px; margin-left: -4px; background: #fff; box-shadow: 0 0 40px rgba(255,255,255,.8); }}
       .mg-list {{ list-style: none; margin: 0; padding: 0; width: 100%; display: flex; flex-direction: column; gap: 34px; }}
       .mg-list li {{ position: relative; display: flex; align-items: center; gap: 34px; padding: 30px 36px; border-radius: 28px; background: color-mix(in srgb, {text} 8%, transparent); overflow: hidden; }}
       .mg-list b {{ font: 800 62px/1 "{body}", sans-serif; color: {accent}; }} .mg-list span {{ font: 600 50px/1.2 "{body}", sans-serif; }}
@@ -435,7 +437,7 @@ def css(ctx: dict) -> str:
       .mg-burst-t {{ position: relative; margin: 0; font: 900 200px/1 "{body}", sans-serif; text-shadow: 0 10px 40px rgba(0,0,0,.5); }}
       .mg.overlay .mg-burst-t {{ align-self: center; margin-bottom: auto; margin-top: auto; }}
       .mg-grid {{ display: grid; grid-template-columns: repeat(2, 1fr); gap: 28px; width: 100%; }}
-      .mg-tile {{ height: 520px; border-radius: 32px; overflow: hidden; box-shadow: 0 30px 60px rgba(0,0,0,.4); }}
+      .mg-tile {{ height: 420px; border-radius: 32px; overflow: hidden; box-shadow: 0 30px 60px rgba(0,0,0,.4); }}
       .mg-toasts {{ width: 100%; display: flex; flex-direction: column; gap: 26px; }}
       .mg-toast {{ display: flex; gap: 28px; align-items: center; padding: 32px 36px; border-radius: 36px; background: rgba(255,255,255,.92); color: #151515; box-shadow: 0 24px 60px rgba(0,0,0,.35); }}
       .mg-toast i {{ width: 90px; height: 90px; border-radius: 24px; background: linear-gradient(135deg, {accent}, color-mix(in srgb, {accent} 40%, #000)); flex: none; }}

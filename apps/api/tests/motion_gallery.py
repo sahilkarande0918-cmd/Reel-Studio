@@ -86,6 +86,10 @@ def main() -> None:
     doc = json.loads(json.dumps(doc))
     timeline.validate(doc)
     compose.write_project(doc, out)
+    lint = json.loads(subprocess.run(_cli() + ["lint", "--json", "."], cwd=out, capture_output=True, text=True, encoding="utf-8").stdout)
+    errors = [f for f in lint["findings"] if f["severity"] == "error"]
+    if errors:
+        sys.exit("lint errors: " + json.dumps(errors, indent=1)[:3000])
     r = subprocess.run(_cli() + ["render", "--quality", "draft", "--workers", "8", "--output", "out.mp4", "."], cwd=out,
                        capture_output=True, text=True, encoding="utf-8")
     if r.returncode:

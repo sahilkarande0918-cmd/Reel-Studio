@@ -41,6 +41,10 @@ def check(mp4: Path, plan: dict) -> dict:
             continue
         if s["transition_out"] == "cut":
             k = max(win, key=lambda i: diff[i])
+            # two shots of the same clip change less at the cut than a punch-zoom nearby: the planned frame counts as the
+            # cut when its change is a clear spike (≥ 60 % of the local peak and ≥ 3× the window's median)
+            if n < len(diff) and diff[n] >= 0.6 * diff[k] and diff[n] >= 3 * float(np.median([diff[i] for i in win])):
+                k = n
             cuts.append(
                 {
                     "t": t,
