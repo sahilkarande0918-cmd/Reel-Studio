@@ -47,14 +47,15 @@ def _assets(db, project_id: str) -> list[dict]:
     return [a for a in rows if a["status"] == "ready"]
 
 
-def storyboard_stills(mp4: Path, plan: dict, out_dir: Path) -> list[str]:
+def storyboard_stills(mp4: Path, plan: dict, out_dir: Path) -> list[str | None]:
     names = []
     for i, s in enumerate(plan["segments"]):
-        t = (s["slot"][0] + s["slot"][1]) / 2
+        t = min((s["slot"][0] + s["slot"][1]) / 2, plan["duration"] - 0.1)
         name = f"sb-{i:02d}.jpg"
-        subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{t:.3f}", "-i", str(mp4), "-frames:v", "1",
-                        "-vf", "scale=240:-2", str(out_dir / name)], check=True, timeout=60)
-        names.append(name)
+        r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{t:.3f}", "-i", str(mp4), "-frames:v", "1",
+                            "-vf", "scale=240:-2", str(out_dir / name)], capture_output=True, timeout=60)
+        # a preview still never fails the edit; None keeps the list aligned with the shots for the UI
+        names.append(name if r.returncode == 0 and (out_dir / name).exists() else None)
     return names
 
 

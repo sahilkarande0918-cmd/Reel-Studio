@@ -143,10 +143,13 @@ def mix(
     if not labels:  # silent edit: a real silent track so players and Instagram accept the file
         inputs += ["-f", "lavfi", "-t", f"{duration:.3f}", "-i", f"anullsrc=r={SR}:cl=stereo"]
         labels.append(f"[{k}:a]")
+    # always exactly `duration`: a song that ends before the edit is padded with silence, otherwise the -shortest mux
+    # cut the picture to the song's length (a 20 s edit came out 17.6 s)
+    exact = f"apad=whole_dur={duration:.3f},atrim=end={duration:.3f}"
     mixed = (
-        f"{''.join(labels)}amix=inputs={len(labels)}:normalize=0:duration=longest,atrim=end={duration:.3f}"
+        f"{''.join(labels)}amix=inputs={len(labels)}:normalize=0:duration=longest,{exact}"
         if len(labels) > 1
-        else f"{labels[0]}atrim=end={duration:.3f}"
+        else f"{labels[0]}{exact}"
     )
     pre = out.with_suffix(".pre.wav")
     graph = ";".join([*chains, f"{mixed},aformat=channel_layouts=stereo[mix]"])

@@ -216,3 +216,16 @@ def test_tracked_tag_follows_the_track():
     markup, js = motion.render(item, 0, {"w": 1080, "h": 1920})
     assert "₹499" in markup and "mg-pin" in markup
     assert 'x: 648.0, y: 960.0, duration: 0.500, ease: "none"}, 2.000' in js and "x: 756.0, y: 768.0" in js
+
+
+def test_mix_is_exactly_the_edit_length_when_the_song_ends_early(tmp_path):
+    import subprocess
+
+    from app.services.editing import audio
+
+    song = tmp_path / "song.wav"
+    subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "sine=f=220:d=2", "-ar", "48000", str(song)], check=True)
+    out = audio.mix(3.0, tmp_path / "mix.wav", music=song)
+    d = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(out)],
+                             capture_output=True, text=True).stdout)
+    assert abs(d - 3.0) < 0.02, d

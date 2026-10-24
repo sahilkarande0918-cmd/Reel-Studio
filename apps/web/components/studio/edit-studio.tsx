@@ -14,7 +14,7 @@ type Generation = {
   id: string; status: string; prompt: string; settings: Record<string, unknown>; error: string | null; created_at: string; render_id: string | null;
   director: { style: string; treatment: string; pacing: string; look: string; reasons: string[]; profile: string; clips: string[]; provenance: { engine: string }; reference_evidence: string[]; on_screen_text: { text: string }[]; graphics: { template: string }[] } | null;
   plan: { bpm: number; duration: number; segments: Segment[]; reused_shots: number } | null;
-  qa: { pass?: Record<string, boolean>; storyboard?: string[]; loudness?: { integrated_lufs: number; true_peak_dbtp: number }; hard_cuts?: { beat_offset_ms: number }[] } | null;
+  qa: { pass?: Record<string, boolean>; storyboard?: (string | null)[]; loudness?: { integrated_lufs: number; true_peak_dbtp: number }; hard_cuts?: { beat_offset_ms: number }[] } | null;
   job: { progress: number; current_stage: string | null; status: string } | null;
 };
 
