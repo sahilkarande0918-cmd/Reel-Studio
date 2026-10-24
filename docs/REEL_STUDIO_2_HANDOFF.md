@@ -52,6 +52,9 @@ Voice: voice_profiles.py → subprocess voice-venv/python voice_worker.py (torch
 - **Phase C ad quality**: first ad used the local test workspace's brand kit (Nimbu watermark) and landscape
   screenshots left white space; fixed (`brand_kit_id: "none"`, cover-fit mockups, keep director scenes, no closing
   fade, required-content check). Re-render `phase-c/ad2.mp4` was running at checkpoint (not verified).
+- **Voice (Phase F), session 3 update**: speech synthesised and checked (TEST_STATUS); Hinglish now converted to
+  Devanagari before synthesis. Still open: profile via `/voices` + Mode B narrated edit (local Supabase blocked by
+  Windows port reservation 54313–54412; fix: admin `net stop winnat` / `net start winnat`).
 - **Voice (Phase F)**: everything built (table, API, consent, quality checks, owner-only use, pronunciations, preview job,
   deletion, Settings UI, Mode B narration path); isolated venv installed; model files downloaded to
   `data/models/chatterbox` (ve.pt, t3_mtl23ls_v2.safetensors, s3gen.pt, grapheme json, conds.pt, Cangjie5_TC.json).

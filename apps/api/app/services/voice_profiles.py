@@ -21,7 +21,15 @@ from app.core.config import get_settings
 CONSENT = ("I confirm this recording is my own voice, or I have the speaker's explicit permission, and I authorise "
            "Reel Studio to create a synthetic voice from it for my own videos.")
 WORKER = Path(__file__).with_name("voice_worker.py")
-LANGS = {"en": "en", "hi": "hi", "hinglish": "hi"}  # Roman-script Hinglish is read with the Hindi model (tested)
+LANGS = {"en": "en", "hi": "hi", "hinglish": "hi"}  # Hinglish goes to the Hindi model, in Devanagari (devanagari())
+DEVANAGARI = re.compile(r"[ऀ-ॿ]")
+TRANSLIT_PROMPT = (
+    "Transliterate this Roman-script Hinglish sentence, given as a JSON list of words, into Devanagari word by word. "
+    "Hindi words → Devanagari spelling as spoken. English words (technical terms, brand names, numbers) stay EXACTLY "
+    "as given in Latin letters. Keep punctuation attached to its word. Never translate, add, drop, merge or split words: "
+    "return the same number of words in the same order. Words: ")
+TRANSLIT_SCHEMA = {"type": "object", "properties": {"words": {"type": "array", "items": {"type": "string"}}},
+                   "required": ["words"]}
 
 
 def voice_dir(org_id: str, vid: str) -> Path:
@@ -83,12 +91,36 @@ def apply_pronunciations(text: str, rules: dict[str, str]) -> str:
     return text
 
 
+def devanagari(text: str) -> str:
+    """Roman Hinglish → Hindi words in Devanagari, English words untouched. The Hindi voice model garbles Roman Hinglish
+    ("samjhenge" → "samshank", repeated endings) but reads mixed script cleanly (ASR-checked 2026-10-24). The model's
+    answer is used only if it keeps every word in place and every Latin word unchanged; otherwise the text is returned
+    as it was."""
+    if DEVANAGARI.search(text):
+        return text
+    from app.services import llm
+
+    words = text.split()
+    try:
+        got = llm.chat_json(TRANSLIT_PROMPT + json.dumps(words, ensure_ascii=False), TRANSLIT_SCHEMA, temperature=0)[0]["words"]
+    except (llm.LLMUnavailable, KeyError, TypeError):
+        return text
+    # ponytail: positional check only; a wrong-but-plausible Devanagari word passes (the narration ASR pass would show it)
+    if not isinstance(got, list) or len(got) != len(words):
+        return text
+    for orig, new in zip(words, got):
+        if not isinstance(new, str) or not new.strip() or (not DEVANAGARI.search(new) and new != orig):
+            return text
+    return " ".join(got)
+
+
 def synthesize(sample: Path, items: list[dict], work: Path, timeout_s: int = 900) -> list[dict]:
     """items: [{"text", "language", "out"}] → [{"out", "seconds", "watermarked"}]. Frees the local LLM's VRAM first."""
     if not available():
         raise RuntimeError("The voice engine is not installed on the processing machine")
     from app.services import llm
 
+    items = [{**i, "text": devanagari(i["text"])} if i.get("language") == "hinglish" else i for i in items]
     llm.unload()
     work.mkdir(parents=True, exist_ok=True)
     job = work / f"job-{uuid.uuid4().hex[:8]}.json"

@@ -20,7 +20,10 @@
 | Campaign agent (Hinglish) | 🟡 runs; copy quality weak (repeated hooks) |
 | pgTAP RLS (incl. 20 new 2.0 tests) / db lint | ✅ 72/72 / clean |
 | API pytest / ruff (session 2) | ✅ 118 passed, 6 skipped / clean |
-| Voice synthesis, Phase D acceptance, Tests B/E/H, next build, production | ⬜ not run yet |
+| Voice synthesis (Chatterbox, synthetic sample, session 3) | ✅ 4 narrations EN×2/HI/Hinglish, CUDA, 82 s incl. load, all Perth-watermarked; speaker similarity to sample 0.909–0.952 (other speaker 0.717), EN1↔EN2 0.935; ASR: EN×2 and HI word-correct |
+| Hinglish voice (Roman script) | ❌→✅ Roman text garbled ("samjhenge"→"Samshank", repeated ending); fixed with Devanagari conversion (`voice_profiles.devanagari`, guarded); app path re-run: both sentences ASR-correct, watermarked |
+| Voice profile → Mode B narrated edit | ⬜ blocked: Windows reserved TCP 54313–54412 after reboot, local Supabase cannot bind (owner to restart winnat) |
+| Phase D acceptance, Tests B/E/H, next build, production | ⬜ not run yet |
 
 > **2026-10-17: Feature A (context-aware AI editing) verified on the owner's real physics class (production) and the synthetic React fixture (local). Read [CHECKPOINT.md](CHECKPOINT.md) first.** B/C not implemented.
 
