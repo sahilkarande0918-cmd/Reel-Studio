@@ -12,7 +12,13 @@ $mutex = New-Object System.Threading.Mutex($false, "Local\ReelStudioEngine")
 if (-not $mutex.WaitOne(0)) { "$(Get-Date -Format s) engine already running; not starting a second copy" | Add-Content $notes; exit 0 }
 
 Set-Location $api
+$ollama = Join-Path $env:LOCALAPPDATA "Programs\Ollama\ollama.exe"
 while ($true) {
+    # the AI director and campaign planner need the local model server; it does not start by itself after a reboot
+    if ((Test-Path $ollama) -and -not (Get-Process ollama -ErrorAction SilentlyContinue)) {
+        Start-Process -FilePath $ollama -ArgumentList "serve" -WindowStyle Hidden
+        "$(Get-Date -Format s) started Ollama" | Add-Content $notes
+    }
     "$(Get-Date -Format s) starting engine" | Add-Content $notes
     # cmd redirection keeps native stderr as plain text in the log.
     cmd /c "`"$py`" -m app.serve --tunnel devtunnel >> `"$log`" 2>&1"

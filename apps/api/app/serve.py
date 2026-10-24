@@ -146,6 +146,13 @@ def main() -> None:
                         print(f"[serve] {name} restart failed: {e}", flush=True)
 
     threading.Thread(target=watchdog, daemon=True).start()
+    if args.tunnel != "none" and sys.platform == "win32":
+        # The public engine must answer while the laptop is idle: ask Windows not to idle-sleep while this process runs
+        # (ES_CONTINUOUS | ES_SYSTEM_REQUIRED, held by the main thread that runs uvicorn; released when it exits).
+        # A closed lid or a manual Sleep still sleeps.
+        import ctypes
+
+        ctypes.windll.kernel32.SetThreadExecutionState(0x80000000 | 0x00000001)
 
     import uvicorn
 
