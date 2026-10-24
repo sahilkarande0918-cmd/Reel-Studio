@@ -3,6 +3,7 @@ carries the mixed music/SFX/voice), plus the overlay layers Hyperframes renders 
 on-screen text and captions. The same document opens in the editor, so preview and export share one source of truth."""
 
 import os
+import re
 import shutil
 from pathlib import Path
 
@@ -57,12 +58,45 @@ class _G:  # the director's Graphic shape, for scenes the structure fallback add
         self.template, self.at, self.duration_s, self.fields = template, at, duration_s, fields
 
 
+LISTS = {"info_list": "items", "notifications": "items", "floating_cards": "cards"}
+STEP_NO = re.compile(r"^\s*(?:step\s*)?(\d+)\s*[.):-]\s*", re.IGNORECASE)
+
+
+def merge_lists(chosen: list, title: str = "") -> list:
+    """The local model often splits one list into one scene per item ("01 4. publish" four times, in any order). All
+    scenes of a list template become one scene at the first one's position, items de-numbered (the template numbers
+    them) and put in their stated step order."""
+    out, merged = [], {}
+    for g in chosen:
+        key = LISTS.get(g.template)
+        if not key:
+            out.append(g)
+            continue
+        items = [x.strip() for x in str((g.fields or {}).get(key, "")).split("|") if x.strip()]
+        if g.template not in merged:
+            merged[g.template] = _G(g.template, g.at, g.duration_s, dict(g.fields or {}))
+            merged[g.template].parts = []
+            out.append(merged[g.template])
+        else:
+            merged[g.template].duration_s += g.duration_s
+        merged[g.template].parts += items
+    for t, g in merged.items():
+        numbered = [STEP_NO.match(x) for x in g.parts]
+        order = sorted(range(len(g.parts)), key=lambda i: int(numbered[i].group(1))) if all(numbered) else range(len(g.parts))
+        items = list(dict.fromkeys(STEP_NO.sub("", g.parts[i]).strip() for i in order))
+        g.fields[LISTS[t]] = "|".join(items)
+        if len(items) > 1 and "title" in g.fields:
+            g.fields["title"] = title or "How it works"
+    return out
+
+
 def graphics(d, dur: float, clips: list[dict], chosen: list | None = None) -> list[dict]:
     """Motion items for the edit. Designed styles (motion graphics / tech ad) need scenes across most of the edit; when
     the model chose too few, a structure is added from what is known — the request's own on-screen lines and the
     uploaded media in mockups — never invented claims. `clips` are the media assets in director numbering (1-based)."""
     media = {n + 1: f"media-{n + 1}" for n in range(len(clips))}
     chosen = sorted(d.graphics if chosen is None else chosen, key=lambda g: g.at)
+    chosen = merge_lists(chosen, next((t.text for t in d.on_screen_text if t.role == "hook"), ""))
     if d.style in DESIGNED and chosen:  # the director's scenes, each held until the next one starts (a designed ad
         starts = [g.at * dur for g in chosen] + [dur]  # flows scene to scene instead of dropping back to footage)
         chosen = [_G(g.template, g.at, min(8.0, max(1.5, starts[i + 1] - starts[i])), dict(g.fields or {}))

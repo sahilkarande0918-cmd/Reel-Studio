@@ -151,3 +151,16 @@ def test_correct_beats_shift_and_tempo():
     assert s["beats"] == [0.4, 0.9, 1.4, 1.9] and s["drops"] == [1.4] and m["beats"][0] == 0.5
     t = correct_beats(m, bpm=60)
     assert t["beats"] == [0.5, 1.5, 2.5] and t["tempo_bpm"] == 60 and t["downbeats"] == [0.5]
+
+
+def test_merge_lists_joins_split_steps_in_order():
+    from app.services.editing.overlay import _G, merge_lists
+
+    scenes = [_G("kinetic_title", 0.0, 2, {"text": "Reel Studio"}),
+              _G("info_list", 0.12, 3, {"title": "Publish", "items": "4. publish"}),
+              _G("info_list", 0.3, 3, {"title": "Upload", "items": "1. upload your clips"}),
+              _G("info_list", 0.5, 3, {"title": "Director", "items": "2. AI director plans the edit|3) fine-tune"})]
+    out = merge_lists(scenes, "Four steps")
+    assert [g.template for g in out] == ["kinetic_title", "info_list"]
+    assert out[1].fields == {"title": "Four steps", "items": "upload your clips|AI director plans the edit|fine-tune|publish"}
+    assert out[1].at == 0.12 and out[1].duration_s == 9

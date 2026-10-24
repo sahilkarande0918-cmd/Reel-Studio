@@ -154,6 +154,8 @@ section; caption picker; collections panel; publishing cover/suggest. Phone widt
 Backend: all routers in `app/main.py`; worker handlers in `app/workers/run.py`.
 
 ## 12. Supabase, Vercel, Instagram
+**Session 3: deployed.** Production migrated, the production engine runs 2.0 from this folder, Vercel serves 2.0
+(details and rollback at the top of `DEPLOYMENT.md`). The notes below describe the pre-deploy state.
 - Supabase: 7 new migrations applied **locally only**. Production project `adjwycjsxtxvjockxtan` has NOT been migrated
   (`supabase/.temp/project-ref` = adjwycjsxtxvjockxtan; review then `pnpm exec supabase db push`).
 - Vercel: project `reel-studio` (team_N7gyjjdCHX9K8ifMie5nzuV6, prj_VVWevgFfCwq7LgQauMu1B11RGzua, domain

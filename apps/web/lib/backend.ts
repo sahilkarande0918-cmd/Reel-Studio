@@ -65,8 +65,10 @@ const noop = () => () => {};
 export function useBackend() {
   // Start from the last working URL so engine-dependent UI renders immediately; the probe confirms it in the background.
   // Only after hydration: sessionStorage does not exist on the server, so using it in the first render mismatched the HTML.
+  // The probe can also finish before a later-streamed page segment hydrates, so its answer is withheld until then too.
   const hydrated = useSyncExternalStore(noop, () => true, () => false);
-  return useQuery({ queryKey: ["backend"], queryFn: discover, refetchInterval: 20_000, staleTime: 15_000, placeholderData: hydrated ? remembered : undefined });
+  const q = useQuery({ queryKey: ["backend"], queryFn: discover, refetchInterval: 20_000, staleTime: 15_000, placeholderData: hydrated ? remembered : undefined });
+  return hydrated ? q : { ...q, data: undefined, isLoading: true };
 }
 
 /** Authenticated call to the local API. */
