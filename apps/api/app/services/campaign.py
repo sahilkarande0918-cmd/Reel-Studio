@@ -272,6 +272,12 @@ def plan(b: Business, language: str) -> tuple[dict, dict]:
                       f"Hooks already used by other reels (do not repeat): {', '.join(used) or 'none'}\n\n{facts}")
             r, errs = _ask(prompt, REEL_SCHEMA, check_reel, seed=n)
             notes += [f"reel {n}: {e}" for e in errs]
+            # still a repeat after retries: fewer distinct reels beat copies (a plan keeps at least 3)
+            if similar_hook(str(r.get("hook", "")), used) and len(reels) + len(BY_GOAL[b.goal]) - n >= 3:
+                notes.append(f"reel {n} ({fmt}) dropped: its hook repeated an earlier reel")
+                continue
+            for k in ("script", "caption"):  # the model sometimes echoes the format instruction into the copy
+                r[k] = str(r.get(k, "")).replace(f"{title} — {what}", "").replace(what, "").strip(" .—-")
             used.append(str(r.get("hook", "")).strip().lower())
             reels.append({**r, "key": f"r{n}", "mode": "recording" if fmt in ("faq", "story") else "edit",
                           "duration_s": 20, "format": fmt})

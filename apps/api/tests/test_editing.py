@@ -197,3 +197,12 @@ def test_prompt_structure_uses_only_the_requests_words():
     assert s[1].fields["items"] == "Upload your clips|The AI director plans the edit|Fine-tune in the editor|Publish to Instagram"
     assert s[2].fields == {"media": "1", "title": "1. Upload your clips"} and s[-1].fields["button"] == "Try Reel Studio"
     assert prompt_structure("Make a phonk edit with 2 drops", shots, 20) is None
+
+
+def test_before_after_request_gets_a_split_screen():
+    from app.services.editing.overlay import before_after
+
+    two = [{"width": 1080, "height": 1920}] * 2
+    s = before_after("Before / after comparison reel of my room makeover", two, 15)
+    assert s[0].template == "split_screen" and s[0].fields["media"] == "1 2" and s[0].duration_s == 9.0
+    assert before_after("before/after", two[:1], 15) is None and before_after("phonk edit", two, 15) is None

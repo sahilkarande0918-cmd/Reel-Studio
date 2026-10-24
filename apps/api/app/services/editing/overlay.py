@@ -119,6 +119,18 @@ def prompt_structure(prompt: str, clips: list[dict], dur: float) -> list | None:
     return [_G(t, i * span / dur, span, f) for i, (t, f) in enumerate(seq)]
 
 
+BEFORE_AFTER = re.compile(r"\bbefore\s*(?:/|&|and|vs\.?|-)?\s*after\b", re.I)
+
+
+def before_after(prompt: str, clips: list[dict], dur: float) -> list | None:
+    """An explicit before/after request with two or more media: media 1 is BEFORE, media 2 is AFTER, side by side with an
+    animated divider for most of the edit (the model tends to drop the comparison layout and mislabel shots)."""
+    if len(clips) < 2 or not BEFORE_AFTER.search(prompt):
+        return None
+    length = max(3.0, round(dur * 0.6, 2))
+    return [_G("split_screen", 0.1, length, {"media": "1 2", "left": "BEFORE", "right": "AFTER"})]
+
+
 def graphics(d, dur: float, clips: list[dict], chosen: list | None = None, branded: bool = True, prompt: str = "") -> list[dict]:
     """Motion items for the edit. Designed styles (motion graphics / tech ad) need scenes across most of the edit; when
     the model chose too few, a structure is added from what is known — the request's own on-screen lines and the
@@ -126,6 +138,8 @@ def graphics(d, dur: float, clips: list[dict], chosen: list | None = None, brand
     media = {n + 1: f"media-{n + 1}" for n in range(len(clips))}
     if d.style in DESIGNED and (structured := prompt_structure(prompt, clips, dur)):
         return motion.items_from_directive(structured, dur, 0, 0, media)
+    if compare := before_after(prompt, clips, dur):
+        return motion.items_from_directive(compare, dur, 0, 0, media)
     chosen = sorted(d.graphics if chosen is None else chosen, key=lambda g: g.at)
     chosen = sorted(merge_lists(chosen, next((t.text for t in d.on_screen_text if t.role == "hook"), "")), key=lambda g: g.at)
     for g in chosen:  # "Try Reel Studio" written as the headline with a placeholder button: the line is the button
