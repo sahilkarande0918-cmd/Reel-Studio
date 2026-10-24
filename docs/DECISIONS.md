@@ -224,3 +224,16 @@ Tracked links are `/r/<slug>` on the web app (Vercel + Supabase RPC `track_click
 inquiries arrive through `/i/<slug>` (`submit_inquiry`, rate-limited) or are recorded by a member. Suggestions are
 computed from those counts with fixed thresholds. Campaign copy is grounded: exact business-name spelling, numbers and
 social-proof claims not in the owner's input are removed. Marathi stays disabled until a model is tested for it.
+
+## D-049 — The request's own structure beats the model's layout (2026-10-24, session 3)
+When a prompt spells out numbered steps and quoted lines, or asks for a before/after comparison, the scenes are built
+deterministically from those words and the uploaded media (`overlay.prompt_structure`, `overlay.before_after`). The local
+7B model scrambled such lists, split them into one-item scenes, invented URLs/buttons and dropped the comparison layout.
+Model output is still used everywhere else, but template placeholders ("Button", "Your brand", URLs the request never
+mentions) are filtered and list scenes are merged in step order.
+
+## D-050 — Tracked overlays and shader-style transitions without new dependencies (2026-10-24, session 3)
+Tracked labels use OpenCV's MIL tracker (no model files) on the rendered base picture, so paths are already in output
+coordinates; the start box comes from U²-Netp when installed. MediaPipe/SAM 2 were not added (heavier, not needed for a
+label that follows a subject). Shader-style transitions are FFmpeg `xfade` custom per-pixel expressions (diamond, blinds,
+checker, luma burn, ripple mix, soft iris) instead of a GL-enabled FFmpeg build. Export bitrate is capped at 20 Mbps.

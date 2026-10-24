@@ -71,9 +71,12 @@ Voice: voice_profiles.py → subprocess voice-venv/python voice_worker.py (torch
 - **Phase L**: suites green (§16); `next build` not run this session; Tests B, E, H not rendered.
 
 ## 4. Not started
-Deploy (production Supabase migrations, 2.0 engine for production, Vercel deploy of the 2.0 web); Test B (infographic)
-and E (before/after) renders; collection scheduling; manual beat correction UI; reference visual report page; tracked
-overlays (MediaPipe/SAM 2); gl-transitions shader layer; Marathi.
+Marathi (disabled until a model is validated). Everything else listed here at the end of session 2 was built in session
+3: deploy (✅ live), collection scheduling, manual beat correction, reference style report + layout detection, tracked
+labels (`tracked_tag`, OpenCV MIL), six shader-style transitions (`diamond`, `blinds`, `checker`, `luma_burn`,
+`ripple_mix`, `iris_soft`), prompt-structured scenes, before/after split screen, export bitrate cap (D-049, D-050).
+**Built in session 3 but not yet verified in a render:** tracked labels, the six new transitions, layout detection on a
+real reference, series scheduling, beat correction, the final Test B/E/H re-renders (were running at the end).
 
 ## 5. Work completed in this session (commits after `6b29ec7`)
 - `40c090b` Mode B web app + AI director + migrations (media_assets, edit_generations, project mode `edit`), ingest/edit jobs, assets/edits APIs, Create page, media bin, edit studio, motion library start.
@@ -221,27 +224,21 @@ Phase B three prompts → three distinct edits (cinematic all QA pass; phonk had
 shots of the same clip — planner fixed); Phase C ad 24.000 s all QA pass; 3D edit 16.000 s all QA pass; Mode A preset
 and captions-OFF renders ready. Not run: voice synthesis, `next build`, Tests B/E/H, production checks.
 
-## 17. Remaining phases (priority order)
-1. Finish Phase F: run `voice_worker.py` with the synthetic sample (EN ×2, HI, Hinglish), check consistency and the
-   Perth watermark; then ask the owner for a consented sample.
-2. Record Phase D (two-clip 18 s, eight-clip 20 s) and Phase C `ad2` results; render Tests B (infographic) and E
-   (before/after).
-3. Campaign copy quality (stronger per-reel prompts, dedupe, optional external model) and Test H (campaign → Mode B
-   reel → caption + tracked link, no publish).
-4. `next build`, then deploy: review + apply the 7 migrations to production Supabase, switch the production engine to
-   this folder, deploy the 2.0 web to Vercel project `reel-studio` with the same UI, verify /create, /campaigns, /r, /i.
-5. Polish: landing card, collection scheduling, reference report page, manual beat correction.
+## 17. Remaining work (priority order, after session 3)
+1. One-go verification of everything built in session 3 (owner asked to build first, test at the end): tracked labels,
+   the six new transitions (gallery: `tests/effects_gallery.py`), layout detection on Reference 2/3, series scheduling
+   (UI only, publish nothing), beat correction, and the Test B/E/H re-render outputs in `data/mode-b-tests/test-b4`,
+   `test-e2`, `test-h` (fetch with the scratch `fetch_gen.py` pattern: a fresh token per poll; tokens expire after 1 h).
+2. Landing card: `apps/web/app/page.tsx` already says Prompt → Edit and uses `/landing/app-create.jpg` (2.0 UI, no private
+   media); it still needs `/landing/reel-edit.mp4` + `reel-edit.jpg` from a render without private footage (Test B4 is
+   the intended source). page.tsx and app-create.jpg are not committed until the video exists.
+3. Owner's own consented voice recording for a real profile (Phase F used a synthetic consented sample).
+4. Campaign copy: judge Test H output; consider the optional external planner (DIRECTOR_API_*) for better Hinglish.
+5. Redeploy Vercel after each web change (project Git link points at the old repo: use the API `gitSource` deploy).
 
 ## 18. Precise next task
-**First (session 3, 2026-10-24):** Claude storage was moved to D: and verified (`docs/CLAUDE_STORAGE_MIGRATION.md`), script
-`scripts/claude-storage/migrate-claude-storage.ps1`; never delete the C: original or backups without explicit approval.
-Then: **Phase F voice verification.** Files: `apps/api/app/services/voice_worker.py`, `voice_profiles.py`, `voice.py`.
-Steps: add `"model_dir": "C:\\Users\\Sahil\\AppData\\Local\\reel-studio\\data\\models\\chatterbox"` to
-`data/voice-test/job.json`; make sure the GPU is idle (no edit job, Ollama unloaded); run the voice worker; check
-`result.json` (4 WAVs, durations, `watermarked`), listen/ASR-check that the two English scripts sound like the same
-speaker and that Hindi/Hinglish are intelligible; then create a profile through `/voices` with that sample and run a
-Mode B edit with `voice: "profile:<id>"`, `captions: true`, `language: "hinglish"`. Acceptance: two narrations from one
-profile, recognisably consistent, word-timed captions in the MP4, watermark reported; record in TEST_STATUS.
+Run the one-go verification in §17.1, record results in TEST_STATUS, then finish the landing card (§17.2) and redeploy.
+Claude storage lives on D: (`docs/CLAUDE_STORAGE_MIGRATION.md`); never delete the C: original without approval.
 
 ## 19. Git
 Branch `main`, remote `origin` = https://github.com/sahilkarande0918-cmd/Reel-Studio.git (in sync at checkpoint).

@@ -22,8 +22,13 @@
 | API pytest / ruff (session 2) | ✅ 118 passed, 6 skipped / clean |
 | Voice synthesis (Chatterbox, synthetic sample, session 3) | ✅ 4 narrations EN×2/HI/Hinglish, CUDA, 82 s incl. load, all Perth-watermarked; speaker similarity to sample 0.909–0.952 (other speaker 0.717), EN1↔EN2 0.935; ASR: EN×2 and HI word-correct |
 | Hinglish voice (Roman script) | ❌→✅ Roman text garbled ("samjhenge"→"Samshank", repeated ending); fixed with Devanagari conversion (`voice_profiles.devanagari`, guarded); app path re-run: both sentences ASR-correct, watermarked |
-| Voice profile → Mode B narrated edit | ⬜ blocked: Windows reserved TCP 54313–54412 after reboot, local Supabase cannot bind (owner to restart winnat) |
-| Phase D acceptance, Tests B/E/H, next build, production | ⬜ not run yet |
+| Voice profile via `/voices` (synthetic consented sample) | ✅ saved: ready, 10.6 s, SNR 65.5 dB, 88 % speech, 0 % clipped |
+| Phase F: Mode B narrated edits with the saved profile, captions ON (8 clips + music, 14 s) | ✅ EN / HI / Hinglish: each 14.000 s 1080×1920 H.264+AAC, all 8 QA checks pass, −14.0 LUFS; ASR of the final MP4 matches the script (EN word-correct except "Reel"→"Real"; HI word-correct except "Reel"→"Rue"; Hinglish: "prompt"→"from", "reel"→"real"); caption↔speech offset median 0.00/−0.02 s, max 0.04–0.12 s; speaker similarity of isolated narrations to the sample EN 0.949 / HI 0.879 / Hinglish 0.864 (other speaker 0.717), HI↔Hinglish 0.962. Outputs `data/mode-b-tests/phase-f/` |
+| Phase D eight-clip edit (20 s, night-out montage) | ✅ 20.000 s 1080×1920, all 8 QA pass (`phase-d/eight-clips.mp4`); found 53 Mbps when the base is the export → capped CRF (`-maxrate 20M`), re-encode check 20.7 Mbps |
+| Test B infographic (first run) | ❌ list split into one-item scenes out of order, empty gradient scenes, frozen-frame flag, old-UI tour clip → fixed `overlay.merge_lists`; re-render with 2.0 screenshots below |
+| next build (session 3) | ✅ 27 routes, lint + tsc clean |
+| Production deploy | ✅ migrations pushed (remote lint clean), engine on 2.0, Vercel `dpl_4vYYDteBdvU3tbBvxQ4HXxwuVTpf` live; /r /i 404 for unknown slugs, /create /campaigns redirect to login |
+| Tests E (before/after), H (campaign → reel) | ⬜ not run yet |
 
 > **2026-10-17: Feature A (context-aware AI editing) verified on the owner's real physics class (production) and the synthetic React fixture (local). Read [CHECKPOINT.md](CHECKPOINT.md) first.** B/C not implemented.
 
