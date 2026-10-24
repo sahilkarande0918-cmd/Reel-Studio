@@ -1,8 +1,28 @@
-# Claude storage migration C: → D: (prepared 2026-10-24, not yet run)
+# Claude storage migration C: → D: (run and verified 2026-10-24)
 
 Script: `scripts/claude-storage/migrate-claude-storage.ps1`. It moves Claude Code's folder to D: with
-zero deletion and leaves a junction at the old path. Status: **prepared and rehearsed, waiting for the
-owner to run it with all Claude apps closed.**
+zero deletion and leaves a junction at the old path. Status: **done; verified (results below). The C: original
+`C:\Users\Sahil\.claude.pre-migration-20261024-052725` and `D:\ClaudeStorage\user-config-backup-20261024-052725` are
+kept until the owner approves deleting them.**
+
+## Verification results (after restart, 2026-10-24 05:28–05:30)
+- `C:\Users\Sahil\.claude` is a Junction → `D:\ClaudeStorage\.claude`; log `migration-20261024-052725.log` ends DONE
+  (3,551 files SHA-256 verified by the script).
+- Independent re-check, original vs D: 3,549 identical, 1 updated since (this session's transcript), 1 absent:
+  `backups\.claude.json.backup.1792797515976`, removed by Claude Code's own rotation (it keeps 5 config backups and
+  wrote `…1792799969018` at 05:28:27). The file is still in the C: original.
+- Transcripts: 18 on D: = 18 in the original. Tamrivo: `315673bf-…` 247,163,796 B and `b5e5b291-…` 249,074,920 B,
+  identical sizes, + 3 memory files identical. Reel Studio 2.0 session `cb493782-…` resumed from D: and keeps growing there.
+- New writes go to D: (transcript, `sessions\`, config backup, plugin cache, ponytail hook flag); 0 files written to the
+  C: original since the switch.
+- `settings.json` parses (keys unchanged + `cleanupPeriodDays: 3650` added); 13 skills present and loaded; plugin
+  ponytail install path valid and its SessionStart hook ran; both marketplaces resolve; user MCP servers (stitch,
+  motionsites) and project MCP (blender) configured; no config path points to a missing `.claude` folder;
+  `.credentials.json` present (not read) and the session is signed in; `gh auth status` logged in as
+  sahilkarande0918-cmd.
+- Not checkable from inside a session: the `/resume` picker itself. The Reel Studio session was resumed by the app;
+  Tamrivo's session files are intact where Claude looks for them; open `/resume` in `C:\dev\AnswerRank` once to confirm
+  (resuming would append to that transcript, so it was not done here).
 
 ## What was measured (2026-10-24)
 C: 446.8 GB used, **13.3 GB free**; D: 457.6 GB free. `CLAUDE_CONFIG_DIR` is not set anywhere.
