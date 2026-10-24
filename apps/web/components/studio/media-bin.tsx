@@ -233,6 +233,7 @@ function ReferenceReport({ a }: { a: any }) {
     ["Flashes", `${(a.flashes ?? []).length} white/black hit frames`],
     ["Camera", a.motion ? `zoom-in ${pct(a.motion.zoom_in_share)} · zoom-out ${pct(a.motion.zoom_out_share)} of shots · peak motion ${a.motion.peak_flow}` : "—"],
     ["Text", a.text ? `on-screen text in ${pct(a.text.frames_with_text)} of sampled shots` : "—"],
+    ["Layout", a.layout ? `framed cards/screens in ${pct(a.layout.panel_shots)} of shots · split layouts in ${pct(a.layout.split_shots)}` : "not measured (re-upload to analyse)"],
   ];
   return (
     <details className="rounded-xl border border-line bg-surface p-4 text-[12px]">

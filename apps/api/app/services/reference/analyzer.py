@@ -179,6 +179,32 @@ def describe(path: Path, times: list[float], model: str | None = None) -> list[d
     return out
 
 
+def panels(frame: np.ndarray, limit: int = 6) -> list[list[float]]:
+    """Framed regions inside a shot (cards, phone/browser screens, split halves): four-sided contours covering 4–85 % of
+    the frame, nested duplicates removed. Boxes as [x, y, w, h] fractions of the frame (layout-led references)."""
+    h, w = frame.shape[:2]
+    gray = cv2.GaussianBlur(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY), (5, 5), 0)
+    edges = cv2.dilate(cv2.Canny(gray, 40, 120), np.ones((3, 3), np.uint8))
+    found = []
+    for c in cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)[0]:
+        x, y, bw, bh = cv2.boundingRect(c)
+        if not 0.04 <= bw * bh / (w * h) <= 0.85:
+            continue
+        if len(cv2.approxPolyDP(c, 0.03 * cv2.arcLength(c, True), True)) == 4 and cv2.contourArea(c) > 0.8 * bw * bh:
+            found.append((x, y, bw, bh))
+    keep: list[tuple[int, int, int, int]] = []
+    for b in sorted(found, key=lambda b: -b[2] * b[3]):  # largest first; drop boxes mostly inside a kept one
+        if all(_overlap(b, k) < 0.7 for k in keep):
+            keep.append(b)
+    return [[round(x / w, 3), round(y / h, 3), round(bw / w, 3), round(bh / h, 3)] for x, y, bw, bh in keep[:limit]]
+
+
+def _overlap(a, b) -> float:
+    ix = max(0, min(a[0] + a[2], b[0] + b[2]) - max(a[0], b[0]))
+    iy = max(0, min(a[1] + a[3], b[1] + b[3]) - max(a[1], b[1]))
+    return ix * iy / max(1, min(a[2] * a[3], b[2] * b[3]))
+
+
 def techniques(p: dict) -> list[str]:
     """Transferable editing techniques implied by the measurements (rule-based, explainable)."""
     out = []
@@ -205,6 +231,11 @@ def techniques(p: dict) -> list[str]:
         )
     if p["text"]["frames_with_text"] >= 0.5:
         out.append(f"Text-led: on-screen text in {p['text']['frames_with_text']:.0%} of sampled shots")
+    lay = p.get("layout") or {}
+    if lay.get("panel_shots", 0) >= 0.3:
+        out.append(f"Layout-led: framed cards/screens in {lay['panel_shots']:.0%} of shots (use media cards and mockups)")
+    if lay.get("split_shots", 0) >= 0.2:
+        out.append(f"Split layouts: 2+ panels side by side in {lay['split_shots']:.0%} of shots (split screen / grid)")
     return out
 
 
@@ -237,6 +268,7 @@ def analyze_reference(path: Path, out_dir: Path | None = None, describe_frames: 
                 else [0, 0],
                 "brightness": round(float(series["luma"][i:j].mean()), 1) if j > i else 0,
                 "palette": palette(mid) if mid is not None else [],
+                "panels": panels(mid) if mid is not None else [],
                 "text": [
                     {"text": x["text"], "y": round(x["box"][1] / H, 2), "h": round(x["box"][3] / H, 3)}
                     for x in texts[:6]
@@ -266,6 +298,8 @@ def analyze_reference(path: Path, out_dir: Path | None = None, describe_frames: 
             "peak_flow": round(float(series["mag"].max(initial=0)), 2),
         },
         "text": {"frames_with_text": round(text_hits / max(len(shot_rows), 1), 2)},
+        "layout": {"panel_shots": round(sum(1 for r in shot_rows if r["panels"]) / max(len(shot_rows), 1), 2),
+                   "split_shots": round(sum(1 for r in shot_rows if len(r["panels"]) >= 2) / max(len(shot_rows), 1), 2)},
         "colour": {"palette": palette(grab(path, meta["duration_s"] / 2)) if meta["duration_s"] else []},
     }
     if meta["has_audio"]:
