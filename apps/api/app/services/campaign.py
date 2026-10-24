@@ -8,6 +8,7 @@ Grounding rules enforced after generation (not just asked of the model):
 A deterministic planner writes a smaller plan when no language model answers (recorded in provenance).
 """
 
+import difflib
 import re
 import secrets
 from datetime import date, timedelta
@@ -220,6 +221,16 @@ def _ask(prompt: str, schema: dict, check, tries: int = 3, seed: int = 7) -> tup
     return raw, errors + ["accepted with issues"]
 
 
+def similar_hook(hook: str, used: list[str]) -> bool:
+    """Near-duplicate hooks (the 7B model rephrases the same line): shared-word overlap or character similarity."""
+    words = set(re.findall(r"\w+", hook.lower()))
+    for u in used:
+        uw = set(re.findall(r"\w+", u))
+        if (words and uw and len(words & uw) / len(words | uw) >= 0.5) or difflib.SequenceMatcher(None, hook.lower(), u).ratio() >= 0.75:
+            return True
+    return False
+
+
 def _lang_issue(text: str, language: str) -> list[str]:
     if language == "hinglish" and len(HINGLISH.findall(text)) < 2:
         return ["write in Hinglish: Hindi words in Roman script mixed with English (e.g. 'Diwali ke liye naye sneakers dekho')"]
@@ -249,9 +260,10 @@ def plan(b: Business, language: str) -> tuple[dict, dict]:
             title, what = FORMATS[fmt]
 
             def check_reel(r: dict, used=used) -> list[str]:
-                out = _lang_issue(f"{r.get('hook', '')} {r.get('script', '')} {r.get('caption', '')}", language)
-                if str(r.get("hook", "")).strip().lower() in used:
-                    out.append("this hook was already used by another reel; write a different one")
+                out = _lang_issue(f"{r.get('hook', '')} {r.get('caption', '')}", language)
+                out += [f"script: {x}" for x in _lang_issue(str(r.get("script", "")), language)]
+                if similar_hook(str(r.get("hook", "")), used):
+                    out.append("this hook is too close to another reel's hook; write a different angle and wording")
                 return out
 
             prompt = (f"LANGUAGE: {LANG_NAME[language]}.{HINGLISH_EXAMPLE if language == 'hinglish' else ''}\n"

@@ -140,3 +140,14 @@ def test_no_back_to_back_shots_from_one_clip_when_others_exist():
               {"start_s": 0, "end_s": 1.5, "score": 0.2, "focus": [0.5, 0.5]}]}]
     picks = planner.pick_sources(clips, [0.5] * 10, [False] * 10)
     assert all(a["clip"] != b["clip"] for a, b in zip(picks, picks[1:]))
+
+
+def test_correct_beats_shift_and_tempo():
+    from app.services.editing.planner import correct_beats
+
+    m = {"beats": [0.5, 1.0, 1.5, 2.0], "downbeats": [0.5], "accents": [1.0], "drops": [1.5], "duration_s": 3.0}
+    assert correct_beats(m) is m
+    s = correct_beats(m, offset_ms=-100)
+    assert s["beats"] == [0.4, 0.9, 1.4, 1.9] and s["drops"] == [1.4] and m["beats"][0] == 0.5
+    t = correct_beats(m, bpm=60)
+    assert t["beats"] == [0.5, 1.5, 2.5] and t["tempo_bpm"] == 60 and t["downbeats"] == [0.5]

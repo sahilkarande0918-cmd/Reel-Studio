@@ -34,6 +34,9 @@ class EditRequest(BaseModel):
     narration: str | None = Field(default=None, max_length=1500)
     language: Literal["en", "hi", "hinglish"] = "en"
     quality: Literal["draft", "looks", "delivery"] = "looks"
+    # manual beat correction: shift the detected grid, or force a tempo when detection picked half/double time
+    beat_offset_ms: int = Field(default=0, ge=-500, le=500)
+    bpm: float | None = Field(default=None, ge=50, le=220)
     brand_kit_id: str | None = None
 
 

@@ -35,3 +35,11 @@ def test_language_check_asks_for_hinglish_or_devanagari():
 
 def test_every_goal_plans_distinct_formats():
     assert all(len(set(v)) == len(v) == 5 and set(v) <= set(cg.FORMATS) for v in cg.BY_GOAL.values())
+
+
+def test_similar_hook_catches_rephrasings():
+    from app.services.campaign import similar_hook
+
+    used = ["diwali ke liye naye sneakers chahiye?"]
+    assert similar_hook("Diwali ke liye naye sneakers chahiye kya?", used)
+    assert not similar_hook("Office ke baad gym? Yeh shoes try karo", used)

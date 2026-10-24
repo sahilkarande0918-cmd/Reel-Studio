@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 export type Asset = {
   id: string; kind: "clip" | "image" | "audio" | "reference"; filename: string; status: string; size_bytes: number;
   duration_s: number | null; width: number | null; height: number | null; error: string | null; position: number;
-  analysis: { tempo_bpm?: number; drops?: number[]; vlm?: { subject?: string; shot?: string } | null; techniques?: string[]; moments?: unknown[] } | null;
+  analysis: { tempo_bpm?: number; drops?: number[]; vlm?: { subject?: string; shot?: string } | null; techniques?: string[]; moments?: unknown[]; pacing?: object } | null;
 };
 type Kind = Asset["kind"];
 type Upload = { key: string; name: string; sent: number; total: number; error?: string };
@@ -183,6 +183,7 @@ export function MediaBin({ projectId, canEdit }: { projectId: string; canEdit: b
         <Slot title="Reference reel (optional)" icon={<Film size={16} aria-hidden />} asset={reference} accept={VIDEO} disabled={disabled} onPick={(f) => add([f], "reference")} onRemove={remove} canEdit={canEdit}
           detail={reference?.analysis?.techniques?.slice(0, 2).join(" · ")} />
       </div>
+      {reference?.status === "ready" && reference.analysis?.pacing && <ReferenceReport a={reference.analysis} />}
 
       {assets.isLoading ? <p className="text-muted">Loading…</p> : visual.length === 0 ? <p className="text-[13px] text-muted">No clips yet.</p> :
         <ul className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">{visual.map((a, i) => <li key={a.id} className="group min-w-0 overflow-hidden rounded-xl border border-line bg-surface">
@@ -215,4 +216,35 @@ function Slot({ title, icon, asset, accept, disabled, onPick, onRemove, canEdit,
       <input type="file" className="sr-only" accept={accept.join(",")} disabled={disabled} onChange={(e) => { const f = e.target.files?.[0]; if (f) onPick(f); e.target.value = ""; }} />
     </label>}
   </div>;
+}
+
+/* eslint-disable @typescript-eslint/no-explicit-any -- analysis JSON written by services/reference/analyzer.py */
+/** What the analyzer measured in the reference reel: the evidence the director's style transfer uses. */
+function ReferenceReport({ a }: { a: any }) {
+  const dur = a.meta?.duration_s || 1;
+  const cuts: { t: number; kind: string }[] = a.transitions ?? [];
+  const kinds = cuts.reduce((m: Record<string, number>, c) => ({ ...m, [c.kind]: (m[c.kind] ?? 0) + 1 }), {});
+  const bs = a.beat_sync ?? {};
+  const pct = (x: number) => `${Math.round(x * 100)}%`;
+  const rows: [string, string][] = [
+    ["Pacing", `${a.pacing.shots} shots · ${a.pacing.cuts_per_min} cuts/min · median shot ${a.pacing.median_shot_s} s`],
+    ["Beat sync", bs.tempo_bpm ? `${bs.tempo_bpm} BPM · ${pct(bs.cuts_within_60ms ?? 0)} of cuts within 60 ms of a beat (median ${bs.median_abs_offset_ms} ms)` : "No music beat detected"],
+    ["Transitions", Object.entries(kinds).map(([k, n]) => `${k} ×${n}`).join(" · ") || "—"],
+    ["Flashes", `${(a.flashes ?? []).length} white/black hit frames`],
+    ["Camera", a.motion ? `zoom-in ${pct(a.motion.zoom_in_share)} · zoom-out ${pct(a.motion.zoom_out_share)} of shots · peak motion ${a.motion.peak_flow}` : "—"],
+    ["Text", a.text ? `on-screen text in ${pct(a.text.frames_with_text)} of sampled shots` : "—"],
+  ];
+  return (
+    <details className="rounded-xl border border-line bg-surface p-4 text-[12px]">
+      <summary className="cursor-pointer font-semibold">Reference style report <span className="font-normal text-muted">· measured from the reel, used by the director</span></summary>
+      <ul className="mt-3 list-disc space-y-0.5 pl-4">{(a.techniques ?? []).map((t: string) => <li key={t}>{t}</li>)}</ul>
+      <dl className="mt-3 grid gap-x-4 gap-y-1 sm:grid-cols-[110px_1fr]">{rows.map(([k, v]) => <div key={k} className="contents"><dt className="text-muted">{k}</dt><dd>{v}</dd></div>)}</dl>
+      <div className="relative mt-4 h-8 rounded bg-surface-2" aria-label="Cuts (tall marks) and beats (short marks) across the reel">
+        {(a.music?.beats ?? []).map((b: number) => <span key={`b${b}`} className="absolute bottom-0 h-2 w-px bg-muted/60" style={{ left: `${(b / dur) * 100}%` }} />)}
+        {cuts.map((c) => <span key={`c${c.t}`} title={`${c.t.toFixed(2)} s · ${c.kind}`} className="absolute inset-y-0 w-0.5 bg-accent" style={{ left: `${(c.t / dur) * 100}%` }} />)}
+      </div>
+      <p className="mt-1 text-[11px] text-muted">Tall marks: cuts · short marks: beats · {dur.toFixed(1)} s</p>
+      {a.colour?.palette && <div className="mt-3 flex gap-1">{a.colour.palette.map((c: string) => <span key={c} title={c} className="h-6 w-6 rounded ring-1 ring-line" style={{ background: c }} />)}</div>}
+    </details>
+  );
 }

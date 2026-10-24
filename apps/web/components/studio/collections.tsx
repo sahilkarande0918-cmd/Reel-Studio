@@ -5,10 +5,11 @@ import { ArrowDown, ArrowUp, Layers, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { apiErrorMessage, apiFetch, useBackend } from "@/lib/backend";
+import { accountReady, socialRequest, type SocialAccount } from "@/lib/social";
 import { createClient } from "@/lib/supabase/client";
 
 type Episode = { highlight_id: string; title: string; start_s: number; end_s: number; topic: string; steps: string[]; quote: string; render_id?: string };
-type Collection = { id: string; title: string; description: string; topic: string; episodes: Episode[]; edited: boolean };
+type Collection = { id: string; organization_id: string; title: string; description: string; topic: string; episodes: Episode[]; edited: boolean };
 const ts = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
 /** AI clip collections: series grouped by the class's own outline topics; reorder, rename, render all. */
@@ -21,7 +22,7 @@ export function Collections({ recordingId, canEdit }: { recordingId: string; can
   const cols = useQuery({
     queryKey: key,
     queryFn: async () => {
-      const { data, error } = await createClient().from("clip_collections").select("id, title, description, topic, episodes, edited").eq("recording_id", recordingId).order("created_at");
+      const { data, error } = await createClient().from("clip_collections").select("id, organization_id, title, description, topic, episodes, edited").eq("recording_id", recordingId).order("created_at");
       if (error) throw error;
       return data as Collection[];
     },
@@ -81,7 +82,35 @@ export function Collections({ recordingId, canEdit }: { recordingId: string; can
             <button type="button" aria-label="Remove from series" onClick={() => patch(c, { order: c.episodes.filter((x) => x.highlight_id !== e.highlight_id).map((x) => x.highlight_id) })} className="text-muted hover:text-danger"><X size={14} /></button>
           </div>}
         </li>)}</ol>
+        {canEdit && base && c.episodes.some((e) => e.render_id) && <SeriesScheduler c={c} base={base} onDone={setMsg} />}
       </article>)}
     </section>
+  );
+}
+
+/** Queue a series as posts, one every N days, through the normal publishing queue (each post can be cancelled there). */
+function SeriesScheduler({ c, base, onDone }: { c: Collection; base: string; onDone: (m: string) => void }) {
+  const accounts = useQuery({ queryKey: ["social-accounts", c.organization_id, base], queryFn: () => socialRequest<SocialAccount[]>(base, `/social/accounts?organization_id=${encodeURIComponent(c.organization_id)}`) });
+  const ready = accounts.data?.filter((a) => accountReady(a) && a.platform === "instagram") ?? [];
+  const [account, setAccount] = useState("");
+  const [first, setFirst] = useState("");
+  const [every, setEvery] = useState(2);
+  const [busy, setBusy] = useState(false);
+  async function submit() {
+    setBusy(true);
+    const r = await apiFetch(base, `/collections/${c.id}/schedule`, { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ account_id: account || ready[0]?.id, first_at: new Date(first).toISOString(), every_days: every }) });
+    const body = await r.json().catch(() => null);
+    setBusy(false);
+    onDone(r.ok ? `Scheduled ${body.scheduled.length} post(s)${body.skipped.length ? `; ${body.skipped.length} episode(s) skipped (export not finished)` : ""}. Review or cancel them in Publishing.` : apiErrorMessage(body, r.status));
+  }
+  if (!ready.length) return <p className="text-[12px] text-muted">Connect an Instagram account in Publishing to schedule this series.</p>;
+  return (
+    <div className="flex flex-wrap items-end gap-2 border-t border-line pt-3 text-[12px]">
+      <label className="grid gap-1">Account<select className="studio-input" value={account || ready[0].id} onChange={(e) => setAccount(e.target.value)}>{ready.map((a) => <option key={a.id} value={a.id}>@{a.username}</option>)}</select></label>
+      <label className="grid gap-1">First post<input type="datetime-local" className="studio-input" value={first} onChange={(e) => setFirst(e.target.value)} /></label>
+      <label className="grid gap-1">Every<select className="studio-input" value={every} onChange={(e) => setEvery(Number(e.target.value))}>{[1, 2, 3, 7].map((d) => <option key={d} value={d}>{d === 1 ? "day" : `${d} days`}</option>)}</select></label>
+      <button type="button" className="studio-button-secondary rounded-xl px-3 py-2 font-semibold" disabled={busy || !first || new Date(first) <= new Date()} onClick={submit}>{busy ? "Scheduling…" : "Schedule series"}</button>
+    </div>
   );
 }

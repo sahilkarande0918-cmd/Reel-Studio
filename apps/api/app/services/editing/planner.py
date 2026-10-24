@@ -28,6 +28,28 @@ def ramp_factor(ramp: list[tuple[float, float]], samples: int = 64) -> float:
     return tot / samples
 
 
+def correct_beats(music: dict | None, offset_ms: int = 0, bpm: float | None = None) -> dict | None:
+    """Manual beat correction from the edit form: shift the detected grid by offset_ms, or rebuild it at a fixed BPM
+    anchored on the first detected beat (for tracks where detection locked onto half/double time)."""
+    if not music or not music.get("beats") or (not offset_ms and not bpm):
+        return music
+    shift = offset_ms / 1000
+    m = dict(music)
+    if bpm:
+        step, t0 = 60 / bpm, music["beats"][0] + shift
+        end = float(music.get("duration_s") or music["beats"][-1] + step)
+        m["beats"] = [round(t0 + i * step, 4) for i in range(int((end - t0) / step) + 1)]
+        m["downbeats"], m["tempo_bpm"] = m["beats"][::4], bpm
+    else:
+        m["beats"] = [round(b + shift, 4) for b in music["beats"]]
+        m["downbeats"] = [round(b + shift, 4) for b in music.get("downbeats") or music["beats"][::4]]
+    m["accents"] = [round(b + shift, 4) for b in music.get("accents", [])]
+    m["drops"] = [round(b + shift, 4) for b in music.get("drops", [])]
+    for k in ("beats", "downbeats", "accents", "drops"):
+        m[k] = [b for b in m[k] if b >= 0]
+    return m
+
+
 def beat_grid(
     music: dict | None, bpm: float, duration: float
 ) -> tuple[list[float], list[float], list[float]]:

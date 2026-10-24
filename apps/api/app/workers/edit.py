@@ -93,7 +93,7 @@ def run_edit(ctx: JobContext) -> dict:
         raise Permanent("No usable clips or images in this project")
     music_asset = next((a for a in assets if a["kind"] == "audio"), None) if st.get("music") == "upload" else None
     ref_asset = next((a for a in assets if a["kind"] == "reference"), None) if st.get("use_reference", True) else None
-    music = music_asset["analysis"] if music_asset else None
+    music = planner.correct_beats(music_asset["analysis"] if music_asset else None, st.get("beat_offset_ms", 0), st.get("bpm"))
     reference = ref_asset["analysis"] if ref_asset else None
 
     ctx.stage("direct", 0.08, "AI director is reading the footage, music and your request")

@@ -77,6 +77,8 @@ export function EditStudio({ projectId, canEdit, idea }: { projectId: string; ca
   const [narration, setNarration] = useState("");
   const [language, setLanguage] = useState("en");
   const [quality, setQuality] = useState("looks");
+  const [beatOffset, setBeatOffset] = useState(0);
+  const [bpm, setBpm] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const voices = useQuery({
@@ -97,7 +99,7 @@ export function EditStudio({ projectId, canEdit, idea }: { projectId: string; ca
       const r = await apiFetch(base, `/projects/${projectId}/edit`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: prompt.trim() || "Edit it professionally", duration_s: duration, aspect, style, music: hasMusic ? music : music === "upload" ? "score" : music,
-          use_reference: useReference, captions: caption.on, caption_preset: caption.preset, caption_overrides: caption.overrides, voice, narration: narration.trim() || null, language, quality }),
+          use_reference: useReference, captions: caption.on, caption_preset: caption.preset, caption_overrides: caption.overrides, voice, narration: narration.trim() || null, language, quality, beat_offset_ms: beatOffset, bpm: bpm ? Number(bpm) : null }),
       });
       if (!r.ok) throw new Error(apiErrorMessage(await r.json().catch(() => null), r.status));
       qc.invalidateQueries({ queryKey: ["edits", projectId] });
@@ -127,6 +129,13 @@ export function EditStudio({ projectId, canEdit, idea }: { projectId: string; ca
         {voice !== "none" && <label className="studio-label">Narration language<select className="studio-input" value={language} onChange={(e) => setLanguage(e.target.value)}><option value="en">English</option><option value="hi">Hindi</option><option value="hinglish">Hinglish</option></select></label>}
         {voice !== "none" && <label className="studio-label">Narration script (optional — the director writes one if empty)<textarea className="studio-input resize-none" rows={2} maxLength={1500} value={narration} onChange={(e) => setNarration(e.target.value)} /></label>}
         <CaptionPicker value={caption} onChange={setCaption} needsSpeech={voice === "none" ? "Captions follow spoken words: choose a narration voice above, otherwise only the director's short on-screen text appears." : undefined} />
+        {music === "upload" && hasMusic && <details className="rounded-xl border border-line bg-surface p-3 text-[13px]">
+          <summary className="cursor-pointer font-semibold">Beat grid <span className="font-normal text-muted">· detected {String((all.find((a) => a.kind === "audio")?.analysis as { tempo_bpm?: number } | null)?.tempo_bpm ?? "?")} BPM; correct it if cuts feel early, late or at half speed</span></summary>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <label className="studio-label">Shift beats ({beatOffset > 0 ? "+" : ""}{beatOffset} ms)<input type="range" min={-500} max={500} step={10} value={beatOffset} onChange={(e) => setBeatOffset(Number(e.target.value))} /></label>
+            <label className="studio-label">Force tempo (BPM, optional)<input type="number" min={50} max={220} step={0.1} className="studio-input" placeholder="auto" value={bpm} onChange={(e) => setBpm(e.target.value)} /></label>
+          </div>
+        </details>}
         {hasReference && <label className="flex items-center gap-2 text-[13px]"><input type="checkbox" checked={useReference} onChange={(e) => setUseReference(e.target.checked)} />Follow the reference reel&apos;s editing rhythm and transitions (never its footage, music or branding)</label>}
         <div className="flex flex-wrap items-center gap-3">
           <button type="button" className="studio-button !px-5 !py-3" disabled={!base || !hasClips || busy || !!active} onClick={generate}>

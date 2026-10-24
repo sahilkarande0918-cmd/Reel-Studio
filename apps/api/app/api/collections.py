@@ -8,10 +8,14 @@ here, so a series can never name a concept the recording does not contain.
 
 import json
 from collections import defaultdict
+from datetime import datetime, timedelta
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from app.api.publishing import PublishBody
+from app.api.publishing import schedule as schedule_post
 from app.api.renders import RenderRequest, enqueue_highlight_render
 from app.core.access import get_owned
 from app.core.auth import User, current_user
@@ -123,3 +127,29 @@ def render_all(cid: str, body: RenderRequest, user: User = Depends(current_user)
         out.append({"highlight_id": h["id"], **r})
     db.table("clip_collections").update({"episodes": c["episodes"]}).eq("id", cid).execute()
     return {"renders": out}
+
+
+class SeriesSchedule(BaseModel):
+    account_id: UUID
+    first_at: datetime  # timezone required (validated by PublishBody)
+    every_days: int = Field(default=2, ge=1, le=14)
+    hashtags: str = Field(default="", max_length=300)
+
+
+@router.post("/collections/{cid}/schedule", status_code=202)
+def schedule_series(cid: str, body: SeriesSchedule, user: User = Depends(current_user)) -> dict:
+    """Queue the series as Instagram posts, one every N days, in episode order. Only finished episode exports are
+    scheduled; the rest are listed as skipped. Posting runs through the normal queue (cancel any post before it goes)."""
+    c = get_owned("clip_collections", cid, user, write=True)
+    db = service_client()
+    n, done, skipped = len(c["episodes"]), [], []
+    for i, e in enumerate(c["episodes"]):
+        r = db.table("render_jobs").select("id,status").eq("id", e.get("render_id") or "00000000-0000-0000-0000-000000000000").limit(1).execute().data
+        if not r or r[0]["status"] != "ready":
+            skipped.append({"highlight_id": e["highlight_id"], "reason": "export not finished"})
+            continue
+        caption = f"{c['title']} · Part {i + 1}/{n}: {e['title']}" + (f"\n\n{body.hashtags}" if body.hashtags else "")
+        when = body.first_at + timedelta(days=body.every_days * len(done))
+        res = schedule_post(PublishBody(render_id=r[0]["id"], account_id=body.account_id, caption=caption[:2200], scheduled_at=when), user)
+        done.append({"highlight_id": e["highlight_id"], "scheduled_at": when.isoformat(), **res})
+    return {"scheduled": done, "skipped": skipped}
