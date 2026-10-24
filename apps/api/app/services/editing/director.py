@@ -281,7 +281,7 @@ def direct(
 
 DESIGN_WORDS = re.compile(r"motion|graphic|infographic|mockup|card|kinetic|typograph|advert|\bads?\b|promo|saas|website|"
                           r"browser|laptop|phone|chart|counter|calendar|chat|logo|brand reveal|cta|call to action|explainer")
-OVERLAY_ONLY = {"lower_third", "light_sweep", "shape_burst"}
+OVERLAY_ONLY = {"lower_third", "light_sweep", "shape_burst", "tracked_tag"}
 PLACEHOLDER = re.compile(r"^\s*(your |the )?(brand|company|business|product)?\s*(name|logo|text here|tagline|title|cta|button|"
                          r"call to action( button)?|headline|label|url|link|description|detail|subtitle)\s*$", re.I)
 THREE_D = re.compile(r"\b3d\b|3-d|three[- ]dimensional|turntable|blender|rotating product|3d text|3d logo")

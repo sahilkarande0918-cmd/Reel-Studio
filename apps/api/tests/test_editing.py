@@ -206,3 +206,13 @@ def test_before_after_request_gets_a_split_screen():
     s = before_after("Before / after comparison reel of my room makeover", two, 15)
     assert s[0].template == "split_screen" and s[0].fields["media"] == "1 2" and s[0].duration_s == 9.0
     assert before_after("before/after", two[:1], 15) is None and before_after("phonk edit", two, 15) is None
+
+
+def test_tracked_tag_follows_the_track():
+    from app.services.rendering import motion
+
+    item = {"id": "mg-0", "type": "motion", "start": 2.0, "duration": 1.0, "template": "tracked_tag", "fields": {"text": "₹499"},
+            "media": [], "intensity": 0.6, "track": [[0, 0.5, 0.5], [0.5, 0.6, 0.5], [1.0, 0.7, 0.4]]}
+    markup, js = motion.render(item, 0, {"w": 1080, "h": 1920})
+    assert "₹499" in markup and "mg-pin" in markup
+    assert 'x: 648.0, y: 960.0, duration: 0.500, ease: "none"}, 2.000' in js and "x: 756.0, y: 768.0" in js

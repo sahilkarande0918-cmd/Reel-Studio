@@ -12,7 +12,7 @@ from app.core.config import get_settings
 from app.core.db import service_client
 from app.core.storage import asset_path, render_dir
 from app.services import voice
-from app.services.editing import director, overlay, planner, qa, render, style_transfer
+from app.services.editing import director, overlay, planner, qa, render, style_transfer, tracking
 from app.services.rendering import blender, motion, timeline
 from app.workers.ingest import ingest
 from app.workers.jobs import JobContext, Permanent
@@ -143,6 +143,9 @@ def run_edit(ctx: JobContext) -> dict:
     res = render.render_plan(pl, [asset_path(a) for a in clips], [a["analysis"].get("duration_s") for a in clips],
                              work, base, music_path=asset_path(music_asset) if music_asset else None,
                              voice_path=narration["wav"] if narration else None, quality=st.get("quality", "looks"))
+    for it in motion_items:  # tracked labels follow the subject in the finished picture (output-frame coordinates)
+        if it["template"] == "tracked_tag":
+            it["track"] = tracking.track(base, it["start"], it["duration"])
 
     shots_3d = []
     if windows_3d:

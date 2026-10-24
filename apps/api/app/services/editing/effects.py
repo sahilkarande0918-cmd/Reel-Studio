@@ -522,6 +522,14 @@ TRANSITIONS: dict[str, str] = {
     "squeeze_vertical": "squeezev",
     "wipe_up": "wipeup",
     "slide_down": "slidedown",
+    # shader-style transitions: per-pixel xfade expressions (gl-transitions ideas without a GL build of FFmpeg).
+    # P runs 1 → 0 across the transition; A is the outgoing pixel, B the incoming one.
+    "diamond": "custom:expr='if(lte(abs(X/W-0.5)+abs(Y/H-0.5),(1-P)*1.05),B,A)'",
+    "blinds": "custom:expr='if(lt(mod(X,W/9)/(W/9),1-P),B,A)'",
+    "checker": "custom:expr='if(gt(1-P,0.2+0.45*mod(floor(X/(W/6))+floor(Y/(H/10)),2)),B,A)'",
+    "luma_burn": "custom:expr='if(lt(A/255,1.2*(1-P)-0.1),B,A)'",
+    "ripple_mix": "custom:expr='A*clip(P*1.6-0.3+0.25*sin(hypot(X-W/2,Y-H/2)/28),0,1)+B*(1-clip(P*1.6-0.3+0.25*sin(hypot(X-W/2,Y-H/2)/28),0,1))'",
+    "iris_soft": "custom:expr='A*clip((hypot(X-W/2,Y-H/2)/hypot(W/2,H/2)-(1-P)*1.1)*6+0.5,0,1)+B*(1-clip((hypot(X-W/2,Y-H/2)/hypot(W/2,H/2)-(1-P)*1.1)*6+0.5,0,1))'",
 }
 
 

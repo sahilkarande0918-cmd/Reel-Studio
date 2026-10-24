@@ -273,6 +273,18 @@ def lower_third(sc: Scene) -> str:
     return sc.wrap(OVERLAY, f'<div class="mg-lt"><b>{_f(sc.item, "name", "Name")}</b><span>{_f(sc.item, "role")}</span></div>')
 
 
+def tracked_tag(sc: Scene) -> str:
+    """Label pinned to the subject: follows item["track"] ([t, x, y] from editing/tracking.py) with eased transforms."""
+    w, h = sc.ctx.get("w", 1080), sc.ctx.get("h", 1920)
+    path = sc.item.get("track") or [[0, 0.5, 0.5]]
+    sel = json.dumps(sc.sel(".mg-pin"))
+    sc.js.append(f"tl.set({sel}, {{x: {path[0][1] * w:.1f}, y: {path[0][2] * h:.1f}}}, {sc.s:.3f});")
+    for (t0, *_), (t1, x, y) in zip(path, path[1:]):
+        sc.js.append(f"tl.to({sel}, {{x: {x * w:.1f}, y: {y * h:.1f}, duration: {max(t1 - t0, 0.04):.3f}, ease: \"none\"}}, {sc.s + t0:.3f});")
+    sc.tw(sc.sel(".mg-pin span"), {"opacity": 0, "scale": 0.6}, {"opacity": 1, "scale": 1, "duration": 0.4, "ease": "back.out(2)"}, 0.1)
+    return sc.wrap(OVERLAY, f'<div class="mg-pin"><i></i><span>{_f(sc.item, "text")}</span></div>')
+
+
 def light_sweep(sc: Scene) -> str:
     sc.tw(sc.sel(".mg-beam"), {"xPercent": -120, "opacity": 0}, {"xPercent": 120, "opacity": 1, "duration": min(sc.d, 1.4), "ease": "power2.inOut"}, 0)
     return sc.wrap(OVERLAY, '<div class="mg-beam"></div>')
@@ -333,6 +345,7 @@ TEMPLATES: dict[str, dict] = {
     "cta_button": {"fn": cta_button, "description": "headline, button pops, cursor clicks it", "fields": {"headline": 50, "button": 24, "detail": 60}, "media": 0, "sfx": [("tick", 1.6)]},
     "pricing_card": {"fn": pricing_card, "description": "pricing card with glowing border and features (only real prices)", "fields": {"plan": 20, "price": 16, "features": 160}, "media": 0, "sfx": [("whoosh", 0.1)]},
     "lower_third": {"fn": lower_third, "description": "name/title bar over footage", "fields": {"name": 40, "role": 50}, "media": 0, "sfx": []},
+    "tracked_tag": {"fn": tracked_tag, "description": "label that follows the moving subject over footage (product name, price, a callout)", "fields": {"text": 30}, "media": 0, "sfx": [("tick", 0.1)]},
     "light_sweep": {"fn": light_sweep, "description": "diagonal light beam across the frame over footage", "fields": {}, "media": 0, "sfx": [("whoosh", 0.2)]},
     "glow_arc": {"fn": glow_arc, "description": "glowing arcs draw across the frame behind a serif line", "fields": {"text": 50}, "media": 0, "sfx": [("riser", 0.0)]},
     "shape_burst": {"fn": shape_burst, "description": "radial shape burst behind a short word over footage", "fields": {"text": 12}, "media": 0, "sfx": [("impact", 0.1)]},
@@ -430,6 +443,9 @@ def css(ctx: dict) -> str:
       .mg-price-card b {{ display: block; margin: 24px 0; font: 800 150px/1 "{body}", sans-serif; }} .mg-price-card b:empty {{ display: none; }}
       .mg-price-card ul {{ list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 22px; font: 600 46px/1.2 "{body}", sans-serif; }}
       .mg.overlay .mg-cam {{ justify-content: flex-end; padding-bottom: 360px; }}
+      .mg-pin {{ position: absolute; left: 0; top: 0; width: 0; height: 0; }}
+      .mg-pin i {{ position: absolute; left: -14px; top: -14px; width: 28px; height: 28px; border-radius: 50%; background: {accent}; box-shadow: 0 0 0 10px rgba(255,255,255,.25); }}
+      .mg-pin span {{ position: absolute; left: 30px; top: -150px; padding: 18px 30px; border-radius: 18px; white-space: nowrap; font: 800 48px/1 "{body}", sans-serif; background: rgba(0,0,0,.66); color: {text}; border-left: 8px solid {accent}; }}
       .mg-lt {{ align-self: flex-start; display: flex; flex-direction: column; gap: 8px; padding: 30px 44px; border-left: 12px solid {accent}; background: rgba(0,0,0,.62); border-radius: 0 24px 24px 0; }}
       .mg-lt b {{ font: 800 58px/1.1 "{body}", sans-serif; }} .mg-lt span {{ font: 500 38px/1.2 "{body}", sans-serif; opacity: .85; }}
       .mg-beam {{ position: absolute; inset: -30% 20%; background: linear-gradient(105deg, transparent 35%, rgba(255,255,255,.5) 50%, transparent 65%); mix-blend-mode: screen; }}
@@ -464,7 +480,7 @@ REQUIRED: dict[str, tuple[tuple[str, ...], int]] = {  # (text fields, all needed
     "masked_text": (("text",), 0), "counter": (("value", "label"), 0), "floating_cards": (("cards",), 0), "info_list": (("items",), 0),
     "chat_bubbles": (("messages",), 0), "calendar": (("day", "note"), 0), "bar_chart": (("labels", "values"), 0),
     "stat_ring": (("percent", "label"), 0), "cta_button": (("button",), 0), "pricing_card": (("features",), 0),
-    "lower_third": (("name",), 0), "glow_arc": (("text",), 0), "shape_burst": (("text",), 0), "notifications": (("items",), 0),
+    "lower_third": (("name",), 0), "tracked_tag": (("text",), 0), "glow_arc": (("text",), 0), "shape_burst": (("text",), 0), "notifications": (("items",), 0),
     "phone_mockup": ((), 1), "laptop_mockup": ((), 1), "media_card": ((), 1), "split_screen": ((), 2), "grid_gallery": ((), 2),
 }
 
