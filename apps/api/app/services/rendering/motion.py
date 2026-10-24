@@ -151,7 +151,7 @@ def floating_cards(sc: Scene) -> str:
 
 
 def browser_mockup(sc: Scene) -> str:
-    url, head, btn = _f(sc.item, "url", "yourbrand.com"), _f(sc.item, "headline", "Your website, alive"), _f(sc.item, "button", "Get started")
+    url, head, btn = _f(sc.item, "url", ""), _f(sc.item, "headline", "Your website, alive"), _f(sc.item, "button", "")
     page = (_media(sc.item, sc.ctx, 0, "mg-shot") if sc.item.get("media")
             else f'<div class="mg-site"><h3>{head}</h3><p class="mg-skel"></p><p class="mg-skel s"></p><em>{btn}</em><div class="mg-tiles"><i></i><i></i><i></i></div></div>')
     sc.tw(sc.sel(".mg-browser"), {"opacity": 0, "y": 400 * sc.k, "rotateY": -28, "rotateX": 18},

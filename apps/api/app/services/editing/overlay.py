@@ -73,34 +73,41 @@ def merge_lists(chosen: list, title: str = "") -> list:
             out.append(g)
             continue
         items = [x.strip() for x in str((g.fields or {}).get(key, "")).split("|") if x.strip()]
+        # a step number may sit on the item ("2. Plan") or, for one-item scenes, on the title ("Step 2: Plan")
+        title_no = STEP_NO.match(str((g.fields or {}).get("title", ""))) if len(items) == 1 else None
+        parts = [(STEP_NO.match(x) or title_no, x) for x in items]
         if g.template not in merged:
             merged[g.template] = _G(g.template, g.at, g.duration_s, dict(g.fields or {}))
             merged[g.template].parts = []
             out.append(merged[g.template])
         else:
             merged[g.template].duration_s += g.duration_s
-        merged[g.template].parts += items
+            merged[g.template].at = min(merged[g.template].at, g.at)
+        merged[g.template].parts += parts
     for t, g in merged.items():
-        numbered = [STEP_NO.match(x) for x in g.parts]
-        order = sorted(range(len(g.parts)), key=lambda i: int(numbered[i].group(1))) if all(numbered) else range(len(g.parts))
-        items = list(dict.fromkeys(STEP_NO.sub("", g.parts[i]).strip() for i in order))
+        nums = [m and int(m.group(1)) for m, _ in g.parts]
+        order = sorted(range(len(g.parts)), key=lambda i: nums[i]) if all(n is not None for n in nums) else range(len(g.parts))
+        items = list(dict.fromkeys(STEP_NO.sub("", g.parts[i][1]).strip() for i in order))
         g.fields[LISTS[t]] = "|".join(items)
         if len(items) > 1 and "title" in g.fields:
             g.fields["title"] = title or "How it works"
     return out
 
 
-def graphics(d, dur: float, clips: list[dict], chosen: list | None = None) -> list[dict]:
+def graphics(d, dur: float, clips: list[dict], chosen: list | None = None, branded: bool = True) -> list[dict]:
     """Motion items for the edit. Designed styles (motion graphics / tech ad) need scenes across most of the edit; when
     the model chose too few, a structure is added from what is known — the request's own on-screen lines and the
     uploaded media in mockups — never invented claims. `clips` are the media assets in director numbering (1-based)."""
     media = {n + 1: f"media-{n + 1}" for n in range(len(clips))}
     chosen = sorted(d.graphics if chosen is None else chosen, key=lambda g: g.at)
-    chosen = merge_lists(chosen, next((t.text for t in d.on_screen_text if t.role == "hook"), ""))
+    chosen = sorted(merge_lists(chosen, next((t.text for t in d.on_screen_text if t.role == "hook"), "")), key=lambda g: g.at)
+    for g in chosen:  # "Try Reel Studio" written as the headline with a placeholder button: the line is the button
+        if g.template == "cta_button" and not (g.fields or {}).get("button") and len(str((g.fields or {}).get("headline", ""))) <= 24:
+            g.fields = {**g.fields, "button": g.fields.get("headline", "")}
     if d.style in DESIGNED and chosen:  # the director's scenes, each held until the next one starts (a designed ad
-        starts = [g.at * dur for g in chosen] + [dur]  # flows scene to scene instead of dropping back to footage)
-        chosen = [_G(g.template, g.at, min(8.0, max(1.5, starts[i + 1] - starts[i])), dict(g.fields or {}))
-                  for i, g in enumerate(chosen)]
+        starts = [g.at * dur for g in chosen] + [dur]  # flows scene to scene instead of dropping back to footage),
+        chosen = [_G(g.template, g.at, min(8.0, max(1.5, g.duration_s, starts[i + 1] - starts[i])), dict(g.fields or {}))
+                  for i, g in enumerate(chosen)]  # never shorter than the model asked (later scenes shift, not vanish)
     if d.style in DESIGNED and sum(g.duration_s for g in chosen) < 0.5 * dur:
         hook = next((t.text for t in d.on_screen_text if t.role == "hook"), "")
         points = [t.text for t in d.on_screen_text if t.role == "point"]
@@ -115,7 +122,8 @@ def graphics(d, dur: float, clips: list[dict], chosen: list | None = None) -> li
             seq.append(("floating_cards", {"cards": "|".join(points[:4])}))
         if cta:
             seq.append(("cta_button", {"headline": hook or cta, "button": cta[:24]}))
-        seq.append(("logo_reveal", {}))
+        if branded:  # without a brand kit there is no name or logo to reveal ("Your brand" is not content)
+            seq.append(("logo_reveal", {}))
         span = dur / len(seq)
         chosen = [_G(t, i * span / dur, span, f) for i, (t, f) in enumerate(seq)]
     return motion.items_from_directive(chosen, dur, 0, 0, media)

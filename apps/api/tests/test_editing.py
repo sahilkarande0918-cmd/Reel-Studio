@@ -164,3 +164,21 @@ def test_merge_lists_joins_split_steps_in_order():
     assert [g.template for g in out] == ["kinetic_title", "info_list"]
     assert out[1].fields == {"title": "Four steps", "items": "upload your clips|AI director plans the edit|fine-tune|publish"}
     assert out[1].at == 0.12 and out[1].duration_s == 9
+
+
+def test_merge_lists_reads_step_numbers_from_titles():
+    from app.services.editing.overlay import _G, merge_lists
+
+    scenes = [_G("info_list", 0.125, 3, {"title": "Step 4: Publish", "items": "Publish to Instagram"}),
+              _G("info_list", 0.45, 3, {"title": "Step 2: Plan", "items": "AI director plans the edit"}),
+              _G("info_list", 1.0, 3, {"title": "Step 1: Upload", "items": "Upload your clips"})]
+    out = merge_lists(scenes, "Reel Studio in 4 steps")
+    assert out[0].fields["items"] == "Upload your clips|AI director plans the edit|Publish to Instagram"
+    assert out[0].at == 0.125
+
+
+def test_placeholder_fields_are_dropped():
+    from app.services.editing.director import PLACEHOLDER
+
+    assert all(PLACEHOLDER.match(v) for v in ["Button", "Call to action button", "Your brand name", "Headline"])
+    assert not PLACEHOLDER.match("Try Reel Studio")

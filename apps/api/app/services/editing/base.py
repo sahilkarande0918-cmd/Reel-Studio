@@ -15,6 +15,9 @@ from pathlib import Path
 from app.services.editing import effects as fx
 
 CRF = {"draft": 23, "looks": 17, "delivery": 14}
+# Capped CRF: grainy high-motion footage otherwise reached ~53 Mbps, and a base without overlays is the export itself
+# (Instagram accepts ≤ 25 Mbps uploads).
+RATE = ["-maxrate", "20M", "-bufsize", "40M"]
 
 
 @dataclass
@@ -166,7 +169,7 @@ def render_segment(s: Segment, out: Path, w: int, h: int, fps: int, quality: str
         [
             "ffmpeg", "-v", "error", "-y", *inputs, "-filter_complex", graph, "-map", "[v]", "-an",
             "-frames:v", str(total), "-r", str(fps), "-c:v", "libx264", "-preset", "veryfast",
-            "-crf", str(CRF[quality]), "-pix_fmt", "yuv420p", str(out),
+            "-crf", str(CRF[quality]), *RATE, "-pix_fmt", "yuv420p", str(out),
         ],
         f"segment {out.name}",
     )  # fmt: skip
@@ -213,7 +216,7 @@ def assemble(parts: list[Path], segs: list[Segment], out: Path, fps: int, qualit
         [
             "ffmpeg", "-v", "error", "-y", *inputs, "-filter_complex", ";".join(chain) + f";{prev}tpad=stop_mode=clone:stop_duration=0.5[out]",
             "-map", "[out]", "-an", "-frames:v", str(target), "-r", str(fps), "-c:v", "libx264", "-preset", "veryfast", "-crf", str(CRF[quality]),
-            "-pix_fmt", "yuv420p", str(out),
+            *RATE, "-pix_fmt", "yuv420p", str(out),
         ],
         "assemble",
     )  # fmt: skip

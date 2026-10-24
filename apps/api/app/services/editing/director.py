@@ -282,7 +282,8 @@ def direct(
 DESIGN_WORDS = re.compile(r"motion|graphic|infographic|mockup|card|kinetic|typograph|advert|\bads?\b|promo|saas|website|"
                           r"browser|laptop|phone|chart|counter|calendar|chat|logo|brand reveal|cta|call to action|explainer")
 OVERLAY_ONLY = {"lower_third", "light_sweep", "shape_burst"}
-PLACEHOLDER = re.compile(r"^\s*(your |the )?(brand|company|business|product)?\s*(name|logo|text here|tagline|title|cta)\s*$", re.I)
+PLACEHOLDER = re.compile(r"^\s*(your |the )?(brand|company|business|product)?\s*(name|logo|text here|tagline|title|cta|button|"
+                         r"call to action( button)?|headline|label|url|link|description|detail|subtitle)\s*$", re.I)
 THREE_D = re.compile(r"\b3d\b|3-d|three[- ]dimensional|turntable|blender|rotating product|3d text|3d logo")
 
 
@@ -299,7 +300,8 @@ def _sanitise(d: Directive, n: int, templates: dict, style: str, prompt: str = "
         "close_with": d.close_with if 1 <= d.close_with <= n and d.close_with not in skip else 0,
         # full-screen designed scenes only when the request (or a designed style) asks for them; pure footage edits
         # keep their footage and may only get overlays
-        "graphics": [g.model_copy(update={"fields": {k: v for k, v in g.fields.items() if not PLACEHOLDER.match(v)}})
+        "graphics": [g.model_copy(update={"fields": {k: v for k, v in g.fields.items()
+                                                     if not PLACEHOLDER.match(v) and v.strip().lower() != k}})
                      for g in d.graphics if g.template in templates
             and (not g.template.startswith("3d_") or THREE_D.search(prompt.lower())) and (  # Blender only for real 3D asks
             g.template in OVERLAY_ONLY or g.template.startswith("3d_") or (style if style in pacing.PROFILES else d.style) in ("motion_graphics", "tech_ad")
