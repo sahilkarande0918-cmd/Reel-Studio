@@ -182,3 +182,18 @@ def test_placeholder_fields_are_dropped():
 
     assert all(PLACEHOLDER.match(v) for v in ["Button", "Call to action button", "Your brand name", "Headline"])
     assert not PLACEHOLDER.match("Try Reel Studio")
+
+
+def test_prompt_structure_uses_only_the_requests_words():
+    from app.services.editing.overlay import prompt_structure
+
+    p = ("Animated infographic that explains Reel Studio in four steps: 1. Upload your clips, 2. The AI director plans the edit, "
+         "3. Fine-tune in the editor, 4. Publish to Instagram. Kinetic title 'Reel Studio in 4 steps', a numbered info list, "
+         "end with a call to action button 'Try Reel Studio'.")
+    shots = [{"width": 1600, "height": 900}] * 4
+    s = prompt_structure(p, shots, 20)
+    assert [g.template for g in s] == ["kinetic_title", "info_list"] + ["browser_mockup"] * 4 + ["cta_button"]
+    assert s[0].fields["text"] == "Reel Studio in 4 steps"
+    assert s[1].fields["items"] == "Upload your clips|The AI director plans the edit|Fine-tune in the editor|Publish to Instagram"
+    assert s[2].fields == {"media": "1", "title": "1. Upload your clips"} and s[-1].fields["button"] == "Try Reel Studio"
+    assert prompt_structure("Make a phonk edit with 2 drops", shots, 20) is None

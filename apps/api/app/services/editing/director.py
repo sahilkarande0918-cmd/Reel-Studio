@@ -301,7 +301,8 @@ def _sanitise(d: Directive, n: int, templates: dict, style: str, prompt: str = "
         # full-screen designed scenes only when the request (or a designed style) asks for them; pure footage edits
         # keep their footage and may only get overlays
         "graphics": [g.model_copy(update={"fields": {k: v for k, v in g.fields.items()
-                                                     if not PLACEHOLDER.match(v) and v.strip().lower() != k}})
+                                                     if not PLACEHOLDER.match(v) and v.strip().lower() != k
+                                                     and (k != "url" or v.strip().lower() in prompt.lower())}})
                      for g in d.graphics if g.template in templates
             and (not g.template.startswith("3d_") or THREE_D.search(prompt.lower())) and (  # Blender only for real 3D asks
             g.template in OVERLAY_ONLY or g.template.startswith("3d_") or (style if style in pacing.PROFILES else d.style) in ("motion_graphics", "tech_ad")

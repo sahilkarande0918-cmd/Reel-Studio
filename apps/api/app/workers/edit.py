@@ -124,7 +124,7 @@ def run_edit(ctx: JobContext) -> dict:
     if st.get("music") == "score" or (st.get("music") == "upload" and not music):
         pl["generate_score"] = profile.score
     flat, scenes_3d, notes = overlay.split_3d(d)
-    motion_items = overlay.graphics(d, pl["duration"], clips, flat, branded=bool(g.get("brand_snapshot")))
+    motion_items = overlay.graphics(d, pl["duration"], clips, flat, branded=bool(g.get("brand_snapshot")), prompt=g["prompt"])
     windows_3d = [(round(min(g.at, 0.95) * pl["duration"], 3), g) for g in scenes_3d]
     # a 3D shot needs time to read (a turntable under 2.5 s is a blur): start earlier rather than cut it short
     windows_3d = [(min(s, max(0.0, pl["duration"] - max(2.5, g.duration_s))), g) for s, g in windows_3d]

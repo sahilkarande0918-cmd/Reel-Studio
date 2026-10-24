@@ -94,11 +94,38 @@ def merge_lists(chosen: list, title: str = "") -> list:
     return out
 
 
-def graphics(d, dur: float, clips: list[dict], chosen: list | None = None, branded: bool = True) -> list[dict]:
+PROMPT_STEP = re.compile(r"(?:^|[\s,;:])(\d)[.)]\s+([^,;.\n]+?)(?=\s*(?:[,;.\n]|$))")
+QUOTED = re.compile(r"[\"'‘“]([^\"'‘’“”\n]{3,50})[\"'’”]")
+
+
+def prompt_structure(prompt: str, clips: list[dict], dur: float) -> list | None:
+    """When the request spells out its own structure (numbered steps 1..n, quoted title and button), build the scenes
+    from those words and the uploaded media, in order: the local model scrambles such lists and invents URLs/buttons.
+    Grounded by construction: every text is the person's own."""
+    steps = PROMPT_STEP.findall(prompt)
+    if len(steps) < 3 or [int(n) for n, _ in steps] != list(range(1, len(steps) + 1)):
+        return None
+    quotes = QUOTED.findall(prompt)
+    title, cta = (quotes[0] if quotes else ""), (quotes[-1] if len(quotes) > 1 else "")
+    seq: list[tuple[str, dict]] = [("kinetic_title", {"text": title})] if title else []
+    seq.append(("info_list", {"title": title or "How it works", "items": "|".join(s.strip() for _, s in steps)}))
+    for k, (n, s) in enumerate(steps[: len(clips)]):
+        portrait = (clips[k].get("height") or 0) > (clips[k].get("width") or 0)
+        seq.append(("phone_mockup", {"media": str(k + 1), "caption": f"{n}. {s.strip()}"}) if portrait
+                   else ("browser_mockup", {"media": str(k + 1), "title": f"{n}. {s.strip()}"}))
+    if cta:
+        seq.append(("cta_button", {"headline": cta, "button": cta[:24]}))
+    span = dur / len(seq)
+    return [_G(t, i * span / dur, span, f) for i, (t, f) in enumerate(seq)]
+
+
+def graphics(d, dur: float, clips: list[dict], chosen: list | None = None, branded: bool = True, prompt: str = "") -> list[dict]:
     """Motion items for the edit. Designed styles (motion graphics / tech ad) need scenes across most of the edit; when
     the model chose too few, a structure is added from what is known — the request's own on-screen lines and the
     uploaded media in mockups — never invented claims. `clips` are the media assets in director numbering (1-based)."""
     media = {n + 1: f"media-{n + 1}" for n in range(len(clips))}
+    if d.style in DESIGNED and (structured := prompt_structure(prompt, clips, dur)):
+        return motion.items_from_directive(structured, dur, 0, 0, media)
     chosen = sorted(d.graphics if chosen is None else chosen, key=lambda g: g.at)
     chosen = sorted(merge_lists(chosen, next((t.text for t in d.on_screen_text if t.role == "hook"), "")), key=lambda g: g.at)
     for g in chosen:  # "Try Reel Studio" written as the headline with a placeholder button: the line is the button
