@@ -1,6 +1,10 @@
 > **Reel Studio 2.0 (updated 2026-10-24, session 2) — read first:** `docs/REEL_STUDIO_2_MASTER_PLAN.md` (full approved spec + status map) and `docs/REEL_STUDIO_2_HANDOFF.md` (technical handoff). They supersede the 1.0 status below, which is kept as history. Work folder `C:\Users\Sahil\OneDrive\Desktop\Reel Studio 2.0`, repo https://github.com/sahilkarande0918-cmd/Reel-Studio. 2.0 status (second session, HEAD ac322a5+docs): ✅ Mode B web app + AI director, 26 motion templates, 35 effects / 33 transitions + ONNX composites, headless Blender 3D shots, 100 caption presets + ON/OFF, clip collections; 🟡 voice profiles (built, speech not yet synthesised), campaign agent + EN/HI/Hinglish + click/inquiry tracking, Instagram cover/suggestions (nothing published), Phase D/Test B/E/H renders; ⬜ production migrations + Vercel deploy. Next task: handoff §18.
 
 ## 2.0 deployment linkage (2026-10-24)
+**STOPPED by the owner (2026-10-25):** task "Reel Studio Engine" is DISABLED (its 2-minute check flashed a PowerShell
+window), engine/worker/Ollama/web dev processes stopped. The live site shows "Engine offline" until it is restarted:
+`Enable-ScheduledTask -TaskName "Reel Studio Engine"` (and fix the window flash first, e.g. run the check through a
+hidden `wscript`/`conhost --headless` wrapper or raise the interval).
 **Always-on engine (session 3):** the old long-running launcher shared one console with the engine, so a Ctrl+C event
 (task result 0xC000013A, engine log ending in `^C`) killed both and nothing restarted them. Now `start-engine.ps1` is a
 short "ensure" check run by task "Reel Studio Engine" at logon and every 2 minutes: starts Ollama if missing, starts the
