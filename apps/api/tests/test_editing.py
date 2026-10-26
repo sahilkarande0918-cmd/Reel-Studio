@@ -239,3 +239,16 @@ def test_photo_animation_prompt_and_analysis_come_from_the_photo():
     assert p.startswith("A woman holding a perfume bottle. A sunlit balcony.") and "warm look" in p
     c = i2v.clip_analysis(a, portrait=True)
     assert c["kind"] == "video" and c["ai_generated"] and c["moments"][0]["focus"] == [0.4, 0.5] and c["height"] > c["width"]
+
+
+def test_segments_are_frame_exact_with_slow_mo_ramp_and_frame_blending(tmp_path):
+    import subprocess
+
+    from app.services.editing import base
+
+    src = tmp_path / "src.mp4"  # 24 fps source like phone/Instagram clips, rendered to 30 fps
+    subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "testsrc2=s=360x640:r=24:d=6", "-pix_fmt", "yuv420p", str(src)], check=True)
+    for ramp, effs in [([(0, 1.0), (0.5, 0.4), (1, 1.0)], []), ([], [("motion_blur", {"at": 0.333})])]:
+        s = base.Segment(asset=src, src_in=2.68, src_out=5.23, duration=88 / 30, effects=effs, speed_ramp=ramp,
+                         transition_out="cut", transition_dur=0.0)
+        base.render_segment(s, tmp_path / "s.mp4", 270, 480, 30, "looks")  # raises if not exactly 88 frames

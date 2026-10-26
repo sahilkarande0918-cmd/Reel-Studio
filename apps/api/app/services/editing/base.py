@@ -164,7 +164,11 @@ def render_segment(s: Segment, out: Path, w: int, h: int, fps: int, quality: str
         chains.append(f"{src}{frame}{rev}{hold},tpad=stop_mode=clone:stop_duration=1,trim=end_frame={total},setpts=PTS-STARTPTS[base]")
         graph = ";".join(chains)
     chain = _effects_chain(s, w, h)
-    graph += f";[base]{chain},setsar=1,format=yuv420p[v]" if chain else ";[base]setsar=1,format=yuv420p[v]"
+    # Exact length whatever the effects do: some drop frames (tblend), and minterpolate/ramp pieces/tblend leave irregular
+    # timestamps that the CFR output (-r) then de-duplicates (a slow-mo ramp lost 1 frame; a blurred shot lost 18 of 88).
+    # Pad, trim to the frame count, then number the frames 0..N-1 so the encoder keeps each one exactly once.
+    exact = f"tpad=stop_mode=clone:stop_duration=1,trim=end_frame={total},setpts=N/{fps}/TB"
+    graph += f";[base]{chain + ',' if chain else ''}{exact},setsar=1,format=yuv420p[v]"
     _run(
         [
             "ffmpeg", "-v", "error", "-y", *inputs, "-filter_complex", graph, "-map", "[v]", "-an",
