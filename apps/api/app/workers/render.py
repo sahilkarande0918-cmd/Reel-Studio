@@ -7,6 +7,7 @@ import os
 import re
 import shutil
 import subprocess
+import threading
 import time
 from pathlib import Path
 
@@ -36,9 +37,29 @@ def _link_source(src: Path, dst: Path) -> None:
         shutil.copyfile(src, dst)
 
 
+STALL_S = 300  # no renderer output this long = hung (seen: 8 Chrome workers never starting under memory pressure)
+
+
+def _workers() -> str:
+    """8 capture workers measured fastest (111 s vs 123 s auto for a 28 s reel); with under 10 GB free RAM they could
+    all hang at "Starting browsers", so the count drops to 4."""
+    try:
+        import ctypes
+
+        class Mem(ctypes.Structure):
+            _fields_ = [("len", ctypes.c_ulong), ("load", ctypes.c_ulong), ("total", ctypes.c_ulonglong),
+                        ("avail", ctypes.c_ulonglong), ("pt", ctypes.c_ulonglong), ("pa", ctypes.c_ulonglong),
+                        ("vt", ctypes.c_ulonglong), ("va", ctypes.c_ulonglong), ("ve", ctypes.c_ulonglong)]
+
+        m = Mem(len=ctypes.sizeof(Mem))
+        ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(m))
+        return "8" if m.avail >= 10 * 2**30 else "4"
+    except (AttributeError, OSError):  # not Windows
+        return "4"
+
+
 def _render(ctx: JobContext, project: Path, quality: str) -> None:
-    # 8 capture workers: measured 111 s vs 123 s (auto) for a 28 s Mode A reel on this 16-thread laptop.
-    cmd = hyperframes_command() + ["render", "--quality", quality, "--video-frame-format", "png", "--workers", "8"]
+    cmd = hyperframes_command() + ["render", "--quality", quality, "--video-frame-format", "png", "--workers", _workers()]
     cmd += ["--output", "out.mp4", "."]
     log_path = project / "render.log"
     with log_path.open("w", encoding="utf-8") as logf:
@@ -53,8 +74,20 @@ def _render(ctx: JobContext, project: Path, quality: str) -> None:
         )
         assert proc.stdout
         last = 0.0
+        seen = [time.monotonic()]
+
+        def watchdog() -> None:  # a hung renderer is killed so the job fails and retries instead of waiting forever
+            while proc.poll() is None:
+                if time.monotonic() - seen[0] > STALL_S:
+                    logf.write(f"\n[reel-studio] no renderer output for {STALL_S} s: stopping the render\n")
+                    proc.kill()
+                    return
+                time.sleep(5)
+
+        threading.Thread(target=watchdog, daemon=True).start()
         try:
             for line in proc.stdout:
+                seen[0] = time.monotonic()
                 logf.write(line)
                 if line.startswith("@hf-progress ") and time.monotonic() - last > 2:
                     pct = json.loads(line[len("@hf-progress ") :]).get("pct", 0)

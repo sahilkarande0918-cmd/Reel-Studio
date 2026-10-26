@@ -31,12 +31,16 @@ def main() -> None:
     d = Path(job["model_dir"])
     ckpt = str(d / "ltxv-2b-0.9.8-distilled.safetensors")
     dt = torch.bfloat16
+    # the single-file checkpoint is the 0.9.5+ 2B architecture; its diffusers configs are kept locally (configs/) so
+    # loading never reaches the network (HF_HUB_OFFLINE)
+    cfg = str(d / "configs")
     pipe = LTXConditionPipeline(
-        scheduler=FlowMatchEulerDiscreteScheduler.from_pretrained(d / "scheduler"),
-        vae=AutoencoderKLLTXVideo.from_single_file(ckpt, torch_dtype=dt),
+        # the distilled model runs the fixed TIMESTEPS schedule: no resolution-dependent shift
+        scheduler=FlowMatchEulerDiscreteScheduler.from_pretrained(d / "scheduler", use_dynamic_shifting=False),
+        vae=AutoencoderKLLTXVideo.from_single_file(ckpt, config=cfg, subfolder="vae", torch_dtype=dt),
         text_encoder=T5EncoderModel.from_pretrained(d / "text_encoder", torch_dtype=dt),
         tokenizer=T5Tokenizer.from_pretrained(d / "tokenizer"),
-        transformer=LTXVideoTransformer3DModel.from_single_file(ckpt, torch_dtype=dt),
+        transformer=LTXVideoTransformer3DModel.from_single_file(ckpt, config=cfg, subfolder="transformer", torch_dtype=dt),
     )
     pipe.enable_model_cpu_offload()  # T5-XXL (9.5 GB) never sits on an 8 GB GPU with the transformer
     pipe.vae.enable_tiling()
@@ -45,7 +49,10 @@ def main() -> None:
     for it in job["items"]:
         image = ImageOps.fit(Image.open(it["image"]).convert("RGB"), (w, h), Image.LANCZOS)
         frames = pipe(
-            conditions=[LTXVideoCondition(image=image, frame_index=0)], prompt=it["prompt"], negative_prompt=NEGATIVE,
+            # the photo pins both ends: the subject stays in frame and the motion stays gentle (a single first-frame
+            # condition let the model walk the person out of shot)
+            conditions=[LTXVideoCondition(image=image, frame_index=0), LTXVideoCondition(image=image, frame_index=n - 1)],
+            prompt=it["prompt"], negative_prompt=NEGATIVE,
             width=w, height=h, num_frames=n, timesteps=TIMESTEPS, decode_timestep=0.05, decode_noise_scale=0.025,
             image_cond_noise_scale=0.0, guidance_scale=1.0, guidance_rescale=0.7,
             generator=torch.Generator().manual_seed(int(it.get("seed", 0))), output_type="pil",
