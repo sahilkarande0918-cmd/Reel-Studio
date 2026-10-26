@@ -11,7 +11,7 @@ def test_health_is_public_and_reports_capabilities():
     assert r.status_code == 200
     body = r.json()
     assert body["status"] == "ok"
-    assert set(body["capabilities"]) == {"ffmpeg", "ffprobe", "supabase"}
+    assert set(body["capabilities"]) == {"ffmpeg", "ffprobe", "supabase", "photo_animation"}
 
 
 def test_me_requires_bearer_token():

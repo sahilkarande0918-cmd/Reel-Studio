@@ -37,6 +37,8 @@ class EditRequest(BaseModel):
     # manual beat correction: shift the detected grid, or force a tempo when detection picked half/double time
     beat_offset_ms: int = Field(default=0, ge=-500, le=500)
     bpm: float | None = Field(default=None, ge=50, le=220)
+    # photos become real video with local AI image-to-video (LTX-Video); off = matched 2.5D camera moves
+    animate_photos: bool = False
     brand_kit_id: str | None = None
 
 

@@ -241,6 +241,9 @@ def plan(
     from app.services.editing import composite
 
     depth_ok = composite.available("depth")
+    # a photo's camera move follows the footage around it: calm clips → gentle drift, busy clips → livelier parallax
+    moving = [c["motion_mean"] for c in clips if c.get("kind") != "image" and c.get("motion_mean") is not None]
+    still_amount = round(0.03 + min(0.05, 0.02 * sum(moving) / len(moving)), 3) if moving else 0.045
     segments, cues, last_flash = [], [], -9.0
     for i, (a, b) in enumerate(zip(cuts, cuts[1:], strict=False)):
         s = srcs[i]
@@ -272,7 +275,8 @@ def plan(
                 fxs.append(["contrast_snap", {"at": 0.0, "amount": 0.6}])
             cues.append({"kind": "impact", "at": round(a, 3), "gain_db": -4})
         if s.get("ken_burns"):  # stills: real 2.5D parallax when the depth model is installed, else a push-in
-            fxs.append(["depth_parallax", {"amount": 0.045, "direction": (-1) ** i}] if depth_ok else ["push_in", {"amount": 0.15}])
+            fxs.append(["depth_parallax", {"amount": still_amount, "direction": (-1) ** i}] if depth_ok
+                       else ["push_in", {"amount": round(still_amount * 3.3, 3)}])
         fxs += [[e, dict(p)] for e, p in profile.base_fx]
         tr = "cut"
         if i + 1 < len(durs) and (i + 1) % profile.transition_every == 0:

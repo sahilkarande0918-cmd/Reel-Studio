@@ -229,3 +229,13 @@ def test_mix_is_exactly_the_edit_length_when_the_song_ends_early(tmp_path):
     d = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(out)],
                              capture_output=True, text=True).stdout)
     assert abs(d - 3.0) < 0.02, d
+
+
+def test_photo_animation_prompt_and_analysis_come_from_the_photo():
+    from app.services import i2v
+
+    a = {"vlm": {"subject": "A woman holding a perfume bottle", "setting": "A sunlit balcony"}, "focus": [0.4, 0.5]}
+    p = i2v.motion_prompt(a, "warm")
+    assert p.startswith("A woman holding a perfume bottle. A sunlit balcony.") and "warm look" in p
+    c = i2v.clip_analysis(a, portrait=True)
+    assert c["kind"] == "video" and c["ai_generated"] and c["moments"][0]["focus"] == [0.4, 0.5] and c["height"] > c["width"]

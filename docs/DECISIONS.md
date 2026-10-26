@@ -237,3 +237,13 @@ Tracked labels use OpenCV's MIL tracker (no model files) on the rendered base pi
 coordinates; the start box comes from U²-Netp when installed. MediaPipe/SAM 2 were not added (heavier, not needed for a
 label that follows a subject). Shader-style transitions are FFmpeg `xfade` custom per-pixel expressions (diamond, blinds,
 checker, luma burn, ripple mix, soft iris) instead of a GL-enabled FFmpeg build. Export bitrate is capped at 20 Mbps.
+
+## D-051 — Photos in Mode B: matched always, AI-animated on request (2026-10-27)
+Photos uploaded with clips are matched to the footage before they become shots (`editing/photo_match.py`: LAB colour
+transfer toward the clips' average at 60 %, softened when much crisper, given the footage's grain; camera-move speed
+follows the clips' motion). "Animate my photos" (per edit, off by default) turns each photo into ~4 s of real motion with
+LTX-Video 2B 0.9.8 distilled (`services/i2v.py` → `video_worker.py` in `D:\ReelStudio\video-venv`, weights in
+`D:\ReelStudio\models\ltxv`, bf16 T5-XXL to halve the 19 GB fp32 encoder). Chosen over Wan 2.2 TI2V-5B (Apache-2.0) because
+it fits the 8 GB laptop GPU and runs in minutes, not tens of minutes. Licence: free under US$10M revenue; outputs are
+labelled AI-generated in the studio and the publishing caption, and the use restrictions are in /terms. Failure never
+sinks an edit: photos fall back to matched 2.5D camera moves with a visible note.

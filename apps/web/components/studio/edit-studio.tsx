@@ -12,7 +12,7 @@ import { MediaBin, useAssets } from "./media-bin";
 type Segment = { clip: number; slot: [number, number]; effects: [string, Record<string, number>][]; transition_out: string; reuse: Record<string, number> };
 type Generation = {
   id: string; status: string; prompt: string; settings: Record<string, unknown>; error: string | null; created_at: string; render_id: string | null;
-  director: { style: string; treatment: string; pacing: string; look: string; reasons: string[]; profile: string; clips: string[]; provenance: { engine: string }; reference_evidence: string[]; on_screen_text: { text: string }[]; graphics: { template: string }[] } | null;
+  director: { style: string; treatment: string; pacing: string; look: string; reasons: string[]; profile: string; clips: string[]; provenance: { engine: string }; reference_evidence: string[]; ai_generated?: string[]; substitutions?: string[]; on_screen_text: { text: string }[]; graphics: { template: string }[] } | null;
   plan: { bpm: number; duration: number; segments: Segment[]; reused_shots: number } | null;
   qa: { pass?: Record<string, boolean>; storyboard?: (string | null)[]; loudness?: { integrated_lufs: number; true_peak_dbtp: number }; hard_cuts?: { beat_offset_ms: number }[] } | null;
   job: { progress: number; current_stage: string | null; status: string } | null;
@@ -77,6 +77,7 @@ export function EditStudio({ projectId, canEdit, idea }: { projectId: string; ca
   const [narration, setNarration] = useState("");
   const [language, setLanguage] = useState("en");
   const [quality, setQuality] = useState("looks");
+  const [animatePhotos, setAnimatePhotos] = useState(false);
   const [beatOffset, setBeatOffset] = useState(0);
   const [bpm, setBpm] = useState("");
   const [busy, setBusy] = useState(false);
@@ -90,6 +91,8 @@ export function EditStudio({ projectId, canEdit, idea }: { projectId: string; ca
   const hasClips = all.some((a) => (a.kind === "clip" || a.kind === "image") && a.status !== "failed");
   const hasMusic = all.some((a) => a.kind === "audio" && a.status !== "failed");
   const hasReference = all.some((a) => a.kind === "reference" && a.status !== "failed");
+  const hasImages = all.some((a) => a.kind === "image" && a.status !== "failed");
+  const canAnimate = backend.data?.state === "online" && !!backend.data.capabilities.photo_animation;
   const active = gens.data?.find((g) => ["queued", "planning", "rendering"].includes(g.status));
 
   async function generate() {
@@ -99,7 +102,7 @@ export function EditStudio({ projectId, canEdit, idea }: { projectId: string; ca
       const r = await apiFetch(base, `/projects/${projectId}/edit`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: prompt.trim() || "Edit it professionally", duration_s: duration, aspect, style, music: hasMusic ? music : music === "upload" ? "score" : music,
-          use_reference: useReference, captions: caption.on, caption_preset: caption.preset, caption_overrides: caption.overrides, voice, narration: narration.trim() || null, language, quality, beat_offset_ms: beatOffset, bpm: bpm ? Number(bpm) : null }),
+          use_reference: useReference, captions: caption.on, caption_preset: caption.preset, caption_overrides: caption.overrides, voice, narration: narration.trim() || null, language, quality, beat_offset_ms: beatOffset, bpm: bpm ? Number(bpm) : null, animate_photos: animatePhotos }),
       });
       if (!r.ok) throw new Error(apiErrorMessage(await r.json().catch(() => null), r.status));
       qc.invalidateQueries({ queryKey: ["edits", projectId] });
@@ -136,6 +139,10 @@ export function EditStudio({ projectId, canEdit, idea }: { projectId: string; ca
             <label className="studio-label">Force tempo (BPM, optional)<input type="number" min={50} max={220} step={0.1} className="studio-input" placeholder="auto" value={bpm} onChange={(e) => setBpm(e.target.value)} /></label>
           </div>
         </details>}
+        {hasImages && <label className={`flex items-start gap-2 text-[13px] ${canAnimate ? "" : "opacity-60"}`}>
+          <input type="checkbox" className="mt-1" disabled={!canAnimate} checked={animatePhotos && canAnimate} onChange={(e) => setAnimatePhotos(e.target.checked)} />
+          <span>Animate my photos with AI: each photo becomes a real moving shot (local image-to-video, about 1–3 min per photo), matched to your clips. AI shots are labelled AI-generated.
+            {!canAnimate && <span className="block text-muted">Not installed on the processing machine. Photos still get camera moves matched to your clips.</span>}</span></label>}
         {hasReference && <label className="flex items-center gap-2 text-[13px]"><input type="checkbox" checked={useReference} onChange={(e) => setUseReference(e.target.checked)} />Follow the reference reel&apos;s editing rhythm and transitions (never its footage, music or branding)</label>}
         <div className="flex flex-wrap items-center gap-3">
           <button type="button" className="studio-button !px-5 !py-3" disabled={!base || !hasClips || busy || !!active} onClick={generate}>
@@ -182,6 +189,8 @@ function GenerationCard({ g, base, projectId }: { g: Generation; base: string | 
           <p className="text-muted">Style {d.profile.replaceAll("_", " ")} · pacing {d.pacing.replaceAll("_", " ")} · look {d.look.replaceAll("_", " ")}{g.plan ? ` · ${g.plan.bpm} BPM · ${g.plan.segments.length} shots${g.plan.reused_shots ? ` (${g.plan.reused_shots} reused with new framing)` : ""}` : ""}</p>
           <p className="text-[11px] text-muted">Planned by {d.provenance.engine === "rules" ? `the rule-based director (${(d.provenance as { errors?: string[] }).errors?.some((e) => /unreachable|returned 5/i.test(e)) ? "no AI model answered" : "the AI plan did not pass validation"})` : d.provenance.engine}</p>
           {d.reasons.length > 0 && <ul className="list-disc space-y-0.5 pl-5 text-[12px] text-muted">{d.reasons.map((r, i) => <li key={i}>{r}</li>)}</ul>}
+          {(d.ai_generated?.length ?? 0) > 0 && <p className="text-[12px] text-muted"><b>AI-generated shots</b> (from your photos): {d.ai_generated!.join(", ")}</p>}
+          {d.substitutions?.some((x) => x.startsWith("photos were not AI-animated")) && <p className="text-[12px] text-danger">{d.substitutions.find((x) => x.startsWith("photos were not AI-animated"))}</p>}
           {d.reference_evidence?.length > 0 && <p className="text-[12px] text-muted">From the reference: {d.reference_evidence.join(" · ")}</p>}
         </div>
         {g.qa?.pass && <ul className="grid grid-cols-2 gap-1.5 text-[12px]">{Object.entries(g.qa.pass).map(([k, ok]) => <li key={k} className="flex items-center gap-1.5">{ok ? <CheckCircle2 size={14} className="text-accent" aria-hidden /> : <XCircle size={14} className="text-danger" aria-hidden />}{QA_LABEL[k] ?? k}</li>)}

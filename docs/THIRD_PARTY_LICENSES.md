@@ -101,6 +101,10 @@ Test audio: Oriserve model-repo sample clips (Common Voice, CC0) used for local 
 |---------|---------|-----|
 | librosa 0.11 | ISC | Music analysis: tempo, beats, downbeats, onsets, energy, drops (`app/services/music/beats.py`) |
 | FFmpeg filters (xfade, gblur, dblur, tblend, rgbashift, eq, colorbalance, vignette, noise, rotate, loudnorm, ebur128, sidechaincompress) | FFmpeg build is GPL-3 (gyan.dev full build), invoked as an external binary | Base-picture effects, transitions, audio mix and loudness |
+| LTX-Video 2B 0.9.8 distilled (Lightricks) | LTXV Open Weights License 0.X: free for entities under US$10M annual revenue; use restrictions (Attachment A) passed to users in /terms; outputs disclosed as machine-generated | Mode B "Animate my photos" image-to-video; weights on D:\ReelStudio\models\ltxv, never in git |
+| T5 v1.1 XXL encoder, bf16 copy (google, via city96/t5-v1_1-xxl-encoder-bf16) | Apache-2.0 | Text encoder for LTX-Video |
+| diffusers, transformers, accelerate, sentencepiece (video-venv on D:) | Apache-2.0 | LTX-Video pipeline in the isolated video environment |
+| imageio, imageio-ffmpeg | BSD-2-Clause | Writing generated frames to MP4 |
 
 Studied, not copied (see `OPEN_SOURCE_TOOL_AUDIT.md`): herk-edit-kit (MIT), video-director-skill (MIT), AIvideokit (MIT),
 free247editor (MIT), vertical-video-editing-skill (MIT), claude-motion-graphics (no licence: ideas only).

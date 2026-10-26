@@ -121,7 +121,11 @@ def suggest(render_id: UUID, user: User = Depends(current_user)) -> dict:
     edit = (db.table("edit_generations").select("director").eq("render_id", r["id"]).limit(1).execute().data or [{}])[0].get("director")
     if edit:
         lines = [t["text"] for t in edit.get("on_screen_text") or []]
-        return {"source": "director", "caption": " ".join(lines) or edit.get("treatment", ""), "hashtags": [], "link_slugs": []}
+        caption = " ".join(lines) or edit.get("treatment", "")
+        if edit.get("ai_generated"):  # AI-animated photos must be disclosed as machine-generated (LTXV licence)
+            caption += "\n\nSome shots are AI-generated video made from photos."
+        return {"source": "director", "caption": caption, "hashtags": ["#aigenerated"] if edit.get("ai_generated") else [],
+                "link_slugs": []}
     if r.get("highlight_id"):
         h = (db.table("highlight_candidates").select("title,summary").eq("id", r["highlight_id"]).limit(1).execute().data or [{}])[0]
         return {"source": "highlight", "caption": f"{h.get('title', '')}\n\n{h.get('summary', '')}".strip(), "hashtags": [], "link_slugs": []}

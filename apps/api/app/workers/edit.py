@@ -11,8 +11,8 @@ from pathlib import Path
 from app.core.config import get_settings
 from app.core.db import service_client
 from app.core.storage import asset_path, render_dir
-from app.services import voice
-from app.services.editing import director, overlay, planner, qa, render, style_transfer, tracking
+from app.services import i2v, voice
+from app.services.editing import director, overlay, photo_match, planner, qa, render, style_transfer, tracking
 from app.services.rendering import blender, motion, timeline
 from app.workers.ingest import ingest
 from app.workers.jobs import JobContext, Permanent
@@ -117,14 +117,32 @@ def run_edit(ctx: JobContext) -> dict:
             narration = {"wav": wav, "duration": ndur, "words": words, "script": script}
             duration = max(duration, min(60.0, round(ndur + 1.0, 1)))  # never cut the narration off
 
+    # photos: matched to the clips' look, then (optional) animated into real video with local AI image-to-video
+    kinds = [("image" if a["kind"] == "image" else "video", asset_path(a)) for a in clips]
+    animated: dict[int, Path] = {}
+    pre_notes: list[str] = []
+    if st.get("animate_photos") and any(k == "image" for k, _ in kinds):
+        ctx.stage("animate", 0.16, "Animating your photos with AI (local image-to-video, about 1–3 min per photo)")
+        matched = photo_match.match_photos(kinds, work / "photos")
+        idx = [i for i, (k, _) in enumerate(kinds) if k == "image"]
+        try:
+            outs = i2v.animate([(matched[i], i2v.motion_prompt(clips[i]["analysis"], d.look)) for i in idx],
+                               work / "animated", portrait=h >= w)
+            animated = dict(zip(idx, outs))
+        except (RuntimeError, subprocess.TimeoutExpired) as e:  # never sinks the edit: photos fall back to 2.5D moves
+            pre_notes.append(f"photos were not AI-animated ({str(e)[:160]}); they use depth-parallax camera moves instead")
+    kinds = [("video", animated[i]) if i in animated else kp for i, kp in enumerate(kinds)]
+
     ctx.stage("plan", 0.2, "Planning cuts on the beat")
-    ordered = [a["analysis"] | {"kind": "image" if a["kind"] == "image" else "video"} for a in clips]
+    ordered = [i2v.clip_analysis(a["analysis"], h >= w) if i in animated
+               else a["analysis"] | {"kind": "image" if a["kind"] == "image" else "video"} for i, a in enumerate(clips)]
     pl = planner.plan(ordered, profile, duration, music if music and music.get("has_music") else None, 30, w, h,
                       director.clip_weights(d, len(clips)),
                       d.open_with - 1 if d.open_with else None, d.close_with - 1 if d.close_with else None)
     if st.get("music") == "score" or (st.get("music") == "upload" and not music):
         pl["generate_score"] = profile.score
     flat, scenes_3d, notes = overlay.split_3d(d)
+    notes = pre_notes + notes
     motion_items = overlay.graphics(d, pl["duration"], clips, flat, branded=bool(g.get("brand_snapshot")), prompt=g["prompt"])
     windows_3d = [(round(min(g.at, 0.95) * pl["duration"], 3), g) for g in scenes_3d]
     # a 3D shot needs time to read (a turntable under 2.5 s is a blur): start earlier rather than cut it short
@@ -136,12 +154,17 @@ def run_edit(ctx: JobContext) -> dict:
             {"kind": "riser", "at": s, "gain_db": -9}, {"kind": "impact", "at": round(s + 0.35 * n, 3), "gain_db": -6})]
         pl["cues"] = sorted(pl["cues"] + extra, key=lambda c: c["at"])
     director_doc = {**d.model_dump(), "provenance": provenance, "substitutions": notes, "reference_evidence": evidence,
-                    "profile": profile.id, "clips": [a["filename"] for a in clips]}
+                    "profile": profile.id, "clips": [a["filename"] for a in clips],
+                    # disclosure: these shots are machine-generated video (shown in the studio and the publishing caption)
+                    "ai_generated": [clips[i]["filename"] for i in sorted(animated)]}
     db.table("edit_generations").update({"director": director_doc, "plan": pl}).eq("id", gid).execute()
 
     ctx.stage("render_base", 0.25, "Rendering cuts, camera moves, effects and transitions")
     base = project / "base.mp4"
-    res = render.render_plan(pl, [asset_path(a) for a in clips], [a["analysis"].get("duration_s") for a in clips],
+    # photos are matched to the clips' colour, sharpness and grain before they become shots; AI-animated photos were
+    # matched before animation and are now videos
+    sources = photo_match.match_photos(kinds, work / "photos")
+    res = render.render_plan(pl, sources, [o.get("duration_s") for o in ordered],
                              work, base, music_path=asset_path(music_asset) if music_asset else None,
                              voice_path=narration["wav"] if narration else None, quality=st.get("quality", "looks"))
     for it in motion_items:  # tracked labels follow the subject in the finished picture (output-frame coordinates)
