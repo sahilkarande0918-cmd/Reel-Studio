@@ -58,11 +58,15 @@ def _workers() -> str:
         return "4"
 
 
-def _render(ctx: JobContext, project: Path, quality: str) -> None:
+def _render(ctx: JobContext, project: Path, quality: str, software: bool = False) -> None:
+    """Hyperframes render. A stalled render (Chrome stuck starting its GPU, e.g. after a wedged graphics driver) is
+    stopped by the watchdog and retried once with software rendering (SwiftShader), which never touches the driver."""
     cmd = hyperframes_command() + ["render", "--quality", quality, "--video-frame-format", "png", "--workers", _workers()]
+    cmd += ["--no-browser-gpu"] if software else []
     cmd += ["--output", "out.mp4", "."]
     log_path = project / "render.log"
-    with log_path.open("w", encoding="utf-8") as logf:
+    stalled = [False]
+    with log_path.open("a" if software else "w", encoding="utf-8") as logf:
         proc = subprocess.Popen(
             cmd,
             cwd=project,
@@ -80,6 +84,7 @@ def _render(ctx: JobContext, project: Path, quality: str) -> None:
         def watchdog() -> None:  # a hung renderer is killed so the job fails and retries instead of waiting forever
             while proc.poll() is None:
                 if time.monotonic() - seen[0] > STALL_S:
+                    stalled[0] = True
                     logf.write(f"\n[reel-studio] no renderer output for {STALL_S} s: stopping the render\n")
                     logf.flush()
                     if os.name == "nt":  # the whole tree: a Chrome child holding the pipe kept the job waiting
@@ -101,7 +106,11 @@ def _render(ctx: JobContext, project: Path, quality: str) -> None:
         except Cancelled:
             proc.kill()
             raise
-        if proc.wait() != 0:
+        if proc.wait() != 0 and stalled[0] and not software:
+            logf.write("[reel-studio] retrying with software rendering (--no-browser-gpu)\n")
+            logf.close()
+            return _render(ctx, project, quality, software=True)
+        if proc.returncode != 0:
             tail = log_path.read_text(encoding="utf-8")[-1500:]
             raise RuntimeError(f"hyperframes render exited {proc.returncode}: {tail}")
 
