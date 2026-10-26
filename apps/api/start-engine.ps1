@@ -38,6 +38,6 @@ if ($engine.Count -and -not $healthy) {
 if (-not $engine.Count) {
     # cmd in its own hidden console window: appends output to the log, separate from any other console
     Start-Process -FilePath "cmd.exe" -WorkingDirectory $api -WindowStyle Hidden `
-        -ArgumentList "/c", "`"`"$py`" -m app.serve --tunnel devtunnel >> `"$log`" 2>&1`""
+        -ArgumentList "/c", "`"`"$py`" -m app.serve --tunnel devtunnel < NUL >> `"$log`" 2>&1`""  # no console input for any child
     Note "starting engine"
 }

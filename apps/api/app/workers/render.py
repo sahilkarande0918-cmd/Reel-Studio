@@ -67,6 +67,7 @@ def _render(ctx: JobContext, project: Path, quality: str) -> None:
             cmd,
             cwd=project,
             env=ENV,
+            stdin=subprocess.DEVNULL,  # never the console: under a headless console Node/Chrome blocked on it forever
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -80,6 +81,9 @@ def _render(ctx: JobContext, project: Path, quality: str) -> None:
             while proc.poll() is None:
                 if time.monotonic() - seen[0] > STALL_S:
                     logf.write(f"\n[reel-studio] no renderer output for {STALL_S} s: stopping the render\n")
+                    logf.flush()
+                    if os.name == "nt":  # the whole tree: a Chrome child holding the pipe kept the job waiting
+                        subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"], capture_output=True)
                     proc.kill()
                     return
                 time.sleep(5)
