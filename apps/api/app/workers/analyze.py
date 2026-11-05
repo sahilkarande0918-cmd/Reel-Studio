@@ -31,7 +31,7 @@ def _cached(path: Path, build):
 
 
 def _outline(rdir: Path, texts: list[str], sents, ranker, profile: str = "education", max_s: float = 60.0,
-             labels: list[str] | None = None) -> list[outline.Unit]:
+             labels: list[str] | None = None, on_chunk=None) -> list[outline.Unit]:
     """Teaching units (class) or conversation parts (talk profiles), cached per profile until the transcript text
     changes, so a new clip count or duration reuses the map instead of asking the LLM again."""
     if profile == "education":
@@ -50,7 +50,8 @@ def _outline(rdir: Path, texts: list[str], sents, ranker, profile: str = "educat
         units = outline.outline(texts, sents, ranker, llm.units)
     else:
         units = outline.outline(texts, sents, ranker, lambda lines: llm.units(lines, profile=p, speakers=bool(labels)),
-                                kinds=p["kinds"], max_s=max_s, labels=labels, chunk=80, per_chunk_fallback=True)
+                                kinds=p["kinds"], max_s=max_s, labels=labels, chunk=80, per_chunk_fallback=True,
+                                on_chunk=on_chunk)
     source = units[0].source if units else "none"
     body = json.dumps({"key": key, "source": source, "profile": profile, "units": [u.to_json() for u in units]})
     path.write_text(body)
@@ -126,7 +127,9 @@ def pick_talk(ctx, rdir: Path, fixed: list[dict], opts: dict, duration_s: float,
             lab = {"key": key, "labels": diarize.label(rdir / "audio16k.wav", [(s.start_s, s.end_s) for s in sents])}
             (rdir / "speakers-audio.json").write_text(json.dumps(lab))
         labels = lab["labels"] if len(set(lab["labels"])) > 1 else None
-    units = _outline(rdir, texts, sents, ranker, prof_name, max_s=max(60.0, min(max_s, 90.0)), labels=labels)
+    units = _outline(rdir, texts, sents, ranker, prof_name, max_s=max(60.0, min(max_s, 90.0)), labels=labels,
+                     on_chunk=lambda i, n: ctx.stage("outline", 0.55 + 0.09 * i / n,
+                                                     f"Mapping the conversation: {i} of {n} sentences read (local LLM)"))
     units = bulk.split_questions(units, texts, sents, labels=labels)
     bulk.merge_topics(units, lambda names: embeddings(rdir, names))
     cmap = bulk.conversation_map(units, texts, labels)

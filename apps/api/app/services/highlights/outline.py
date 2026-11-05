@@ -202,6 +202,7 @@ def outline(
     labels: list[str] | None = None,
     chunk: int = CHUNK,
     per_chunk_fallback: bool = False,
+    on_chunk: Callable[[int, int], None] | None = None,
 ) -> list[Unit]:
     """Teaching steps over all sentences. `llm_units` gets numbered, timed lines for one chunk.
     per_chunk_fallback: a chunk the LLM cannot map gets the lexical segmentation for that chunk only (long talks:
@@ -226,6 +227,8 @@ def outline(
             us = us[:-1]  # the chunk's last unit may continue: read it again at the start of the next chunk
         units += us
         i = us[-1].last + 1
+        if on_chunk:  # real progress: sentences mapped so far (long talks take many LLM calls)
+            on_chunk(i, n)
     return split_long(units, texts, sents, ranker, max_s)
 
 
