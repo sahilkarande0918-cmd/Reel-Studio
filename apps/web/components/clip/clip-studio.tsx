@@ -144,8 +144,8 @@ export function ClipStudio({ canEdit, kits }: { canEdit: boolean; kits: { id: st
       <style>{FONT_CSS}</style>
       <header><p className="studio-eyebrow">Clip long video</p><h1 className="mt-1 font-serif text-[30px] leading-tight">One long video in, finished Shorts out.</h1>
         <p className="mt-1 text-[13px] text-muted">Choose the recipe once. The engine finds the best moments and renders every clip with it. Everything runs on your processing computer, free.</p></header>
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_440px]">
-        <div className="space-y-5">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 xl:grid-cols-[minmax(0,1fr)_440px]">
+        <div className="min-w-0 space-y-5">
           {/* ---------------------------------------------------------------- source */}
           <section className="studio-panel space-y-4 p-5">
             <div className="inline-flex rounded-full border border-line p-0.5 text-[12px]">
@@ -230,7 +230,7 @@ export function ClipStudio({ canEdit, kits }: { canEdit: boolean; kits: { id: st
         </div>
 
         {/* ---------------------------------------------------------------- live preview */}
-        <aside className="space-y-4 xl:sticky xl:top-20 xl:self-start">
+        <aside className="min-w-0 space-y-4 xl:sticky xl:top-20 xl:self-start">
           <section className="studio-panel space-y-4 p-5">
             <div className="flex items-center justify-between gap-2">
               <div className="inline-flex rounded-full border border-line p-0.5 text-[12px]">{RATIOS.map((r) => <button key={r} type="button" onClick={() => setRatio(r)}
