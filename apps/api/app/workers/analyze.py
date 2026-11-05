@@ -296,7 +296,7 @@ def run_analyze(ctx: JobContext) -> dict:
     src, rdir = source_path(rec), recording_dir(rec["organization_id"], rec["id"])
     W, H, dur = rec["width"], rec["height"], rec["duration_s"]
     timings: dict[str, float] = {}
-    opts = {k: ctx.payload.get(k) for k in ("profile", "count", "duration", "brief")}
+    opts = {k: ctx.payload.get(k) for k in ("profile", "count", "duration", "brief", "range_start_s", "range_end_s")}
     if (opts["profile"] or "education") != "education":
         return _analyze_talk(ctx, db, rec, tr, src, rdir, opts, timings)
 
@@ -378,6 +378,15 @@ def run_analyze(ctx: JobContext) -> dict:
     }
 
 
+def _genre(rdir: Path, words: list[dict]) -> str:
+    """Auto genre: a conversation between two or more voices is clipped as a podcast, one voice as general talk."""
+    sents = candidates.sentences(words)[:240]
+    if len(sents) < 6:
+        return "general"
+    labels = diarize.label(rdir / "audio16k.wav", [(s.start_s, s.end_s) for s in sents])
+    return "podcast" if len(set(labels)) > 1 else "general"
+
+
 def _analyze_talk(ctx, db, rec: dict, tr: dict, src: Path, rdir: Path, opts: dict, timings: dict) -> dict:
     """Bulk clipping for podcasts/interviews/talks: no screen OCR (nothing to read), speaker-aware framing, and as
     many distinct standalone clips as the conversation supports. Every stage reads its cache when it has one."""
@@ -385,6 +394,11 @@ def _analyze_talk(ctx, db, rec: dict, tr: dict, src: Path, rdir: Path, opts: dic
 
     W, H, dur = rec["width"], rec["height"], rec["duration_s"]
     words = transcript_words(tr["id"])
+    lo, hi = opts.get("range_start_s") or 0.0, opts.get("range_end_s") or dur
+    if lo > 0 or hi < dur:  # "adjust range": only this stretch is clipped (the transcript stays whole)
+        words = [w for w in words if lo <= w["start_s"] and w["end_s"] <= hi]
+    if opts.get("profile") == "auto":
+        opts["profile"] = _genre(rdir, words)
     ctx.stage("speakers", 0.1, "Finding faces and who is speaking (local, CPU)")
     t0 = time.perf_counter()
     track = _cached(rdir / "faces.json", lambda: speakers.analyze(src, rdir / "audio16k.wav", W, H, dur))

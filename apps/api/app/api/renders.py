@@ -41,6 +41,13 @@ class RenderRequest(BaseModel):
     hook_title: bool = False  # opening headline from the clip's own (grounded) title
     hook_teaser: bool = False  # open on the clip's proposed authentic quote (labelled, reversible)
     enhance_audio: bool = True  # fast renderer: high-pass, mild denoise, compression, -14 LUFS
+    hook_style: Literal["classic", "statement", "editorial"] = "classic"
+    auto_zoom: bool = False  # punch-ins on the words that carry the point
+    color_correct: bool = False  # auto levels + gentle contrast/saturation
+    sfx: bool = False  # whoosh on the headline, soft impacts on punch-ins (synthesized, royalty-free)
+    # 9:16 layout: auto = speaker-aware framing from analysis, fill = centred crop, fit = the whole frame over a
+    # blurred copy of itself (nothing cropped away)
+    layout: Literal["auto", "fill", "fit"] = "auto"
 
 
 def _brand_kit(org_id: str, kit_id: str | None) -> dict | None:
@@ -119,6 +126,10 @@ def enqueue_highlight_render(h: dict, body: RenderRequest, user_id: str) -> dict
         except ValueError as e:
             raise HTTPException(422, f"Brand kit logo: {e}") from e
     feats = h.get("features") or {}
+    if body.layout != "auto":
+        h = {**h, "crop_keyframes": [] if body.layout == "fill" else [
+            {"t": 0.0, "crop_x": 0, "crop_y": 0, "crop_width": rec["width"], "crop_height": rec["height"],
+             "layout": "panel", "region": "full-frame", "transition_mode": "start"}]}
     spans = None
     if body.pace != "original":
         spans = speech_cuts.plan(words, float(h["start_s"]), float(h["end_s"]), body.pace)["spans"]
@@ -126,7 +137,9 @@ def enqueue_highlight_render(h: dict, body: RenderRequest, user_id: str) -> dict
     if teaser:
         spans = [[teaser["start_s"], teaser["end_s"]], *(spans or [[float(h["start_s"]), float(h["end_s"])]])]
     doc = timeline.build(h, rec, words, render_id, body.quality, kit=kit, logo_src=logo[0] if logo else None,
-                         spans=spans, hook_title=(h.get("title") if body.hook_title else None), emphasis=body.emphasis)
+                         spans=spans, hook_title=(h.get("title") if body.hook_title else None), emphasis=body.emphasis,
+                         hook_style=body.hook_style, auto_zoom=body.auto_zoom, color_correct=body.color_correct,
+                         sfx=body.sfx)
     doc["stylePreset"] = body.style
     preset = body.caption_preset
     if preset == "auto":

@@ -183,10 +183,13 @@ def retranscribe(rec_id: str, user: User = Depends(current_user)) -> dict:
 class AnalyzeOptions(BaseModel):
     """Bulk clipping options. profile "education" (default) is the original class-reel analysis."""
 
-    profile: Literal["education", "business", "podcast", "motivational", "general"] = "education"
+    # "auto" = genre detected from the recording (two or more voices → podcast, otherwise general talk)
+    profile: Literal["education", "auto", "business", "podcast", "motivational", "general"] = "education"
     count: int | None = Field(default=None, ge=1, le=60)  # None = auto: every strong, distinct clip
     duration: Literal["auto", "15-30", "30-45", "45-60", "30-60", "60-90", "90-180"] = "30-60"
     brief: str = Field(default="", max_length=2000)  # editing prompt / campaign topic: guides relevance only
+    range_start_s: float | None = Field(default=None, ge=0)  # only clip this part of the recording
+    range_end_s: float | None = Field(default=None, gt=0)
 
 
 @router.post("/{rec_id}/analyze")

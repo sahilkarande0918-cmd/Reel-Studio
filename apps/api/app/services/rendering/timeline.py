@@ -34,6 +34,7 @@ CAPTION_STYLE = {
     "safeTop": 1350,
     "safeBottom": 1650,
 }
+SOCIAL_CAPTIONS = {"fontSize": 74, "maxCharsPerLine": 16, "maxLines": 2}
 CAPTION_ZONES = {"lower": (1350, 1650), "upper": (260, 560)}  # clear of the platforms' top and bottom UI
 # camelCase / PascalCase with an inner capital, dotted or called identifiers, operators
 CODE_RE = re.compile(r"[a-z][A-Z]|^[A-Z][a-z]+[A-Z]|\w[._]\w|\(\)|[<>{}=]")
@@ -147,6 +148,32 @@ def caption_words(words: list[dict], start: float, end: float) -> list[dict]:
     return out
 
 
+ZOOM, ZOOM_S = 1.15, 1.8
+
+
+def _punch(items: list[dict], at: float) -> None:
+    """Cut to a 1.15x tighter crop of the current framing at composition time `at` for 1.8 s (or until the next
+    framing change), then cut back. A split screen is never zoomed."""
+    for it in items:
+        rel = at - it["start"]
+        if not 0.3 <= rel <= it["duration"] - 0.6:
+            continue
+        ks = sorted(it["cropKeyframes"], key=lambda k: k["t"])
+        k = [x for x in ks if x["t"] <= rel][-1]
+        nxt = next((x["t"] for x in ks if x["t"] > rel), it["duration"])
+        if k["layout"] == "split" or k.get("region") == "zoom":
+            return
+        w, h = int(k["crop_width"] / ZOOM) // 2 * 2, int(k["crop_height"] / ZOOM) // 2 * 2
+        x = int(k["crop_x"] + (k["crop_width"] - w) / 2) // 2 * 2
+        y = int(k["crop_y"] + (k["crop_height"] - h) * 0.4) // 2 * 2  # keep faces in the upper part of the frame
+        z = {**k, "t": round(rel, 3), "crop_x": x, "crop_y": y, "crop_width": w, "crop_height": h, "region": "zoom",
+             "transition_mode": "cut"}
+        back = rel + ZOOM_S
+        new = [z] + ([{**k, "t": round(back, 3), "transition_mode": "cut"}] if back < min(nxt, it["duration"] - 0.2) else [])
+        it["cropKeyframes"] = sorted(ks + new, key=lambda q: q["t"])
+        return
+
+
 def build(
     highlight: dict,
     recording: dict,
@@ -158,6 +185,10 @@ def build(
     spans: list[list[float]] | None = None,
     hook_title: str | None = None,
     emphasis: bool = False,
+    hook_style: str = "classic",
+    auto_zoom: bool = False,
+    color_correct: bool = False,
+    sfx: bool = False,
 ) -> dict:
     """`logo_src` is the logo file name the caller wrote into the render directory (see `logo_file`).
     `spans`: source stretches played back to back (speech-aware cuts, an opening teaser); None = the whole clip.
@@ -223,10 +254,19 @@ def build(
                         "sourceStart": start, "sourceEnd": round(start + duration, 3), "volume": 1,
                         "cropKeyframes": keyframes}]
         cap_words = caption_words(words, start, end)
-    if emphasis:
+    zooms: list[float] = []
+    if emphasis or auto_zoom:
         from app.services.rendering import caption_auto
 
-        cap_words = caption_auto.emphasise(cap_words)
+        marked = caption_auto.emphasise(cap_words)
+        if emphasis:
+            cap_words = marked
+        if auto_zoom:  # punch in on the words that carry the point, never more than one every 5 s
+            for w in marked:
+                if w["emphasis"] and w["start"] >= 1.5 and (not zooms or w["start"] - zooms[-1] >= 5.0):
+                    zooms.append(w["start"])
+            for z in zooms:
+                _punch(video_items, lead + z)
     doc = {
         "id": render_id,
         "schemaVersion": 1,
@@ -258,14 +298,25 @@ def build(
             },
         ],
         "brand": brand,
-        "captionStyle": {**CAPTION_STYLE, "preset": preset, "safeTop": zone[0], "safeBottom": zone[1]},
+        "captionStyle": {**CAPTION_STYLE, "preset": preset, "safeTop": zone[0], "safeBottom": zone[1],
+                         # talk clips (bulk clipping): short-form grouping, 2-4 words per line, larger type
+                         **(SOCIAL_CAPTIONS if (highlight.get("features") or {}).get("profile") not in (None, "education")
+                            else {})},
         "renderSettings": {"quality": quality},
     }
     if hook_title:
         y = 300 if zone[0] >= H / 2 else 1480
         doc["tracks"].append({"id": "titles", "kind": "overlay", "items": [
             {"id": "hook-title", "type": "text", "start": lead, "duration": round(min(2.5, duration), 3),
-             "text": hook_title[:80], "x": W / 2, "y": y, "fontSize": 64, "align": "center", "box": True}]})
+             "text": hook_title[:80], "x": W / 2, "y": y, "fontSize": 64, "align": "center", "box": True,
+             "style": hook_style}]})
+    if color_correct:
+        doc["renderSettings"]["colorCorrect"] = True
+    if sfx:  # a whoosh as the headline lands, a soft impact under each punch-in
+        cues = ([{"kind": "whoosh", "at": round(lead + 0.15, 3)}] if hook_title else []) + [
+            {"kind": "impact", "at": round(lead + z, 3)} for z in zooms]
+        if cues:
+            doc["renderSettings"]["sfx"] = cues
     validate(doc)
     return doc
 

@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 
 /** Same names as apps/api/app/services/highlights/profiles.py and app/api/recordings.py AnalyzeOptions. */
 const PROFILES = [
+  ["auto", "Auto: detect from the recording"],
   ["podcast", "Podcast / interview"],
   ["business", "Business / entrepreneurship"],
   ["motivational", "Motivational / storytelling"],
@@ -50,6 +51,12 @@ type BatchClip = {
   job: { status: string; current_stage: string | null; attempts: number; error: string | null } | null;
 };
 
+/** "1:05:30", "12:40" or "90" → seconds; "" → null. */
+const secs = (v: string) => {
+  if (!v.trim()) return null;
+  const n = v.split(":").map(Number);
+  return n.some(Number.isNaN) ? null : n.reduce((a, x) => a * 60 + x, 0);
+};
 const field = "rounded-[4px] bg-surface-2 px-2 py-1.5 text-ink outline-none focus-visible:ring-2 focus-visible:ring-accent";
 
 export function BulkClipping({ recordingId, projectId, canEdit, selectedIds, report }: {
@@ -58,7 +65,14 @@ export function BulkClipping({ recordingId, projectId, canEdit, selectedIds, rep
   const qc = useQueryClient();
   const backend = useBackend();
   const base = backend.data?.state === "online" ? backend.data.url : null;
-  const [profile, setProfile] = useState<string>("podcast");
+  const [profile, setProfile] = useState<string>("auto");
+  const [range, setRange] = useState({ start: "", end: "" });
+  const [layout, setLayout] = useState("auto");
+  const [hookStyle, setHookStyle] = useState("classic");
+  const [zoom, setZoom] = useState(true);
+  const [color, setColor] = useState(false);
+  const [sfx, setSfx] = useState(false);
+  const [enhance, setEnhance] = useState(true);
   const [count, setCount] = useState<(typeof COUNTS)[number]>("10");
   const [custom, setCustom] = useState(12);
   const [duration, setDuration] = useState("auto");
@@ -104,7 +118,8 @@ export function BulkClipping({ recordingId, projectId, canEdit, selectedIds, rep
     const n = count === "auto" ? null : count === "custom" ? custom : Number(count);
     const r = await apiFetch(base, `/recordings/${recordingId}/analyze`, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ profile, count: n, duration: profile === "education" ? "30-60" : duration, brief }),
+      body: JSON.stringify({ profile, count: n, duration: profile === "education" ? "30-60" : duration, brief,
+        range_start_s: secs(range.start), range_end_s: secs(range.end) }),
     });
     if (!r.ok) return setError((await r.json()).detail ?? "Could not start the analysis");
     setMsg("Finding clips. The transcript and earlier analysis are reused, so a new count is quick.");
@@ -120,6 +135,7 @@ export function BulkClipping({ recordingId, projectId, canEdit, selectedIds, rep
     const r = await apiFetch(base, `/recordings/${recordingId}/render-batch`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ highlight_ids: ids, engine: "auto", pace, caption_preset: preset, emphasis, hook_title: hookTitle,
+        hook_style: hookStyle, auto_zoom: zoom, color_correct: color, sfx, enhance_audio: enhance, layout,
         brand_kit_id: kit || null, captions: true, quality: "looks", campaign }),
     });
     const body = await r.json();
@@ -186,13 +202,37 @@ export function BulkClipping({ recordingId, projectId, canEdit, selectedIds, rep
               {(kits.data ?? []).map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}
             </select>
           </label>
-          <label className="grid gap-1 text-muted sm:col-span-2 xl:col-span-3">Editing prompt (optional)
+          <label className="grid gap-1 text-muted">Adjust range (optional)
+            <span className="flex items-center gap-2">
+              <input className={`${field} w-full tabular-nums`} placeholder="start 0:00" value={range.start} onChange={(e) => setRange({ ...range, start: e.target.value })} aria-label="Range start" />
+              <input className={`${field} w-full tabular-nums`} placeholder="end" value={range.end} onChange={(e) => setRange({ ...range, end: e.target.value })} aria-label="Range end" />
+            </span>
+          </label>
+          <label className="grid gap-1 text-muted">Layout (9:16)
+            <select className={field} value={layout} onChange={(e) => setLayout(e.target.value)}>
+              <option value="auto">Auto: follow the active speaker (split screen in fast exchanges)</option>
+              <option value="fill">Fill: centred crop</option>
+              <option value="fit">Fit: whole frame over a blurred background</option>
+            </select>
+          </label>
+          <label className="grid gap-1 text-muted">Hook headline style
+            <select className={field} value={hookStyle} onChange={(e) => setHookStyle(e.target.value)} disabled={!hookTitle}>
+              <option value="classic">Classic: white card</option>
+              <option value="statement">Statement: large bold lines</option>
+              <option value="editorial">Editorial: serif in the accent colour</option>
+            </select>
+          </label>
+          <label className="grid gap-1 text-muted sm:col-span-2 xl:col-span-3">Moments to include / editing prompt (optional)
             <textarea rows={2} value={brief} onChange={(e) => setBrief(e.target.value)} maxLength={2000} className={field}
               placeholder="e.g. Find the strongest business insights. Each clip explains one complete idea and ends naturally." />
           </label>
           <div className="flex flex-wrap gap-4 sm:col-span-2 xl:col-span-3">
             <label className="flex items-center gap-2"><input type="checkbox" checked={hookTitle} onChange={(e) => setHookTitle(e.target.checked)} /> Hook title from the clip&apos;s own words</label>
             <label className="flex items-center gap-2"><input type="checkbox" checked={emphasis} onChange={(e) => setEmphasis(e.target.checked)} /> Emphasise key numbers and claims</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={zoom} onChange={(e) => setZoom(e.target.checked)} /> Auto zoom on key words</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={enhance} onChange={(e) => setEnhance(e.target.checked)} /> Enhance audio</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={color} onChange={(e) => setColor(e.target.checked)} /> Auto colour correction</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={sfx} onChange={(e) => setSfx(e.target.checked)} /> Auto SFX</label>
             <label className="flex items-center gap-2"><input type="checkbox" checked={campaignOn} onChange={(e) => setCampaignOn(e.target.checked)} /> Clipping campaign brief</label>
           </div>
           {campaignOn && (

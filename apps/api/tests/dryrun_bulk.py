@@ -48,6 +48,8 @@ def main() -> None:
     ap.add_argument("--paces", default="engaging")
     ap.add_argument("--preset", default="auto")
     ap.add_argument("--sequential-asr", action="store_true")
+    ap.add_argument("--hook-style", default="classic")
+    ap.add_argument("--polish", action="store_true", help="auto zoom + colour correction + SFX")
     a = ap.parse_args()
     src, rdir = Path(a.video), Path(a.work)
     rdir.mkdir(parents=True, exist_ok=True)
@@ -93,13 +95,14 @@ def main() -> None:
     rec = {"id": "dryrun", "filename": src.name, "width": W, "height": H, "duration_s": dur}
     for n, c in enumerate(final[: a.render], 1):
         h = {"id": f"clip{n}", "start_s": c.start_s, "end_s": c.end_s, "title": c.features.get("title", ""),
-             "crop_keyframes": speakers.plan(track, c.start_s, c.end_s, W, H)}
+             "crop_keyframes": speakers.plan(track, c.start_s, c.end_s, W, H), "features": {"profile": a.profile}}
         for pace in a.paces.split(","):
             spans = None if pace == "original" else speech_cuts.plan(words, c.start_s, c.end_s, pace)["spans"]
-            doc = timeline.build(h, rec, words, f"clip{n}-{pace}", spans=spans, hook_title=h["title"] or None, emphasis=True)
+            doc = timeline.build(h, rec, words, f"clip{n}-{pace}", spans=spans, hook_title=h["title"] or None, emphasis=True,
+                                 hook_style=a.hook_style, auto_zoom=a.polish, color_correct=a.polish, sfx=a.polish)
             preset = a.preset if a.preset != "auto" else caption_auto.auto_preset(a.profile, None if pace == "original" else pace)
             doc["captionStyle"] = caption_presets.style_for(preset, doc["captionStyle"], doc["height"], doc["brand"]["colors"])
-            proj = rdir / "renders" / f"clip{n}-{pace}-{preset}"
+            proj = rdir / "renders" / f"clip{n}-{pace}-{preset}-{a.hook_style}{'-polish' if a.polish else ''}"
             t0 = time.perf_counter()
             out = fast.render(doc, src, proj)
             took = time.perf_counter() - t0

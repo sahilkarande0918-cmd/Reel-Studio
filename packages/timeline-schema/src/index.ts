@@ -92,6 +92,8 @@ export const TextItem = z.object({
   align: z.enum(["left", "center", "right"]).default("left"),
   /** Solid brand-coloured box behind the text for legibility over video. */
   box: z.boolean().default(false),
+  /** Headline look for hook titles: classic (white card), statement (large bold lines), editorial (serif accent). */
+  style: z.enum(["plain", "classic", "statement", "editorial"]).optional(),
   transition: Transition.default("none"),
 });
 
@@ -183,6 +185,10 @@ export const StylePreset = z.enum(["focus", "energy", "story", "signature"]);
 
 export const RenderSettings = z.object({
   quality: z.enum(["draft", "looks", "delivery"]).default("looks"),
+  /** Automatic levels/contrast/saturation correction of the source footage. */
+  colorCorrect: z.boolean().optional(),
+  /** Synthesized sound effects (whoosh/impact/riser/tick) at composition times. */
+  sfx: z.array(z.object({ kind: z.enum(["whoosh", "impact", "riser", "tick"]), at: seconds })).max(60).optional(),
 });
 
 export const Composition = z
