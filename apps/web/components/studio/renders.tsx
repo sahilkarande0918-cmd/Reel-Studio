@@ -80,7 +80,7 @@ export function Renders({ highlightId, projectId, selected, canEdit, onSelect }:
   });
   useEffect(() => {
     const sb = createClient();
-    const ch = sb.channel(`renders:${highlightId}`)
+    const ch = sb.channel(`renders:${highlightId}:${crypto.randomUUID()}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "render_jobs", filter: `highlight_id=eq.${highlightId}` }, () => qc.invalidateQueries({ queryKey: key }))
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "jobs", filter: `project_id=eq.${projectId}` }, () => qc.invalidateQueries({ queryKey: key }))
       .subscribe();

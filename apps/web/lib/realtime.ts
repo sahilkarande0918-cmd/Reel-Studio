@@ -24,7 +24,7 @@ export function useProjectJobs(projectId: string) {
   useEffect(() => {
     const sb = createClient();
     const ch = sb
-      .channel(`jobs:${projectId}`)
+      .channel(`jobs:${projectId}:${crypto.randomUUID()}`) // one channel per hook use: a second .on() on a subscribed channel throws
       .on("postgres_changes", { event: "*", schema: "public", table: "jobs", filter: `project_id=eq.${projectId}` }, () =>
         qc.invalidateQueries({ queryKey: key }),
       )

@@ -315,7 +315,7 @@ export function Highlights({ recordingId, projectId, srcW, srcH, canEdit, words 
   });
   useEffect(() => {
     const sb = createClient();
-    const ch = sb.channel(`hl:${recordingId}`)
+    const ch = sb.channel(`hl:${recordingId}:${crypto.randomUUID()}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "highlight_candidates", filter: `recording_id=eq.${recordingId}` }, () => {
         qc.invalidateQueries({ queryKey: key });
         qc.invalidateQueries({ queryKey: ["analysis", recordingId] });
