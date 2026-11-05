@@ -13,3 +13,14 @@ def test_youtube_links_are_normalised_and_everything_else_refused():
                 "https://youtube.com.evil.example/watch?v=aqz-KE-bpKQ", "https://youtu.be/short", "not a link",
                 "file:///C:/Windows/win.ini"):
         assert li.normalize(bad) is None, bad
+
+
+def test_srt_upload_becomes_timed_words():
+    from app.services.transcription import srt
+
+    text = "1\n00:00:01,000 --> 00:00:03,000\n<i>Price on value,</i>\n\n2\n00:00:03.500 --> 00:00:05,000\n- not on cost.\n"
+    segs, words = srt.to_words(srt.parse(text))
+    assert [s["raw_text"] for s in segs] == ["Price on value,", "not on cost."]
+    assert [w["raw_text"] for w in words] == ["Price", "on", "value,", "not", "on", "cost."]
+    assert words[0]["start_s"] == 1.0 and words[2]["end_s"] <= 3.0 and words[3]["start_s"] == 3.5
+    assert all(a["end_s"] <= b["start_s"] for a, b in zip(words, words[1:]))

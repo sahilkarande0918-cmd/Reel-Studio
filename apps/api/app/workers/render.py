@@ -195,6 +195,16 @@ def run_render(ctx: JobContext) -> dict:
         _update(rid, status="rendering", error=None)
         started = time.monotonic()
         project = render_dir(render["organization_id"], rid)
+        lang = doc.get("renderSettings", {}).get("captionLanguage")
+        if lang and not doc.get("renderSettings", {}).get("captionsTranslated"):
+            from app.services.rendering import translate
+
+            ctx.stage("translate", 0.03, "Translating the captions (local LLM)")
+            for item in (i for t in doc["tracks"] for i in t["items"] if i["type"] == "caption"):
+                item["words"] = translate.translate(item["words"], lang)
+            doc["renderSettings"]["captionsTranslated"] = True
+            timeline.validate(doc)
+            _update(rid, timeline=doc)  # SRT/VTT downloads then match the burned-in captions
         engine = ctx.payload.get("engine", "studio")  # jobs queued before the fast renderer existed: Hyperframes
         why_not = fast.supported(doc) if engine in ("auto", "fast") and rec else "Hyperframes requested"
         if why_not is None:

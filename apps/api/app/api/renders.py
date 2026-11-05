@@ -53,6 +53,8 @@ class RenderRequest(BaseModel):
     emojis: bool = False  # AI emoji stickers from what is said
     progress_bar: bool = False
     transitions: Literal["none", "auto", "fade", "slide", "flash"] = "none"
+    # translate captions (en, hi, hinglish, mr, bn, ta, te, gu, es, fr, de, pt, it, id, ar, ja, ko, zh, ru, tr)
+    caption_language: str | None = Field(default=None, pattern=r"^(en|hi|hinglish|mr|bn|ta|te|gu|es|fr|de|pt|it|id|ar|ja|ko|zh|ru|tr)$")
 
 
 def _brand_kit(org_id: str, kit_id: str | None) -> dict | None:
@@ -156,6 +158,8 @@ def enqueue_highlight_render(h: dict, body: RenderRequest, user_id: str) -> dict
     elif preset:
         doc["captionStyle"] = caption_presets.style_for(preset, doc["captionStyle"], doc["height"],
                                                         doc["brand"]["colors"], body.caption_overrides.model_dump(exclude_none=True))
+    if body.caption_language:
+        doc["renderSettings"]["captionLanguage"] = body.caption_language
     digest = timeline.timeline_hash(doc)
 
     previous = (

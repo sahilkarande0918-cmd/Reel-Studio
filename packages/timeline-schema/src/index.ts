@@ -191,6 +191,9 @@ export const RenderSettings = z.object({
   sfx: z.array(z.object({ kind: z.enum(["whoosh", "impact", "riser", "tick"]), at: seconds })).max(60).optional(),
   /** Transitions at framing changes / speech cuts (the edit's length is unchanged). */
   transitions: z.enum(["none", "auto", "fade", "slide", "flash"]).optional(),
+  /** Translate the captions into this language before rendering (local LLM; sentence timing kept). */
+  captionLanguage: z.string().regex(/^[a-z]{2,8}$/).optional(),
+  captionsTranslated: z.boolean().optional(),
   /** Thin accent bar that fills across the top as the clip plays. */
   progressBar: z.boolean().optional(),
   /** Emoji stickers (Noto Emoji codepoints, e.g. "1f4b0") shown above the captions. */

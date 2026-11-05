@@ -50,14 +50,25 @@ def _run(ctx: JobContext, db, rec: dict, src) -> dict:
     )
     gl = glossary.Glossary.build(org_terms)
 
-    ctx.stage("transcribe", 0.08, "Transcribing speech on the local GPU")
     t0 = time.perf_counter()
     recipe = (rec.get("probe") or {}).get("recipe") or {}
-    lang = {"auto": None, "en": "en", "hi": "hi", "hinglish": "hi"}.get(recipe.get("language", ""), "") if recipe else ""
-    result = whisper.transcribe(
-        audio, hotwords=gl.hotwords(), on_progress=lambda p: ctx.progress(0.08 + 0.8 * p),
-        **({"language": lang} if lang != "" else {}),  # no recipe: the configured default (Hinglish)
-    )
+    subs = recording_dir(rec["organization_id"], rec["id"]) / "subtitles.srt"
+    if subs.exists():  # the user's own subtitles: no speech recognition needed
+        from app.services.transcription import srt
+
+        ctx.stage("transcribe", 0.08, "Reading your subtitles (.srt)")
+        segments, srt_words = srt.to_words(srt.parse(subs.read_text(encoding="utf-8")))
+        result = whisper.Result(recipe.get("language") or "unknown", 1.0, rec.get("duration_s") or srt_words[-1]["end_s"],
+                                segments, srt_words, model="srt-upload", device="none")
+        timing = "srt-even"
+    else:
+        ctx.stage("transcribe", 0.08, "Transcribing speech on the local GPU")
+        lang = {"auto": None, "en": "en", "hi": "hi", "hinglish": "hi"}.get(recipe.get("language", ""), "") if recipe else ""
+        result = whisper.transcribe(
+            audio, hotwords=gl.hotwords(), on_progress=lambda p: ctx.progress(0.08 + 0.8 * p),
+            **({"language": lang} if lang != "" else {}),  # no recipe: the configured default (Hinglish)
+        )
+        timing = "whisper-dtw"
     elapsed = time.perf_counter() - t0
     ctx.check_cancel()
 
@@ -76,7 +87,7 @@ def _run(ctx: JobContext, db, rec: dict, src) -> dict:
                 "language_probability": result.language_probability,
                 "duration_s": result.duration_s,
                 "processing_s": round(elapsed, 2),
-                "word_timing": "whisper-dtw",
+                "word_timing": timing,
             }
         )
         .execute()

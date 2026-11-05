@@ -16,7 +16,7 @@ from app.core import signing
 from app.core.access import get_owned
 from app.core.auth import User, current_user
 from app.core.db import service_client
-from app.core.storage import source_path
+from app.core.storage import recording_dir, source_path
 from app.core.upload import CHUNK_MAX, append_chunk
 from app.api.renders import RenderRequest
 from app.services import media
@@ -44,6 +44,7 @@ class CreateRecording(BaseModel):
     filename: str = Field(min_length=1, max_length=255)
     size_bytes: int = Field(gt=0, le=media.MAX_BYTES)
     recipe: "Recipe | None" = None  # one-click clipping: how to transcribe, clip and render (see Recipe)
+    srt: str | None = Field(default=None, max_length=2_000_000)  # your subtitles: used instead of speech recognition
 
 
 @router.post("", status_code=201)
@@ -73,7 +74,19 @@ def create(body: CreateRecording, user: User = Depends(current_user)) -> dict:
         .data[0]
     )
     source_path(row).touch()
+    if body.srt:
+        _save_srt(row, body.srt)
     return {"id": row["id"], "chunk_size": CHUNK_MAX, "received_bytes": 0}
+
+
+def _save_srt(rec: dict, text: str) -> None:
+    from app.services.transcription import srt
+
+    try:
+        srt.parse(text)
+    except ValueError as e:
+        raise HTTPException(422, str(e)) from e
+    (recording_dir(rec["organization_id"], rec["id"]) / "subtitles.srt").write_text(text, encoding="utf-8")
 
 
 @router.get("/{rec_id}")
@@ -164,6 +177,7 @@ class ImportLink(BaseModel):
     url: str = Field(min_length=10, max_length=500)
     rights_confirmed: bool  # "I own this video or have permission to clip it"
     recipe: "Recipe | None" = None
+    srt: str | None = Field(default=None, max_length=2_000_000)
 
 
 @router.post("/import", status_code=202)
@@ -186,6 +200,8 @@ def import_link(body: ImportLink, user: User = Depends(current_user)) -> dict:
         "filename": "youtube-import.mp4", "size_bytes": 1,
         "probe": {"import": {"url": url}, **({"recipe": body.recipe.model_dump()} if body.recipe else {})},
     }).execute().data[0]
+    if body.srt:
+        _save_srt(row, body.srt)
     job = db.table("jobs").insert({
         "organization_id": project["organization_id"], "project_id": project["id"], "job_type": "import_url",
         "payload": {"recording_id": row["id"], "url": url}, "idempotency_key": f"import:{row['id']}",

@@ -1082,6 +1082,13 @@
             "flash"
           ]
         },
+        "captionLanguage": {
+          "type": "string",
+          "pattern": "^[a-z]{2,8}$"
+        },
+        "captionsTranslated": {
+          "type": "boolean"
+        },
         "progressBar": {
           "type": "boolean"
         },
