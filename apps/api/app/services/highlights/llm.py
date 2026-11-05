@@ -194,7 +194,8 @@ def units(lines: list[str], model: str | None = None, profile: dict | None = Non
             schema = {"type": "object", "properties": {"units": {"type": "array", "items": item}}, "required": ["units"]}
             prompt = TALK_UNITS_PROMPT.format(brief=profile["brief"], text="\n".join(lines),
                                               speakers=" and speaker label" if speakers else "")
-            raw = sorted(_chat(prompt, schema, model, "10m")["units"], key=lambda u: int(u["first"]))
+            # bounded answer (a few tokens per part): a runaway generation once ran into the 10-minute timeout
+            raw = sorted(_chat(prompt, schema, model, "10m", max_tokens=1800)["units"], key=lambda u: int(u["first"]))
             last_line = int(lines[-1][1 : lines[-1].index("]")])
             return [{**u, "last": (int(raw[i + 1]["first"]) - 1 if i + 1 < len(raw) else last_line),
                      "title": u["topic"]} for i, u in enumerate(raw)]

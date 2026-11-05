@@ -200,18 +200,26 @@ def outline(
     kinds: tuple = KINDS,
     max_s: float = MAX_STEP_S,
     labels: list[str] | None = None,
+    chunk: int = CHUNK,
+    per_chunk_fallback: bool = False,
 ) -> list[Unit]:
-    """Teaching steps over all sentences. `llm_units` gets numbered, timed lines for one chunk."""
+    """Teaching steps over all sentences. `llm_units` gets numbered, timed lines for one chunk.
+    per_chunk_fallback: a chunk the LLM cannot map gets the lexical segmentation for that chunk only (long talks:
+    one timed-out request must not throw away the map of the whole recording)."""
     n = len(texts)
     if not n:
         return []
     units: list[Unit] = []
     i = 0
     while i < n:
-        j = min(n, i + CHUNK)
+        j = min(n, i + chunk)
         tag = (lambda k: f" {labels[k]}:") if labels else (lambda k: "")
         raw = llm_units([f"[{k}] {_mmss(sents[k].start_s)}{tag(k)} {texts[k]}" for k in range(i, j)])
         us = repair(raw, i, j - 1, sents, kinds=kinds) if raw else []
+        if not us and per_chunk_fallback:
+            part = lexical(texts[i:j], sents[i:j], ranker)
+            us = [Unit(u.first + i, u.last + i, u.start_s, u.end_s, u.kind if u.kind in kinds else kinds[0], u.title,
+                       "lexical", u.topic) for u in part]
         if not us:
             return split_long(lexical(texts, sents, ranker), texts, sents, ranker, max_s)
         if j < n and len(us) > 1:

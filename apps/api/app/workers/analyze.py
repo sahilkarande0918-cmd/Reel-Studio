@@ -50,7 +50,7 @@ def _outline(rdir: Path, texts: list[str], sents, ranker, profile: str = "educat
         units = outline.outline(texts, sents, ranker, llm.units)
     else:
         units = outline.outline(texts, sents, ranker, lambda lines: llm.units(lines, profile=p, speakers=bool(labels)),
-                                kinds=p["kinds"], max_s=max_s, labels=labels)
+                                kinds=p["kinds"], max_s=max_s, labels=labels, chunk=80, per_chunk_fallback=True)
     source = units[0].source if units else "none"
     body = json.dumps({"key": key, "source": source, "profile": profile, "units": [u.to_json() for u in units]})
     path.write_text(body)
@@ -147,7 +147,8 @@ def pick_talk(ctx, rdir: Path, fixed: list[dict], opts: dict, duration_s: float,
         c = candidates.Candidate(s0.start_s - lead, s1.end_s + tail, s0.start, s1.end, " ".join(texts[a : b + 1]))
         span = [w for w in fixed if s0.start <= w["idx"] <= s1.end and w["corrected_text"]]
         extras = {**audio_features.energy_profile(db_levels, c.start_s, c.end_s),
-                  "words_per_s": audio_features.speech_rate(span, c.start_s, c.end_s), "brief_terms": brief_terms}
+                  "words_per_s": audio_features.speech_rate(span, c.start_s, c.end_s), "brief_terms": brief_terms,
+                  "max_s": max_s}
         if visual:
             extras["visual"] = visual(c.start_s, c.end_s)
         f = bulk.features(a, b, units, sents, texts, prof, ideal, extras)

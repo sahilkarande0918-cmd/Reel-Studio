@@ -284,10 +284,13 @@ def features(a: int, b: int, units: list[ol.Unit], sents: list[Sentence], texts:
     # in a conversation the exchange (question + every part of its answer) is the unit a Short is cut from:
     # starting on a later part of an answer, or stopping before its last part, cuts the exchange
     gq = next((i for i in range(ua, -1, -1) if units[i].kind == "question"), None)
-    mid_start = gq is not None and gq < ua - 1 and units[ua].kind not in pf.LOW_VALUE
     group_end = next((i - 1 for i in range(ub + 1, len(units)) if units[i].kind in ("question", "sponsor", "tangent")),
                      len(units) - 1)
-    mid_end = ub < group_end and any(units[i].kind not in pf.LOW_VALUE for i in range(ub + 1, group_end + 1))
+    # the rule only holds for a real exchange that fits in one Short: with no question before the clip (a monologue,
+    # or a map without question marks) or a long answer, each part of the answer is judged on its own
+    fits = gq is not None and units[group_end].end_s - units[gq].start_s <= extras.get("max_s", 90) * 1.5
+    mid_start = fits and gq < ua - 1 and units[ua].kind not in pf.LOW_VALUE
+    mid_end = fits and ub < group_end and any(units[i].kind not in pf.LOW_VALUE for i in range(ub + 1, group_end + 1))
     if mid_start:
         start_whole = False
     if mid_end:
