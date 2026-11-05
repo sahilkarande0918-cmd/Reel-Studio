@@ -28,3 +28,14 @@ def test_captions_off_burns_nothing_but_keeps_words():
     timeline.validate(doc)
     assert 'class="w"' not in compose.compile_html(doc)
     assert doc["tracks"][0]["items"][0]["words"]
+
+
+def test_web_copy_of_the_catalog_matches():
+    """apps/web/lib/caption-presets.json (shipped with the site so the picker never waits for the engine) == catalog()."""
+    import json
+    from pathlib import Path
+
+    from app.services.rendering import caption_presets
+
+    web = json.loads((Path(__file__).parents[2] / "web" / "lib" / "caption-presets.json").read_text(encoding="utf-8"))
+    assert web == caption_presets.catalog(), "regenerate apps/web/lib/caption-presets.json from caption_presets.catalog()"
