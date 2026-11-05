@@ -4,6 +4,15 @@ Added 2026-11-05 (session 4). Commits `e0e552e` (engine) and `e445899` (OpusClip
 "Professional AI podcast clipping & bulk Shorts engine" (phases 1–11) plus "take reference how OpusClip makes ... all
 features ... free tools only". Everything is local and ₹0: no API key or paid service is used.
 
+## Paste a YouTube link (session 4)
+Recording projects accept a YouTube link instead of a file: `POST /recordings/import {project_id, url,
+rights_confirmed}` (YouTube watch/youtu.be/shorts/live/embed links only; playlists, channels and other sites refused;
+the user must confirm they own the video or may clip it) → `import_url` job (`workers/import_url.py`,
+`services/link_import.py`): yt-dlp downloads ≤ 1080p (H.264 preferred) straight onto the engine with real byte
+progress, refuses running live streams, > 4 h or > 4 GB, then `recordings.finalize` (the same probe → transcribe path as
+uploads). Title, channel and licence are kept in `source_recordings.probe.import`. Verified: link parsing (unit test),
+format resolution for a CC-BY video (metadata only). A full import has not yet been run through the engine.
+
 ## Flow
 `POST /recordings/{id}/analyze` with `{profile, count, duration, brief, range_start_s, range_end_s}` →
 `workers/analyze._analyze_talk` (any profile except `education`, which keeps the original class-reel path and `KEEP = 6`):

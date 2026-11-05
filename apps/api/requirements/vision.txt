@@ -6,3 +6,4 @@ librosa==0.11.*
 scikit-learn==1.*  # bulk clipping: TF-IDF fallback, speaker clustering (also a librosa dependency)
 fonttools==4.*  # fast renderer: bundled WOFF2 fonts → TTF for libass captions
 brotli==1.*  # WOFF2 decompression for fonttools
+yt-dlp[default]>=2026.10.26  # paste a YouTube link: the engine downloads the video itself (Unlicense)

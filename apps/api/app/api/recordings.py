@@ -109,6 +109,17 @@ def complete(rec_id: str, user: User = Depends(current_user)) -> dict:
     p = source_path(rec)
     if p.stat().st_size != rec["size_bytes"]:
         raise HTTPException(409, detail={"message": "upload incomplete", "received_bytes": p.stat().st_size})
+    try:
+        return finalize(rec, user.id)
+    except media.MediaError as e:
+        raise HTTPException(422, str(e)) from e
+
+
+def finalize(rec: dict, user_id: str) -> dict:
+    """The file is complete on disk: probe and validate it, mark it uploaded, queue transcription. Shared by chunked
+    uploads and link imports. Raises media.MediaError (and deletes the file) when it is not a usable video."""
+    rec_id = rec["id"]
+    p = source_path(rec)
     db = service_client()
     try:
         info = media.probe(p)
@@ -116,7 +127,7 @@ def complete(rec_id: str, user: User = Depends(current_user)) -> dict:
     except media.MediaError as e:
         db.table("source_recordings").update({"status": "failed", "error": str(e)}).eq("id", rec_id).execute()
         p.unlink(missing_ok=True)  # invalid uploads are not kept
-        raise HTTPException(422, str(e)) from e
+        raise
     db.table("source_recordings").update(
         {
             **summary,
@@ -134,7 +145,7 @@ def complete(rec_id: str, user: User = Depends(current_user)) -> dict:
                 "job_type": "transcribe",
                 "payload": {"recording_id": rec_id},
                 "idempotency_key": f"transcribe:{rec_id}",
-                "created_by": user.id,
+                "created_by": user_id,
                 "current_stage": "queued",
             }
         )
@@ -142,6 +153,39 @@ def complete(rec_id: str, user: User = Depends(current_user)) -> dict:
         .data[0]
     )
     return {"recording": {**rec, **summary, "status": "uploaded"}, "job_id": job["id"]}
+
+
+class ImportLink(BaseModel):
+    project_id: str
+    url: str = Field(min_length=10, max_length=500)
+    rights_confirmed: bool  # "I own this video or have permission to clip it"
+
+
+@router.post("/import", status_code=202)
+def import_link(body: ImportLink, user: User = Depends(current_user)) -> dict:
+    """Paste a YouTube link: the engine downloads the video itself (no download/upload by the user), then it follows
+    the normal upload path (probe → transcribe → analyze). Only YouTube links, only with the rights confirmation."""
+    from app.services import link_import
+
+    if not body.rights_confirmed:
+        raise HTTPException(422, "Confirm that you own this video or have permission to clip it")
+    url = link_import.normalize(body.url)
+    if not url:
+        raise HTTPException(422, "Paste a YouTube video link (youtube.com/watch?v=…, youtu.be/…, or a Shorts/live link)")
+    project = get_owned("projects", body.project_id, user, write=True, columns="id, organization_id, mode")
+    if project["mode"] != "recording":
+        raise HTTPException(422, "Links can be imported into recording projects")
+    db = service_client()
+    row = db.table("source_recordings").insert({
+        "organization_id": project["organization_id"], "project_id": project["id"], "created_by": user.id,
+        "filename": "youtube-import.mp4", "size_bytes": 1, "probe": {"import": {"url": url}},
+    }).execute().data[0]
+    job = db.table("jobs").insert({
+        "organization_id": project["organization_id"], "project_id": project["id"], "job_type": "import_url",
+        "payload": {"recording_id": row["id"], "url": url}, "idempotency_key": f"import:{row['id']}",
+        "created_by": user.id, "current_stage": "queued",
+    }).execute().data[0]
+    return {"recording_id": row["id"], "job_id": job["id"]}
 
 
 @router.post("/{rec_id}/transcribe")

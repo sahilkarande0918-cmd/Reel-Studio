@@ -17,6 +17,7 @@ Reviewed 2026-10-16 via GitHub API (licence SPDX, archived flag, last push). Re-
 | fonttools | MIT | active | Bundled WOFF2 fonts → TTF for libass captions (fast renderer) |
 | brotli (Python) | MIT | active | WOFF2 decompression for fonttools |
 | scikit-learn | BSD-3-Clause | active | Speaker clustering, TF-IDF fallback (also a librosa dependency) |
+| yt-dlp/yt-dlp (with Node.js as its JS runtime) | Unlicense | active | Paste a YouTube link: the engine downloads the video itself (YouTube only, rights confirmation required) |
 | heygen-com/hyperframes (CLI v0.8.164, `@hyperframes/player`) | Apache-2.0 | active | Principal renderer; editor preview player; local Kokoro TTS (`hyperframes tts`) |
 | SYSTRAN/faster-whisper | MIT | active | Speech recognition with word timestamps |
 | m-bain/whisperX | BSD-2-Clause | active | Word-level forced alignment (where reliable) |
