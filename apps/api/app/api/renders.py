@@ -54,6 +54,10 @@ class RenderRequest(BaseModel):
     progress_bar: bool = False
     transitions: Literal["none", "auto", "fade", "slide", "flash"] = "none"
     # translate captions (en, hi, hinglish, mr, bn, ta, te, gu, es, fr, de, pt, it, id, ar, ja, ko, zh, ru, tr)
+    # voice dubbing: en, hi, es, fr, it, pt, ja, zh (built-in voices) or any caption language with a saved voice profile
+    dub_language: str | None = Field(default=None, pattern=r"^(en|hi|es|fr|it|pt|ja|zh)$")
+    dub_voice: str = Field(default="female", pattern=r"^(male|female|profile:[0-9a-f-]{36})$")
+    broll: Literal["none", "stock", "ai"] = "none"  # stock: Pexels (free key) / Openverse CC; ai: animated by LTX locally
     caption_language: str | None = Field(default=None, pattern=r"^(en|hi|hinglish|mr|bn|ta|te|gu|es|fr|de|pt|it|id|ar|ja|ko|zh|ru|tr)$")
 
 
@@ -160,6 +164,10 @@ def enqueue_highlight_render(h: dict, body: RenderRequest, user_id: str) -> dict
                                                         doc["brand"]["colors"], body.caption_overrides.model_dump(exclude_none=True))
     if body.caption_language:
         doc["renderSettings"]["captionLanguage"] = body.caption_language
+    if body.dub_language:
+        doc["renderSettings"].update(dubLanguage=body.dub_language, dubVoice=body.dub_voice)
+    if body.broll != "none":
+        doc["renderSettings"]["broll"] = body.broll
     digest = timeline.timeline_hash(doc)
 
     previous = (

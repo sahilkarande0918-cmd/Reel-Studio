@@ -1089,6 +1089,82 @@
         "captionsTranslated": {
           "type": "boolean"
         },
+        "broll": {
+          "type": "string",
+          "enum": [
+            "none",
+            "stock",
+            "ai"
+          ]
+        },
+        "brollClips": {
+          "maxItems": 6,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "src": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_.-]+$"
+              },
+              "at": {
+                "type": "number",
+                "minimum": 0
+              },
+              "duration": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "video",
+                  "image"
+                ]
+              },
+              "query": {
+                "type": "string",
+                "maxLength": 60
+              },
+              "credit": {
+                "type": "string",
+                "maxLength": 240
+              },
+              "source": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "ai": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "src",
+              "at",
+              "duration",
+              "kind"
+            ]
+          }
+        },
+        "dubLanguage": {
+          "type": "string",
+          "pattern": "^[a-z]{2,8}$"
+        },
+        "dubVoice": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "dubAudio": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+$"
+        },
         "progressBar": {
           "type": "boolean"
         },

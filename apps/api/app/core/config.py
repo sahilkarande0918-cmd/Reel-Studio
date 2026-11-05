@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     data_dir: Path = Path("./data")
     ollama_url: str = "http://localhost:11434"
     engine_admin_emails: str = ""  # comma-separated: who may pause/resume the engine (empty = org owners/admins)
+    pexels_api_key: str = ""  # optional, free (pexels.com/api): stock-video B-roll; never commit it
     ollama_model: str = "qwen2.5vl:7b"
     # Optional OpenAI-compatible endpoint for stronger creative planning (Mode B director). Empty = local Ollama only.
     director_api_url: str = ""

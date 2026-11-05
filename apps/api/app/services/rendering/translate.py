@@ -2,7 +2,6 @@
 own time span, and its translated words are spread over that span by length. Meaning-preserving, no added content.
 """
 
-import json
 import logging
 
 from app.services.highlights import llm
@@ -33,23 +32,27 @@ def sentences(words: list[dict]) -> list[list[dict]]:
     return [*out, cur] if cur else out
 
 
-def translate(words: list[dict], lang: str) -> list[dict]:
-    """Translated caption words (same clip clock). Unchanged words when the LLM is unavailable."""
-    if lang not in LANGUAGES or not words:
-        return words
-    groups = sentences(words)
-    lines = [" ".join(w["text"] for w in g) for g in groups]
+def translate_lines(lines: list[str], lang: str) -> list[str] | None:
+    """One LLM call for all lines; None when unavailable (callers keep the original)."""
+    if lang not in LANGUAGES or not lines:
+        return None
     schema = {"type": "object", "properties": {"lines": {"type": "array", "items": {"type": "string", "maxLength": 400},
                                                          "minItems": len(lines), "maxItems": len(lines)}},
               "required": ["lines"]}
-    prompt = PROMPT.format(lang=LANGUAGES[lang], lines="\n".join(f"{i + 1}. {t}" for i, t in enumerate(lines)))
+    numbered = "\n".join(f"{i + 1}. {t}" for i, t in enumerate(lines))
+    prompt = PROMPT.format(lang=LANGUAGES[lang], lines=numbered)
     try:
         got = llm._chat(prompt, schema, None, "5m", max_tokens=min(4000, 60 * len(lines) + 200))["lines"]
-    except (json.JSONDecodeError, KeyError, ValueError, TypeError, Exception) as e:  # noqa: BLE001 — keep the original
+        return [str(x) for x in got][: len(lines)] if len(got) >= len(lines) else None
+    except Exception as e:  # noqa: BLE001 — keep the original captions
         log.warning("caption translation unavailable: %s", e)
-        return words
+        return None
+
+
+def distribute(groups: list[list[dict]], lines: list[str]) -> list[dict]:
+    """Translated sentences on the original sentences' time spans, words spread by length."""
     out = []
-    for g, text in zip(groups, got, strict=False):
+    for g, text in zip(groups, lines, strict=False):
         toks = (text or "").split() or [w["text"] for w in g]
         a, b = g[0]["start"], g[-1]["end"]
         total = sum(len(t) + 1 for t in toks)
@@ -60,3 +63,10 @@ def translate(words: list[dict], lang: str) -> list[dict]:
                         "emphasis": False})
             t += d
     return out
+
+
+def translate(words: list[dict], lang: str) -> list[dict]:
+    """Translated caption words (same clip clock). Unchanged words when the LLM is unavailable."""
+    groups = sentences(words)
+    lines = translate_lines([" ".join(w["text"] for w in g) for g in groups], lang)
+    return distribute(groups, lines) if lines else words

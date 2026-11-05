@@ -373,36 +373,68 @@ def render(doc: dict, source: Path, project: Path, enhance_audio: bool = True, t
     rs = doc.get("renderSettings", {})
     grade = COLOR_CHAIN + "," if rs.get("colorCorrect") else ""
     W, H = doc["width"], doc["height"]
+    extra: list[str] = []
+
+    def add_input(*args: str) -> int:  # input 0 is the source
+        extra.extend(args)
+        return sum(1 for x in extra if x == "-i")
+
+    # B-roll cutaways (under the captions): stock clips cover the frame, stills get a slow push-in
+    cur = "vc"
+    for n, c in enumerate(rs.get("brollClips") or []):
+        if not (project / c["src"]).is_file():
+            continue
+        a, d = c["at"], c["duration"]
+        frames = max(2, round(d * doc["fps"]))
+        if c["kind"] == "video":
+            idx = add_input("-i", c["src"])
+            prep = (f"[{idx}:v]trim=duration={d:.3f},setpts=PTS-STARTPTS+{a:.3f}/TB,"
+                    f"scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},fps={doc['fps']},format=yuv420p")
+        else:
+            idx = add_input("-loop", "1", "-t", f"{d:.3f}", "-i", c["src"])
+            prep = (f"[{idx}:v]scale={W * 2}:{H * 2}:force_original_aspect_ratio=increase,crop={W * 2}:{H * 2},"
+                    f"zoompan=z='min(1+0.0009*on,1.12)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={frames}:s={W}x{H}:fps={doc['fps']},"
+                    f"setpts=PTS-STARTPTS+{a:.3f}/TB,format=yuv420p")
+        g += f";{prep},fade=t=in:st={a:.3f}:d=0.12,fade=t=out:st={a + d - 0.12:.3f}:d=0.12[br{n}]"
+        g += f";[{cur}][br{n}]overlay=0:0:enable='between(t,{a:.3f},{a + d:.3f})':eof_action=pass[vb{n}]"
+        cur = f"vb{n}"
     stickers = []
     for e in rs.get("emojis") or []:  # AI emojis: Noto 3D PNGs above the caption block, fading in and out
         from app.services.rendering import emoji
 
         if (png := emoji.png(e["code"])) is not None:
             stickers.append((png, e))
-    g += f";[vc]{grade}subtitles=captions.ass:fontsdir=fonts,format=yuv420p" + ("[vs]" if stickers else "[vout]")
-    extra = []
+    g += f";[{cur}]{grade}subtitles=captions.ass:fontsdir=fonts,format=yuv420p" + ("[vs]" if stickers else "[vout]")
     if stickers:
         size = round(min(W, H) * 0.15)
         cy = max(0, round(doc["captionStyle"]["safeTop"] - size * 0.9))
         cur = "vs"
         for n, (png, e) in enumerate(stickers):
             shutil.copyfile(png, project / f"emoji{n}.png")
-            extra += ["-loop", "1", "-t", f"{doc['duration']:.3f}", "-i", f"emoji{n}.png"]
+            idx = add_input("-loop", "1", "-t", f"{doc['duration']:.3f}", "-i", f"emoji{n}.png")
             a, b = e["at"], e["at"] + e["duration"]
-            g += (f";[{1 + n}:v]format=rgba,scale={size}:{size},fade=t=in:st={a:.3f}:d=0.15:alpha=1,"
+            g += (f";[{idx}:v]format=rgba,scale={size}:{size},fade=t=in:st={a:.3f}:d=0.15:alpha=1,"
                   f"fade=t=out:st={max(b - 0.2, a):.3f}:d=0.2:alpha=1[em{n}]")
             out = "vout" if n == len(stickers) - 1 else f"vo{n}"
             g += f";[{cur}][em{n}]overlay=(W-w)/2:{cy}:enable='between(t,{a:.3f},{b:.3f})',format=yuv420p[{out}]"
             cur = out
+    voice = rs.get("dubAudio")  # voice dubbing: the dubbed speech replaces the original voice track
+    speech = "[ac]"
+    if voice and (project / voice).is_file():
+        idx = add_input("-i", voice)
+        g += f";[{idx}:a]aresample=48000,apad=whole_dur={doc['duration']:.3f}[dub]"
+        speech = "[dub]"
     if rs.get("sfx"):  # synthesized, royalty-free effects (editing/audio.py), mixed under the speech
         from app.services.editing import audio
 
         audio.sfx_track([audio.Cue(c["kind"], c["at"], -12.0) for c in rs["sfx"]], doc["duration"], project / "sfx.wav")
-        extra += ["-i", "sfx.wav"]
-        g += (f";[ac]{SPEECH_CHAIN if enhance_audio else 'anull'},aresample=48000[sp];[{1 + len(stickers)}:a]aresample=48000,"
+        idx = add_input("-i", "sfx.wav")
+        g += (f";{speech}{SPEECH_CHAIN if enhance_audio else 'anull'},aresample=48000[sp];[{idx}:a]aresample=48000,"
               "aformat=channel_layouts=mono[sx];[sp][sx]amix=inputs=2:duration=first:normalize=0[aout]")
     else:
-        g += f";[ac]{SPEECH_CHAIN if enhance_audio else 'anull'},aresample=48000[aout]"
+        g += f";{speech}{SPEECH_CHAIN if enhance_audio else 'anull'},aresample=48000[aout]"
+    if speech == "[dub]":
+        g += ";[ac]anullsink"  # the original voice is not used
     (project / "graph.txt").write_text(g, encoding="utf-8")
     enc = (["-c:v", "h264_nvenc", "-preset", "p5", "-tune", "hq", "-rc", "vbr", "-cq", "21", "-b:v", "0",
             "-maxrate", "14M", "-bufsize", "28M"] if nvenc() else ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20"])

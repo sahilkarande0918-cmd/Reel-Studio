@@ -195,6 +195,22 @@ def run_render(ctx: JobContext) -> dict:
         _update(rid, status="rendering", error=None)
         started = time.monotonic()
         project = render_dir(render["organization_id"], rid)
+        dl = doc.get("renderSettings", {}).get("dubLanguage")
+        if dl and not doc["renderSettings"].get("dubAudio"):
+            from app.services import dub
+
+            ctx.stage("dub", 0.03, "Dubbing the voice (local translation and speech)")
+            cap = next((i for t in doc["tracks"] for i in t["items"] if i["type"] == "caption"), None)
+            if cap and cap["words"]:
+                done = dub.dub([{**w, "start": w["start"] + cap["start"], "end": w["end"] + cap["start"]} for w in cap["words"]],
+                               dl, doc["renderSettings"].get("dubVoice", "female"), project, doc["duration"])
+                if done:
+                    wav, words = done
+                    cap["words"] = [{**w, "start": round(w["start"] - cap["start"], 3), "end": round(w["end"] - cap["start"], 3)}
+                                    for w in words if w["start"] >= cap["start"]]
+                    doc["renderSettings"].update(dubAudio=wav.name, captionsTranslated=True, captionLanguage=dl)
+                    timeline.validate(doc)
+                    _update(rid, timeline=doc)
         lang = doc.get("renderSettings", {}).get("captionLanguage")
         if lang and not doc.get("renderSettings", {}).get("captionsTranslated"):
             from app.services.rendering import translate
@@ -205,6 +221,20 @@ def run_render(ctx: JobContext) -> dict:
             doc["renderSettings"]["captionsTranslated"] = True
             timeline.validate(doc)
             _update(rid, timeline=doc)  # SRT/VTT downloads then match the burned-in captions
+        mode = doc.get("renderSettings", {}).get("broll")
+        if mode and mode != "none" and "brollClips" not in doc["renderSettings"]:
+            from app.services import broll
+
+            ctx.stage("broll", 0.04, "Finding B-roll for the key moments")
+            cap = next((i for t in doc["tracks"] for i in t["items"] if i["type"] == "caption"), None)
+            busy = [(i["start"], i["start"] + i["duration"]) for t in doc["tracks"] for i in t["items"]
+                    if i["type"] == "text"]
+            if cap:
+                plan = broll.moments([{**w, "start": w["start"] + cap["start"], "end": w["end"] + cap["start"]}
+                                      for w in cap["words"]], doc["duration"], avoid=busy)
+                doc["renderSettings"]["brollClips"] = broll.fetch(plan, project, doc["height"] >= doc["width"], mode)
+                timeline.validate(doc)
+                _update(rid, timeline=doc)
         engine = ctx.payload.get("engine", "studio")  # jobs queued before the fast renderer existed: Hyperframes
         why_not = fast.supported(doc) if engine in ("auto", "fast") and rec else "Hyperframes requested"
         if why_not is None:

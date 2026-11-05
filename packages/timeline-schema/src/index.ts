@@ -194,6 +194,17 @@ export const RenderSettings = z.object({
   /** Translate the captions into this language before rendering (local LLM; sentence timing kept). */
   captionLanguage: z.string().regex(/^[a-z]{2,8}$/).optional(),
   captionsTranslated: z.boolean().optional(),
+  /** Auto B-roll: none, free stock (Pexels with a key, else Openverse CC images) or the found image animated by AI. */
+  broll: z.enum(["none", "stock", "ai"]).optional(),
+  brollClips: z.array(z.object({
+    src: z.string().regex(/^[A-Za-z0-9_.-]+$/), at: seconds, duration: z.number().positive(),
+    kind: z.enum(["video", "image"]), query: z.string().max(60).optional(), credit: z.string().max(240).optional(),
+    source: z.string().max(500).nullable().optional(), ai: z.boolean().optional(),
+  })).max(6).optional(),
+  /** Voice dubbing: target language, and the dubbed speech file in the render folder once generated. */
+  dubLanguage: z.string().regex(/^[a-z]{2,8}$/).optional(),
+  dubVoice: z.string().max(80).optional(),
+  dubAudio: z.string().regex(/^[A-Za-z0-9_.-]+$/).optional(),
   /** Thin accent bar that fills across the top as the clip plays. */
   progressBar: z.boolean().optional(),
   /** Emoji stickers (Noto Emoji codepoints, e.g. "1f4b0") shown above the captions. */
