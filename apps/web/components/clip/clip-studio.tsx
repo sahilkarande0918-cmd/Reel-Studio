@@ -92,8 +92,9 @@ export function ClipStudio({ canEdit, kits }: { canEdit: boolean; kits: { id: st
   const set = (k: keyof typeof f) => (v: boolean) => setF({ ...f, [k]: v });
 
   const presets = useQuery({
-    queryKey: ["caption-presets", base], enabled: !!base, staleTime: 3600_000,
-    queryFn: async () => (await (await apiFetch(base!, "/captions/presets")).json()) as Preset[],
+    // the catalog is the same on every route to the engine (tunnel or same machine): one cache entry, retried
+    queryKey: ["caption-presets"], enabled: !!base, staleTime: 3600_000, retry: 3,
+    queryFn: async () => { const r = await apiFetch(base!, "/captions/presets"); if (!r.ok) throw new Error(String(r.status)); return (await r.json()) as Preset[]; },
   });
   const families = [...new Set((presets.data ?? []).map((p) => p.family))];
   const current = presets.data?.find((p) => p.id === caption.preset);
@@ -189,7 +190,7 @@ export function ClipStudio({ canEdit, kits }: { canEdit: boolean; kits: { id: st
               {caption.on && <div className="space-y-2">
                 <div className="flex gap-1.5 overflow-x-auto pb-1">{families.map((x) => <button key={x} type="button" onClick={() => setFamily(x)}
                   className={`shrink-0 rounded-full border px-3 py-1 text-[11px] ${x === fam ? "border-accent bg-accent/10 font-semibold" : "border-line text-muted"}`}>{x}</button>)}</div>
-                {presets.isLoading ? <p className="text-[12px] text-muted">Loading caption styles…</p> : !presets.data ? <p className="text-[12px] text-danger">Caption styles need the engine online.</p> :
+                {!presets.data ? <p className={`text-[12px] ${presets.isError ? "text-danger" : "text-muted"}`}>{presets.isError ? "Caption styles could not load from the engine. Refresh to try again." : "Loading caption styles…"}</p> :
                   <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">{presets.data.filter((p) => p.family === fam).map((p) => <li key={p.id}>
                     <button type="button" onClick={() => setCaption({ ...caption, preset: p.id, overrides: {} })} aria-pressed={caption.preset === p.id}
                       className={`flex h-24 w-full flex-col items-center justify-center gap-2 overflow-hidden rounded-lg bg-[#23281d] p-2 ring-2 ${caption.preset === p.id ? "ring-accent" : "ring-transparent hover:ring-line"}`}>
