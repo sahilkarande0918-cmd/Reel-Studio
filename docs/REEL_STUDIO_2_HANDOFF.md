@@ -175,6 +175,17 @@ shot labels, Terms section for AI video. Backend routers in `app/main.py`, worke
 - Instagram: unchanged OAuth/queue; publish nothing. Series scheduling creates real scheduled posts — not used.
 
 ## 13. Local setup and commands
+**Dashboard engine switch (session 4, `3e41d38`):** dashboard card "Engine" (owners/admins; `ENGINE_ADMIN_EMAILS`
+limits it further) → `POST /engine {processing}`. Off = flag file `DATA_DIR/engine-paused`: `app/serve.py` stops the worker
+tree and unloads Ollama, API + tunnel stay up so the same button turns processing back on; `/health` reports
+`processing`; jobs queue meanwhile (an interrupted job is requeued by the 3-minute stale-lock check). A fully stopped
+engine (desktop button, sleep, shutdown) cannot be reached from the website.
+**Uploads survive navigation (session 4):** `apps/web/lib/uploads.ts` (app-wide manager, 2 parallel) + top-bar
+`UploadTray`: uploads continue across sections and in background tabs; the browser asks before leaving mid-upload;
+unfinished uploads are remembered (localStorage) and resumed after a refresh: one click for files dropped in
+Chrome/Edge (saved FileSystem handles in IndexedDB), otherwise pick the same file (server resumes at received bytes).
+All processing after upload is server-side and unaffected by the browser.
+
 **Engine on/off button (session 4):** desktop shortcut "Reel Studio Engine (on-off)" runs
 `apps/api/engine-switch.ps1 -Action toggle` (windowless; a pop-up reports the result). Off = disables the "Reel Studio
 Engine" task and stops only `app.serve`/`app.workers.run` processes (stays off after reboot); On = enables and starts
