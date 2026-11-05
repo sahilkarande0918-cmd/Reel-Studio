@@ -16,6 +16,30 @@ probed, transcription queued and run automatically (0 words: the film has no dia
 no longer jumps back when the audio stream starts; the import's title/channel/licence are kept after probing. The
 automatic analysis after transcription keeps the original class settings; choose the category in Bulk AI clipping.
 
+## OpusClip-style one-click flow (session 4, commits `768f4b6` … `393c27f`)
+**Web:** sidebar "Clip video" → `/clip` (`components/clip/clip-studio.tsx`): paste link or upload, speech language,
+genre (auto), adjust range, SRT, ratio 9:16/16:9/1:1/4:5 + layout with a live phone preview, recipe (clipping: AI
+picks/length/moments; captions with the 100 preset tiles; auto-hook headline tiles classic/statement/editorial; motion
+graphics; AI emojis; auto B-roll; speech cleanup; enhance audio; auto SFX; auto zoom; auto transitions; colour
+correction; progress bar; voice dubbing; caption translation; brand kit) → **Get clips** creates the project and hands
+the recipe to the engine. Project page: `ClipGallery` grid (preview, score, length, live render state, download, ZIP).
+**Engine:** `Recipe` (recordings.py) stored in `source_recordings.probe.recipe` → transcription uses its language (or
+the uploaded SRT, `transcription/srt.py`) → analysis uses its clip options → `_auto_render` queues every clip with its
+render settings. A manual re-run from the Bulk panel never auto-renders.
+**Renderer additions** (`rendering/fast.py`, `timeline.py`): formats via `timeline.ASPECTS` + `reaspect`; transitions
+(`_transitions`, xfade without changing the edit's length); motion graphics (`motion_items`: number callouts, topic
+lower third); progress bar; AI emojis (`rendering/emoji.py`, Noto 3D PNGs); caption translation
+(`rendering/translate.py`, 20 languages, in the render worker, timeline saved back so SRT/VTT match); B-roll
+(`services/broll.py`); dubbing (`services/dub.py`, Kokoro en/hi/es/fr/it/pt/ja/zh or a consented voice profile).
+**Measured on the synthetic fixture:** all four formats exact length (9:16/1:1/4:5/16:9, 11–22 s per clip with every
+option on); Hindi captions render in Devanagari (translation 65 s with the 7B model, somewhat literal); Spanish dub
+15 s + render 7 s, exact length, speech confirmed by re-transcription.
+**Honest gaps:** stock B-roll needs the owner's free `PEXELS_API_KEY` in `apps/api/.env` (Openverse photos rarely match
+strictly; loose matches were rejected after a political photo appeared for "sales demo"); AI B-roll animates found
+stills only; dubbing does not clone other speakers' voices (consent) and removes the original background; the studio
+(Hyperframes) renderer ignores the new fast-renderer-only options; the whole one-click flow has not yet been run
+through the live website with a real podcast.
+
 ## Flow
 `POST /recordings/{id}/analyze` with `{profile, count, duration, brief, range_start_s, range_end_s}` →
 `workers/analyze._analyze_talk` (any profile except `education`, which keeps the original class-reel path and `KEEP = 6`):
