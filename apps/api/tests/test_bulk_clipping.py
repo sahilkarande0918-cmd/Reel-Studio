@@ -210,3 +210,14 @@ def test_fast_renderer_captions_use_the_same_pages_as_the_preview():
     events = [ln for ln in text.splitlines() if ln.startswith("Dialogue:")]
     assert len(events) == sum(len([w for ln in p["lines"] for w in ln]) for p in pages)
     assert "PRICE" in text and "\\fscx115" in text  # uppercase look, scale highlight on the spoken word
+
+
+def test_caption_fragments_join():
+    from app.services.rendering.timeline import join_fragments
+
+    def w(t, s):
+        return {"text": t, "start": s, "end": s + 0.2, "isCode": False}
+
+    out = join_fragments([w("800", 0), w(",000", 0.2), w("dollars", 0.4), w("it", 0.6), w("'s", 0.8), w("40", 1), w("%", 1.2)])
+    assert [x["text"] for x in out] == ["800,000", "dollars", "it's", "40%"]
+    assert out[0]["end"] == 0.4

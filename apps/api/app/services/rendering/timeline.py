@@ -150,6 +150,21 @@ def caption_words(words: list[dict], start: float, end: float) -> list[dict]:
     return out
 
 
+FRAGMENT = re.compile(r"^([,.]\d+|[,.!?;:%'’]+[\w%]*)$")  # ASR pieces: "800" ",000"; "it" "'s"; "40" "%"
+
+
+def join_fragments(words: list[dict]) -> list[dict]:
+    """Glue tokens the recogniser split off a word back onto it ("800 ,000" → "800,000")."""
+    out: list[dict] = []
+    for w in words:
+        if out and FRAGMENT.match(w["text"]):
+            prev = out[-1]
+            out[-1] = {**prev, "text": prev["text"] + w["text"], "end": max(prev["end"], w["end"])}
+        else:
+            out.append(w)
+    return out
+
+
 NUM = re.compile(r"^[₹$]?\d[\d,.]*%?$")
 UNITS = {"percent", "%", "crore", "lakh", "million", "billion", "thousand", "dollars", "rupees", "x", "times", "minutes",
          "hours", "days", "months", "years", "customers", "users", "people"}
@@ -330,6 +345,7 @@ def build(
                         "sourceStart": start, "sourceEnd": round(start + duration, 3), "volume": 1,
                         "cropKeyframes": keyframes}]
         cap_words = caption_words(words, start, end)
+    cap_words = join_fragments(cap_words)
     zooms: list[float] = []
     if emphasis or auto_zoom:
         from app.services.rendering import caption_auto
