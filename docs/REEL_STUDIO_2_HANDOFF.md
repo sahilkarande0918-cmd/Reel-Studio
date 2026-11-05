@@ -175,6 +175,13 @@ shot labels, Terms section for AI video. Backend routers in `app/main.py`, worke
 - Instagram: unchanged OAuth/queue; publish nothing. Series scheduling creates real scheduled posts — not used.
 
 ## 13. Local setup and commands
+**Engine on/off button (session 4):** desktop shortcut "Reel Studio Engine (on-off)" runs
+`apps/api/engine-switch.ps1 -Action toggle` (windowless; a pop-up reports the result). Off = disables the "Reel Studio
+Engine" task and stops only `app.serve`/`app.workers.run` processes (stays off after reboot); On = enables and starts
+the task and waits for `/health`. Also `-Action start|stop|status` (add `-Quiet` for console output). Recreate the
+shortcut: target `conhost.exe --headless powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File
+<repo>ppspi\engine-switch.ps1 -Action toggle`, icon `shell32.dll,27`.
+
 ```bash
 # production engine
 powershell -c "Enable-ScheduledTask -TaskName 'Reel Studio Engine'; Start-ScheduledTask -TaskName 'Reel Studio Engine'"
