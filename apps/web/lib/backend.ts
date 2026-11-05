@@ -40,6 +40,13 @@ async function discover(): Promise<BackendStatus> {
       return { state: "offline", reason: `Last seen ${new Date(data.last_seen_at).toLocaleString()}.` };
     url = data.url;
   }
+  // On the processing computer itself the direct route wins when it answers quickly: through a TLS-intercepting network
+  // the tunnel can stall requests for many seconds. Elsewhere 127.0.0.1 is refused at once and the tunnel is used.
+  try {
+    const capabilities = await Promise.race([health(SAME_MACHINE), new Promise<never>((_, no) => setTimeout(() => no(new Error("slow")), 700))]);
+    try { sessionStorage.setItem(REMEMBER, SAME_MACHINE); } catch { /* storage unavailable */ }
+    return { state: "online", url: SAME_MACHINE, ...capabilities };
+  } catch { /* not this machine, or not answering: try the tunnel */ }
   const candidates = [...new Set([url, SAME_MACHINE])];
   try {
     return await Promise.any(candidates.map(async (candidate) => {
