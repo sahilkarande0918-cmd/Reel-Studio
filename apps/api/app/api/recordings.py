@@ -18,6 +18,7 @@ from app.core.auth import User, current_user
 from app.core.db import service_client
 from app.core.storage import source_path
 from app.core.upload import CHUNK_MAX, append_chunk
+from app.api.renders import RenderRequest
 from app.services import media
 
 router = APIRouter(prefix="/recordings")
@@ -42,6 +43,7 @@ class CreateRecording(BaseModel):
     project_id: str
     filename: str = Field(min_length=1, max_length=255)
     size_bytes: int = Field(gt=0, le=media.MAX_BYTES)
+    recipe: "Recipe | None" = None  # one-click clipping: how to transcribe, clip and render (see Recipe)
 
 
 @router.post("", status_code=201)
@@ -64,6 +66,7 @@ def create(body: CreateRecording, user: User = Depends(current_user)) -> dict:
                 "created_by": user.id,
                 "filename": Path(body.filename).name,
                 "size_bytes": body.size_bytes,
+                **({"probe": {"recipe": body.recipe.model_dump()}} if body.recipe else {}),
             }
         )
         .execute()
@@ -133,9 +136,8 @@ def finalize(rec: dict, user_id: str) -> dict:
             **summary,
             "status": "uploaded",
             "storage_path": str(p.relative_to(p.parents[4])),
-            # a link import keeps where it came from (url, title, channel, licence) next to the probe
-            "probe": {**info["format"], **({"import": (rec.get("probe") or {})["import"]}
-                                          if (rec.get("probe") or {}).get("import") else {})},
+            # a link import keeps where it came from (url, title, channel, licence) and the clipping recipe
+            "probe": {**info["format"], **{k: v for k, v in (rec.get("probe") or {}).items() if k in ("import", "recipe")}},
         }
     ).eq("id", rec_id).execute()
     job = (
@@ -161,6 +163,7 @@ class ImportLink(BaseModel):
     project_id: str
     url: str = Field(min_length=10, max_length=500)
     rights_confirmed: bool  # "I own this video or have permission to clip it"
+    recipe: "Recipe | None" = None
 
 
 @router.post("/import", status_code=202)
@@ -180,7 +183,8 @@ def import_link(body: ImportLink, user: User = Depends(current_user)) -> dict:
     db = service_client()
     row = db.table("source_recordings").insert({
         "organization_id": project["organization_id"], "project_id": project["id"], "created_by": user.id,
-        "filename": "youtube-import.mp4", "size_bytes": 1, "probe": {"import": {"url": url}},
+        "filename": "youtube-import.mp4", "size_bytes": 1,
+        "probe": {"import": {"url": url}, **({"recipe": body.recipe.model_dump()} if body.recipe else {})},
     }).execute().data[0]
     job = db.table("jobs").insert({
         "organization_id": project["organization_id"], "project_id": project["id"], "job_type": "import_url",
@@ -276,6 +280,15 @@ def reanalyze(rec_id: str, body: AnalyzeOptions | None = None, user: User = Depe
     return {"job_id": job["id"]}
 
 
+class Recipe(BaseModel):
+    """One click → finished clips (OpusClip-style "recipe"): speech language, how clips are picked, and how every clip
+    found is rendered. Stored with the recording; transcription, analysis and rendering follow it automatically."""
+
+    language: Literal["auto", "en", "hi", "hinglish"] = "auto"
+    analyze: AnalyzeOptions = Field(default_factory=lambda: AnalyzeOptions(profile="auto", duration="auto"))
+    render: "RenderRequest | None" = None  # None = find clips only, render nothing automatically
+
+
 @router.get("/{rec_id}/media-url")
 def media_url(rec_id: str, request: Request, user: User = Depends(current_user)) -> dict:
     rec = get_owned("source_recordings", rec_id, user)
@@ -292,3 +305,7 @@ def media_file(rec_id: str, exp: int, sig: str) -> FileResponse:
     if not rows or rows[0]["status"] == "uploading":
         raise HTTPException(404, "Not found")
     return FileResponse(source_path(rows[0]))  # Starlette FileResponse serves HTTP Range requests
+
+
+CreateRecording.model_rebuild()
+ImportLink.model_rebuild()

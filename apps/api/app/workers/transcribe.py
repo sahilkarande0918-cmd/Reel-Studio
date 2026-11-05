@@ -52,8 +52,11 @@ def _run(ctx: JobContext, db, rec: dict, src) -> dict:
 
     ctx.stage("transcribe", 0.08, "Transcribing speech on the local GPU")
     t0 = time.perf_counter()
+    recipe = (rec.get("probe") or {}).get("recipe") or {}
+    lang = {"auto": None, "en": "en", "hi": "hi", "hinglish": "hi"}.get(recipe.get("language", ""), "") if recipe else ""
     result = whisper.transcribe(
-        audio, hotwords=gl.hotwords(), on_progress=lambda p: ctx.progress(0.08 + 0.8 * p)
+        audio, hotwords=gl.hotwords(), on_progress=lambda p: ctx.progress(0.08 + 0.8 * p),
+        **({"language": lang} if lang != "" else {}),  # no recipe: the configured default (Hinglish)
     )
     elapsed = time.perf_counter() - t0
     ctx.check_cancel()
@@ -94,8 +97,10 @@ def _run(ctx: JobContext, db, rec: dict, src) -> dict:
             "organization_id": rec["organization_id"],
             "project_id": rec["project_id"],
             "job_type": "analyze",
-            "payload": {"recording_id": rec["id"]},
+            "payload": {"recording_id": rec["id"], **(recipe.get("analyze") or {}),
+                        **({"auto_render": True} if recipe.get("render") else {})},
             "current_stage": "queued",
+            "created_by": rec["created_by"],
         }
     ).execute()
     corrected = sum(1 for w in words if "correction" in w["metadata"])

@@ -48,6 +48,11 @@ class RenderRequest(BaseModel):
     # 9:16 layout: auto = speaker-aware framing from analysis, fill = centred crop, fit = the whole frame over a
     # blurred copy of itself (nothing cropped away)
     layout: Literal["auto", "fill", "fit"] = "auto"
+    aspect: Literal["9:16", "4:5", "1:1", "16:9"] = "9:16"  # Shorts/Reels, feed, square, YouTube/landscape
+    motion: bool = False  # key-number callouts + topic lower third
+    emojis: bool = False  # AI emoji stickers from what is said
+    progress_bar: bool = False
+    transitions: Literal["none", "auto", "fade", "slide", "flash"] = "none"
 
 
 def _brand_kit(org_id: str, kit_id: str | None) -> dict | None:
@@ -139,7 +144,8 @@ def enqueue_highlight_render(h: dict, body: RenderRequest, user_id: str) -> dict
     doc = timeline.build(h, rec, words, render_id, body.quality, kit=kit, logo_src=logo[0] if logo else None,
                          spans=spans, hook_title=(h.get("title") if body.hook_title else None), emphasis=body.emphasis,
                          hook_style=body.hook_style, auto_zoom=body.auto_zoom, color_correct=body.color_correct,
-                         sfx=body.sfx)
+                         sfx=body.sfx, aspect=body.aspect, motion=body.motion, emojis=body.emojis,
+                         progress_bar=body.progress_bar, transitions=body.transitions)
     doc["stylePreset"] = body.style
     preset = body.caption_preset
     if preset == "auto":

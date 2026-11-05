@@ -14,6 +14,8 @@ import jsonschema
 
 SCHEMA_PATH = Path(__file__).parents[5] / "packages" / "timeline-schema" / "timeline.schema.json"
 W, H = 1080, 1920
+# output formats: Shorts/Reels/TikTok 9:16, feed 4:5 and 1:1, YouTube/landscape 16:9
+ASPECTS = {"9:16": (1080, 1920), "4:5": (1080, 1350), "1:1": (1080, 1080), "16:9": (1920, 1080)}
 
 DEFAULT_BRAND = {
     "name": "",
@@ -148,6 +150,72 @@ def caption_words(words: list[dict], start: float, end: float) -> list[dict]:
     return out
 
 
+NUM = re.compile(r"^[₹$]?\d[\d,.]*%?$")
+UNITS = {"percent", "%", "crore", "lakh", "million", "billion", "thousand", "dollars", "rupees", "x", "times", "minutes",
+         "hours", "days", "months", "years", "customers", "users", "people"}
+
+
+def motion_items(words: list[dict], duration: float, topic: str | None, W: int, H: int,
+                 busy: list[tuple[float, float]]) -> list[dict]:
+    """Motion graphics grounded in the clip: a callout for spoken numbers ("40 percent", "₹2 crore"), at most two,
+    4 s apart, never over the headline; a lower third naming the clip's topic early on."""
+    out: list[dict] = []
+    last = -99.0
+    for i, w in enumerate(words):
+        t = w["text"].strip(".,!?;:\"'")
+        if not NUM.match(t) or w["start"] - last < 4 or w["start"] + 1.8 > duration:
+            continue
+        if any(a - 0.3 < w["start"] < b + 0.3 for a, b in busy):
+            continue
+        nxt = words[i + 1]["text"].strip(".,!?;:\"'").lower() if i + 1 < len(words) else ""
+        label = f"{t} {nxt}" if nxt in UNITS else t
+        out.append({"id": f"callout-{len(out)}", "type": "text", "start": round(w["start"], 3), "duration": 1.8,
+                    "text": label.upper()[:24], "x": W / 2, "y": round(H * 0.3), "fontSize": 120, "align": "center",
+                    "style": "callout"})
+        last = w["start"]
+        if len(out) == 2:
+            break
+    if topic and duration > 9:
+        start = 3.0 if not any(a < 3.0 < b for a, b in busy) else 6.0
+        if start + 3.5 < duration:
+            out.append({"id": "lower-third", "type": "text", "start": start, "duration": 3.2,
+                        "text": topic.strip()[:40].title(), "x": 60, "y": round(H * 0.62), "fontSize": 46,
+                        "align": "left", "style": "lower_third"})
+    return out
+
+
+def _even(v: float) -> int:
+    return int(v) // 2 * 2
+
+
+def _fit(box: dict, ar: float, src_w: int, src_h: int) -> dict:
+    """The largest box of aspect `ar` centred where `box` is centred, inside the source (faces stay in frame)."""
+    cx, cy = box["crop_x"] + box["crop_width"] / 2, box["crop_y"] + box["crop_height"] / 2
+    h = min(box["crop_height"], src_h)
+    w = h * ar
+    if w > src_w:
+        w, h = src_w, src_w / ar
+    w, h = _even(w), _even(h)
+    x = _even(min(max(cx - w / 2, 0), src_w - w))
+    y = _even(min(max(cy - h / 2, 0), src_h - h))
+    return {"crop_x": x, "crop_y": y, "crop_width": w, "crop_height": h}
+
+
+def reaspect(keyframes: list[dict], src_w: int, src_h: int, out_w: int, out_h: int) -> list[dict]:
+    """Crop keyframes planned for 9:16 → the same subjects framed for another output shape. A split screen stacks
+    two halves in portrait/square and sits side by side in landscape; a panel (whole frame) stays a panel."""
+    out = []
+    for k in keyframes:
+        if k["layout"] == "panel":
+            out.append(k)
+        elif k["layout"] == "split" and k.get("second"):
+            half = (out_w / 2) / out_h if out_w > out_h else out_w / (out_h / 2)
+            out.append({**k, **_fit(k, half, src_w, src_h), "second": _fit(k["second"], half, src_w, src_h)})
+        else:
+            out.append({**k, **_fit(k, out_w / out_h, src_w, src_h)})
+    return out
+
+
 ZOOM, ZOOM_S = 1.15, 1.8
 
 
@@ -189,6 +257,11 @@ def build(
     auto_zoom: bool = False,
     color_correct: bool = False,
     sfx: bool = False,
+    aspect: str = "9:16",
+    motion: bool = False,
+    emojis: bool = False,
+    progress_bar: bool = False,
+    transitions: str = "none",
 ) -> dict:
     """`logo_src` is the logo file name the caller wrote into the render directory (see `logo_file`).
     `spans`: source stretches played back to back (speech-aware cuts, an opening teaser); None = the whole clip.
@@ -199,7 +272,8 @@ def build(
         duration = round(sum(round(b - a, 3) for a, b in spans), 3)
     title = (highlight.get("title") or "")[:120]
     brand, preset = brand_snapshot(kit, title)
-    zone = CAPTION_ZONES[(kit or {}).get("caption_position") or "lower"]
+    OW, OH = ASPECTS.get(aspect, (W, H))
+    zone = tuple(round(v * OH / H) for v in CAPTION_ZONES[(kit or {}).get("caption_position") or "lower"])
     lead = brand["intro"]["duration"] if brand["intro"]["enabled"] else 0.0
     tail = brand["outro"]["duration"] if brand["outro"]["enabled"] else 0.0
     assets = {
@@ -216,8 +290,8 @@ def build(
         assets["logo"] = {"id": "logo", "kind": "image", "src": logo_src}
         brand = {**brand, "logoAssetId": "logo"}
     keyframes = highlight.get("crop_keyframes") or []
-    if not keyframes:  # centred 9:16 window
-        cw = int(round(recording["height"] * 9 / 16 / 2) * 2)
+    if not keyframes:  # centred window of the output's shape
+        cw = min(recording["width"], int(round(recording["height"] * OW / OH / 2) * 2))
         keyframes = [
             {
                 "t": 0.0,
@@ -230,6 +304,8 @@ def build(
                 "transition_mode": "start",
             }
         ]
+    if (OW, OH) != (W, H):
+        keyframes = reaspect(keyframes, recording["width"], recording["height"], OW, OH)
     if spans:
         video_items, cap_words, off = [], [], lead
         for n, (a, b) in enumerate(spans):
@@ -271,8 +347,8 @@ def build(
         "id": render_id,
         "schemaVersion": 1,
         "fps": 30,
-        "width": W,
-        "height": H,
+        "width": OW,
+        "height": OH,
         "title": title,
         "duration": round(lead + duration + tail, 3),
         "source": {"recordingId": recording["id"], "highlightId": highlight["id"]},
@@ -305,13 +381,32 @@ def build(
         "renderSettings": {"quality": quality},
     }
     if hook_title:
-        y = 300 if zone[0] >= H / 2 else 1480
+        y = round((300 if zone[0] >= OH / 2 else 1480) * OH / H)  # clear of the captions, scaled to the format
         doc["tracks"].append({"id": "titles", "kind": "overlay", "items": [
             {"id": "hook-title", "type": "text", "start": lead, "duration": round(min(2.5, duration), 3),
-             "text": hook_title[:80], "x": W / 2, "y": y, "fontSize": 64, "align": "center", "box": True,
+             "text": hook_title[:80], "x": OW / 2, "y": y, "fontSize": 64, "align": "center", "box": True,
              "style": hook_style}]})
     if color_correct:
         doc["renderSettings"]["colorCorrect"] = True
+    if transitions != "none":
+        doc["renderSettings"]["transitions"] = transitions
+    if progress_bar:
+        doc["renderSettings"]["progressBar"] = True
+    busy = [(0.0, 2.6)] if hook_title else []  # the headline's first seconds stay clear
+    if motion:
+        graphics = motion_items(cap_words, duration, (highlight.get("features") or {}).get("topic"), OW, OH, busy)
+        for g in graphics:
+            g["start"] = round(lead + g["start"], 3)
+        if graphics:
+            doc["tracks"].append({"id": "graphics", "kind": "overlay", "items": graphics})
+            busy += [(g["start"] - lead, g["start"] - lead + g["duration"]) for g in graphics if g["style"] == "callout"]
+    if emojis:
+        from app.services.rendering import emoji
+
+        picks = [e for e in emoji.choose(cap_words, duration)
+                 if not any(a - 0.3 < e["at"] < b + 0.3 for a, b in busy)]
+        if picks:
+            doc["renderSettings"]["emojis"] = [{**e, "at": round(lead + e["at"], 3)} for e in picks[:30]]
     if sfx:  # a whoosh as the headline lands, a soft impact under each punch-in
         cues = ([{"kind": "whoosh", "at": round(lead + 0.15, 3)}] if hook_title else []) + [
             {"kind": "impact", "at": round(lead + z, 3)} for z in zooms]

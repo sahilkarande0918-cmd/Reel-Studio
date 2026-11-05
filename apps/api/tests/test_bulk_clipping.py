@@ -202,7 +202,7 @@ def test_fast_renderer_captions_use_the_same_pages_as_the_preview():
              for i, t in enumerate("price on value and sales grew 40 percent".split())]
     style = caption_presets.style_for("creator-yellow", {"fontSize": 60, "maxCharsPerLine": 26, "maxLines": 2,
                                                           "safeTop": 1350, "safeBottom": 1650}, 1920)
-    doc = {"captionStyle": style, "brand": {"fonts": {"body": "Archivo"}, "colors": {"accent": "#FFD43B",
+    doc = {"width": 1080, "height": 1920, "duration": 4, "captionStyle": style, "brand": {"fonts": {"body": "Archivo"}, "colors": {"accent": "#FFD43B",
            "background": "#000000"}},
            "tracks": [{"items": [{"type": "caption", "start": 0, "duration": 4, "words": words}]}]}
     pages = compose.paginate(words, 26, 2, 4)

@@ -19,7 +19,6 @@ from app.core.config import get_settings
 from app.services.rendering import compose
 
 FONTS = Path(__file__).parent / "fonts"
-W, H = 1080, 1920
 PANEL_CENTER = 0.42
 ASS_SCALE = 1.3
 
@@ -129,7 +128,8 @@ def _entrance(look: dict) -> str:
 
 
 def ass(doc: dict) -> str:
-    """ASS subtitles for every caption and text item of the doc (frame size 1080×1920)."""
+    """ASS subtitles for every caption and text item of the doc (any frame size; 1080×1920 by default)."""
+    W, H = doc["width"], doc["height"]
     style = doc["captionStyle"]
     look = style.get("look") or {"font": doc["brand"]["fonts"].get("body", "Archivo"), "color": "#FFFFFF",
                                  "active": doc["brand"]["colors"]["accent"], "highlight": "fill", "stroke": 4}
@@ -157,6 +157,12 @@ def ass(doc: dict) -> str:
         "22,0,8,90,90,0,1",
         f"Style: HookStatement,{family('Archivo')},132,&H00FFFFFF,&H000000FF,&H00000000,&H90000000,0,0,0,0,100,100,0,0,1,"
         "0,5,1,80,120,0,1",
+        # motion graphics: key-number callout (accent card, pop) and lower third (slides in from the left)
+        f"Style: Callout,{family('Archivo')},{round(130 * min(W, H) / 1080)},"
+        f"{_ass_color(compose.brand_ink(doc['brand']['colors']['accent']))},&H000000FF,"
+        f"{_ass_color(doc['brand']['colors']['accent'])},&H00000000,0,0,0,0,100,100,0,0,3,26,0,5,60,60,0,1",
+        f"Style: LowerThird,{family('Archivo')},{round(46 * min(W, H) / 1080)},&H00FFFFFF,&H000000FF,&H00141414,"
+        "&H00141414,0,0,0,0,100,100,0,0,3,16,0,1,60,60,0,1",
         f"Style: HookEditorial,{family('Fraunces')},96,{_ass_color(doc['brand']['colors']['accent'])},&H000000FF,"
         "&H00000000,&H80000000,0,-1,0,0,100,100,0,0,1,0,4,8,80,80,0,1",
         "", "[Events]", "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
@@ -179,8 +185,10 @@ def ass(doc: dict) -> str:
                         body = "\\N".join(" ".join(_word(x, look, x is w, upper) for x in ln) for ln in p["lines"])
                         tag = f"{{\\an5\\pos({W // 2},{round(cy)}){_entrance(look) if j == 0 else ''}}}"
                         lines.append(f"Dialogue: 0,{_t(off + a)},{_t(off + b)},Cap,,0,0,0,,{tag}{body}")
+            elif item["type"] == "text" and item.get("style") in ("callout", "lower_third"):
+                lines.append(_motion(item, W, H))
             elif item["type"] == "text" and item.get("style") in ("classic", "statement", "editorial"):
-                lines.append(_hook(item))
+                lines.append(_hook(item, W, H))
             elif item["type"] == "text":
                 an = {"left": 7, "center": 8, "right": 9}[item.get("align", "left")]
                 x = W // 2 if an == 8 else round(item.get("x", 80))
@@ -190,6 +198,11 @@ def ass(doc: dict) -> str:
                        f"\\fad(200,200)}}")
                 lines.append(f"Dialogue: 1,{_t(item['start'])},{_t(item['start'] + item['duration'])},Title,,0,0,0,,"
                              f"{tag}{_esc(item['text'])}")
+    if doc.get("renderSettings", {}).get("progressBar"):  # thin accent bar filling across the top
+        bar = max(6, round(H / 240))
+        col = _ass_color(doc["brand"]["colors"]["accent"])
+        tag = r"{\an7\pos(0,0)\bord0\shad0\1c%s\fscx0\t(0,%d,\fscx100)\p1}" % (col, round(doc["duration"] * 1000))
+        lines.append(f"Dialogue: 3,{_t(0)},{_t(doc['duration'])},Cap,,0,0,0,,{tag}m 0 0 l {W} 0 {W} {bar} 0 {bar}" + r"{\p0}")
     return "\n".join(lines) + "\n"
 
 
@@ -204,7 +217,7 @@ def _wrap(text: str, width: int) -> list[str]:
     return [*out, cur] if cur else out
 
 
-def _hook(item: dict) -> str:
+def _hook(item: dict, W: int = 1080, H: int = 1920) -> str:
     """One headline event in the item's style, wrapped to balanced lines and faded in and out."""
     style, text = item["style"], _esc(item["text"].strip())
     t0, t1 = _t(item["start"]), _t(item["start"] + item["duration"])
@@ -218,16 +231,29 @@ def _hook(item: dict) -> str:
         words = text.split()
         cut = max(len(words) - 3, 0)
         lead = (r"{\fs62}" + " ".join(words[:cut]) + nl + r"{\fs132}") if cut else ""
-        tag = r"{\an1\pos(80,%d)\fad(150,200)}" % max(y, 1250)
+        tag = r"{\an1\pos(80,%d)\fad(150,200)}" % max(y, round(H * 0.65))
         return head + "HookStatement,,0,0,0,," + tag + lead + nl.join(_wrap(" ".join(words[cut:]), 12))
     tag = r"{\an8\pos(%d,%d)\fad(200,200)}" % (W // 2, y)
     return head + "HookEditorial,,0,0,0,," + tag + nl.join(_wrap(text, 18))
 
 
+def _motion(item: dict, W: int, H: int) -> str:
+    """Motion-graphics events: a key-number callout pops in (scale overshoot), a lower third slides in from the left."""
+    t0, t1 = _t(item["start"]), _t(item["start"] + item["duration"])
+    text = _esc(item["text"].strip())
+    if item["style"] == "callout":
+        y = round(item.get("y", H * 0.3))
+        tag = r"{\an5\pos(%d,%d)\fscx30\fscy30\t(0,160,\fscx112\fscy112)\t(160,260,\fscx100\fscy100)\fad(0,200)}" % (W // 2, y)
+        return f"Dialogue: 2,{t0},{t1},Callout,,0,0,0,,{tag}{text}"
+    y = round(item.get("y", H * 0.62))
+    tag = r"{\an1\move(%d,%d,60,%d,0,320)\fad(0,250)}" % (-W // 2, y, y)
+    return f"Dialogue: 2,{t0},{t1},LowerThird,,0,0,0,,{tag}{text}"
+
+
 # ------------------------------------------------------------------ video graph
 
 
-def _pieces(item: dict) -> list[tuple[float, float, dict]]:
+def _pieces(item: dict) -> list[tuple[float, float, dict]]:  # (source start, source end, keyframe)
     """(source start, source end, keyframe) for each stretch of one video item held on one crop keyframe."""
     ks = sorted(item["cropKeyframes"], key=lambda k: k["t"])
     out = []
@@ -244,36 +270,77 @@ def _crop(k: dict) -> str:
     return f"crop={k['crop_width']}:{k['crop_height']}:{k['crop_x']}:{k['crop_y']}"
 
 
+XFADE = {"auto": "fade", "fade": "fade", "slide": "slideleft", "flash": "fadewhite"}
+XFADE_S = 0.18
+
+
+def _transitions(doc: dict, pieces: list) -> list[str | None]:
+    """xfade kind for the boundary before each piece (None = straight cut). auto: only where the framing changes to
+    another speaker or layout; fade/slide/flash: also where a speech cut joins two stretches. Punch-ins never."""
+    mode = doc.get("renderSettings", {}).get("transitions") or "none"
+    out: list[str | None] = [None]
+    for (pa, pb, pk, pit), (qa, qb, qk, qit) in zip(pieces, pieces[1:], strict=False):
+        zoom = "zoom" in (pk.get("region"), qk.get("region"))
+        framing = (pk.get("region"), pk["layout"]) != (qk.get("region"), qk["layout"])
+        join = pit is not qit
+        hit = mode != "none" and not zoom and (framing or (join and mode != "auto"))
+        short = min(pb - pa, qb - qa) < 3 * XFADE_S
+        out.append(XFADE[mode] if hit and not short else None)
+    return out
+
+
 def graph(doc: dict, t0: float) -> tuple[str, int]:
-    """filter_complex for the doc; input 0 is the source seeked to t0. Returns (graph, number of pieces)."""
+    """filter_complex for the doc; input 0 is the source seeked to t0. Returns (graph, number of pieces).
+    Transitions keep the edit's length: the shot before one runs XFADE_S longer and the two overlap by that much."""
+    W, H = doc["width"], doc["height"]
+    fps = doc["fps"]
     items = sorted((i for t in doc["tracks"] for i in t["items"] if i["type"] == "video"), key=lambda i: i["start"])
-    pieces = [p for it in items for p in _pieces(it)]
+    pieces = [(*p, it) for it in items for p in _pieces(it)]
     n = len(pieces)
+    trans = _transitions(doc, pieces)
     parts = [f"[0:v]split={n}" + "".join(f"[s{i}]" for i in range(n)) if n > 1 else "[0:v]null[s0]",
              f"[0:a]asplit={len(items)}" + "".join(f"[r{i}]" for i in range(len(items))) if len(items) > 1 else "[0:a]anull[r0]"]
-    for i, (a, b, k) in enumerate(pieces):
-        trim = f"[s{i}]trim=start={a - t0:.4f}:end={b - t0:.4f},setpts=PTS-STARTPTS"
+    lengths = []
+    for i, (a, b, k, _it) in enumerate(pieces):
+        ext = XFADE_S if i + 1 < n and trans[i + 1] else 0.0
+        lengths.append(b - a + ext)
+        trim = f"[s{i}]trim=start={a - t0:.4f}:end={b + ext - t0:.4f},setpts=PTS-STARTPTS"
+        norm = f"fps={fps},settb=AVTB,format=yuv420p,setsar=1"
         if k["layout"] == "split" and k.get("second"):
-            hh = H // 2
+            side = W > H  # landscape: side by side; portrait/square: stacked
+            hw, hh = (W // 2, H) if side else (W, H // 2)
             parts.append(f"{trim},split[t{i}][u{i}]")
-            parts.append(f"[t{i}]{_crop(k)},scale={W}:{hh}:force_original_aspect_ratio=increase,crop={W}:{hh}[ta{i}]")
-            parts.append(f"[u{i}]{_crop(k['second'])},scale={W}:{hh}:force_original_aspect_ratio=increase,crop={W}:{hh}[ub{i}]")
-            parts.append(f"[ta{i}][ub{i}]vstack,setsar=1[v{i}]")
+            parts.append(f"[t{i}]{_crop(k)},scale={hw}:{hh}:force_original_aspect_ratio=increase,crop={hw}:{hh}[ta{i}]")
+            parts.append(f"[u{i}]{_crop(k['second'])},scale={hw}:{hh}:force_original_aspect_ratio=increase,crop={hw}:{hh}[ub{i}]")
+            parts.append(f"[ta{i}][ub{i}]{'hstack' if side else 'vstack'},{norm}[v{i}]")
         elif k["layout"] == "panel":
-            ph = round(k["crop_height"] * W / k["crop_width"] / 2) * 2
-            y = min(max(round(PANEL_CENTER * H - ph / 2), 0), H - ph)
+            ph = min(H, round(k["crop_height"] * W / k["crop_width"] / 2) * 2)
+            pw = W if ph < H else round(k["crop_width"] * H / k["crop_height"] / 2) * 2
+            y = min(max(round(PANEL_CENTER * H - ph / 2), 0), H - ph) if ph < H else 0
             parts.append(f"{trim},{_crop(k)},split[pa{i}][pb{i}]")
             parts.append(f"[pa{i}]scale={W // 4}:{H // 4}:force_original_aspect_ratio=increase,crop={W // 4}:{H // 4},"
                          f"boxblur=8:2,scale={W}:{H},eq=brightness=-0.12[bg{i}]")  # blur a quarter-size copy: same look, ~10x cheaper
-            parts.append(f"[pb{i}]scale={W}:{ph}[fg{i}]")
-            parts.append(f"[bg{i}][fg{i}]overlay=0:{y},setsar=1[v{i}]")
+            parts.append(f"[pb{i}]scale={pw}:{ph}[fg{i}]")
+            parts.append(f"[bg{i}][fg{i}]overlay=(W-w)/2:{y},{norm}[v{i}]")
         else:
-            parts.append(f"{trim},{_crop(k)},scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},setsar=1[v{i}]")
+            parts.append(f"{trim},{_crop(k)},scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},{norm}[v{i}]")
     for i, it in enumerate(items):  # audio per span, 8 ms fades so joins inside silence never click
         d = it["sourceEnd"] - it["sourceStart"]
         parts.append(f"[r{i}]atrim=start={it['sourceStart'] - t0:.4f}:end={it['sourceEnd'] - t0:.4f},asetpts=PTS-STARTPTS,"
                      f"afade=t=in:d=0.008,afade=t=out:st={max(d - 0.008, 0):.4f}:d=0.008,volume={it.get('volume', 1)}[a{i}]")
-    parts.append("".join(f"[v{i}]" for i in range(n)) + f"concat=n={n}:v=1:a=0,fps={doc['fps']}[vc]")
+    if not any(trans):
+        parts.append("".join(f"[v{i}]" for i in range(n)) + "concat=n=%d:v=1:a=0[vc]" % n)
+    else:  # fold left: straight cuts concatenate, transitions overlap by XFADE_S (lengths already include it)
+        cur, total = "v0", lengths[0]
+        for i in range(1, n):
+            out = "vc" if i == n - 1 else f"x{i}"
+            if trans[i]:
+                parts.append(f"[{cur}][v{i}]xfade=transition={trans[i]}:duration={XFADE_S}:offset={total - XFADE_S:.4f}[{out}]")
+                total += lengths[i] - XFADE_S
+            else:
+                parts.append(f"[{cur}][v{i}]concat=n=2:v=1:a=0[{out}]")
+                total += lengths[i]
+            cur = out
     parts.append("".join(f"[a{i}]" for i in range(len(items))) + f"concat=n={len(items)}:v=0:a=1[ac]")
     return ";".join(parts), n
 
@@ -305,14 +372,34 @@ def render(doc: dict, source: Path, project: Path, enhance_audio: bool = True, t
     g, _ = graph(doc, t0)
     rs = doc.get("renderSettings", {})
     grade = COLOR_CHAIN + "," if rs.get("colorCorrect") else ""
-    g += f";[vc]{grade}subtitles=captions.ass:fontsdir=fonts,format=yuv420p[vout]"
+    W, H = doc["width"], doc["height"]
+    stickers = []
+    for e in rs.get("emojis") or []:  # AI emojis: Noto 3D PNGs above the caption block, fading in and out
+        from app.services.rendering import emoji
+
+        if (png := emoji.png(e["code"])) is not None:
+            stickers.append((png, e))
+    g += f";[vc]{grade}subtitles=captions.ass:fontsdir=fonts,format=yuv420p" + ("[vs]" if stickers else "[vout]")
     extra = []
+    if stickers:
+        size = round(min(W, H) * 0.15)
+        cy = max(0, round(doc["captionStyle"]["safeTop"] - size * 0.9))
+        cur = "vs"
+        for n, (png, e) in enumerate(stickers):
+            shutil.copyfile(png, project / f"emoji{n}.png")
+            extra += ["-loop", "1", "-t", f"{doc['duration']:.3f}", "-i", f"emoji{n}.png"]
+            a, b = e["at"], e["at"] + e["duration"]
+            g += (f";[{1 + n}:v]format=rgba,scale={size}:{size},fade=t=in:st={a:.3f}:d=0.15:alpha=1,"
+                  f"fade=t=out:st={max(b - 0.2, a):.3f}:d=0.2:alpha=1[em{n}]")
+            out = "vout" if n == len(stickers) - 1 else f"vo{n}"
+            g += f";[{cur}][em{n}]overlay=(W-w)/2:{cy}:enable='between(t,{a:.3f},{b:.3f})',format=yuv420p[{out}]"
+            cur = out
     if rs.get("sfx"):  # synthesized, royalty-free effects (editing/audio.py), mixed under the speech
         from app.services.editing import audio
 
         audio.sfx_track([audio.Cue(c["kind"], c["at"], -12.0) for c in rs["sfx"]], doc["duration"], project / "sfx.wav")
-        extra = ["-i", "sfx.wav"]
-        g += (f";[ac]{SPEECH_CHAIN if enhance_audio else 'anull'},aresample=48000[sp];[1:a]aresample=48000,"
+        extra += ["-i", "sfx.wav"]
+        g += (f";[ac]{SPEECH_CHAIN if enhance_audio else 'anull'},aresample=48000[sp];[{1 + len(stickers)}:a]aresample=48000,"
               "aformat=channel_layouts=mono[sx];[sp][sx]amix=inputs=2:duration=first:normalize=0[aout]")
     else:
         g += f";[ac]{SPEECH_CHAIN if enhance_audio else 'anull'},aresample=48000[aout]"

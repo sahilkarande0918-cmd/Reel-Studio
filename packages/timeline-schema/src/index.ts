@@ -93,7 +93,7 @@ export const TextItem = z.object({
   /** Solid brand-coloured box behind the text for legibility over video. */
   box: z.boolean().default(false),
   /** Headline look for hook titles: classic (white card), statement (large bold lines), editorial (serif accent). */
-  style: z.enum(["plain", "classic", "statement", "editorial"]).optional(),
+  style: z.enum(["plain", "classic", "statement", "editorial", "callout", "lower_third"]).optional(),
   transition: Transition.default("none"),
 });
 
@@ -189,6 +189,12 @@ export const RenderSettings = z.object({
   colorCorrect: z.boolean().optional(),
   /** Synthesized sound effects (whoosh/impact/riser/tick) at composition times. */
   sfx: z.array(z.object({ kind: z.enum(["whoosh", "impact", "riser", "tick"]), at: seconds })).max(60).optional(),
+  /** Transitions at framing changes / speech cuts (the edit's length is unchanged). */
+  transitions: z.enum(["none", "auto", "fade", "slide", "flash"]).optional(),
+  /** Thin accent bar that fills across the top as the clip plays. */
+  progressBar: z.boolean().optional(),
+  /** Emoji stickers (Noto Emoji codepoints, e.g. "1f4b0") shown above the captions. */
+  emojis: z.array(z.object({ code: z.string().regex(/^[0-9a-f]{4,5}(_[0-9a-f]{4,5})*$/), at: seconds, duration: z.number().positive() })).max(30).optional(),
 });
 
 export const Composition = z

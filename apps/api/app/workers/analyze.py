@@ -58,6 +58,27 @@ def _outline(rdir: Path, texts: list[str], sents, ranker, profile: str = "educat
     return units
 
 
+def _auto_render(ctx, db, rec: dict, inserted: list[dict]) -> list[dict]:
+    """One-click recipe (set at upload/import): every clip found is selected and rendered with the recipe's look,
+    straight after the automatic analysis. Identical clips reuse their finished export (no duplicates)."""
+    recipe = (rec.get("probe") or {}).get("recipe") or {}
+    if not ctx.payload.get("auto_render") or not recipe.get("render") or not inserted:
+        return []
+    from app.api.renders import RenderRequest, enqueue_highlight_render
+
+    req = RenderRequest(**recipe["render"])
+    out = []
+    ctx.stage("auto_render", 0.95, f"Queueing {len(inserted)} clip renders from the recipe")
+    for h in inserted:
+        db.table("highlight_candidates").update({"status": "selected"}).eq("id", h["id"]).execute()
+        try:
+            out.append({"highlight_id": h["id"], **enqueue_highlight_render({**h, "status": "selected"}, req, rec["created_by"])})
+        except Exception as e:  # noqa: BLE001 — one bad clip never blocks the others
+            log.warning("auto render of %s failed to queue: %s", h["id"], e)
+            out.append({"highlight_id": h["id"], "error": f"{type(e).__name__}: {e}"[:300]})
+    return out
+
+
 def _json_cache(path: Path) -> dict:
     try:
         return json.loads(path.read_text()) if path.exists() else {}
@@ -360,8 +381,8 @@ def run_analyze(ctx: JobContext) -> dict:
             }
         )
     db.table("highlight_candidates").delete().eq("recording_id", rec["id"]).eq("status", "proposed").execute()
-    if rows:
-        db.table("highlight_candidates").insert(rows).execute()
+    inserted = db.table("highlight_candidates").insert(rows).execute().data if rows else []
+    renders = _auto_render(ctx, db, rec, inserted)
     db.table("projects").update({"status": "highlights ready"}).eq("id", rec["project_id"]).execute()
     complete = sum(1 for c in final if c.features["context"]["complete"])
     return {
@@ -375,6 +396,7 @@ def run_analyze(ctx: JobContext) -> dict:
         "screen_term_fixes": len(changed),
         "ocr_frames": len(frames),
         **timings,
+        "auto_renders": len([r for r in renders if "render_id" in r]),
     }
 
 
@@ -425,7 +447,8 @@ def _analyze_talk(ctx, db, rec: dict, tr: dict, src: Path, rdir: Path, opts: dic
             "crop_keyframes": speakers.plan(track, c.start_s, c.end_s, W, H),
         })
     db.table("highlight_candidates").delete().eq("recording_id", rec["id"]).eq("status", "proposed").execute()
-    if rows:
-        db.table("highlight_candidates").insert(rows).execute()
+    inserted = db.table("highlight_candidates").insert(rows).execute().data if rows else []
+    renders = _auto_render(ctx, db, rec, inserted)
     db.table("projects").update({"status": "highlights ready"}).eq("id", rec["project_id"]).execute()
-    return {"candidates": len(rows), **stats, "outline": [u.to_json() for u in units], **timings}
+    return {"candidates": len(rows), **stats, "outline": [u.to_json() for u in units], **timings,
+            "auto_renders": len([r for r in renders if "render_id" in r])}
