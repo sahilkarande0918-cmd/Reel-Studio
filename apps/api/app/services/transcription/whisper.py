@@ -13,7 +13,29 @@ from app.core.config import get_settings
 log = logging.getLogger(__name__)
 _model = None
 _model_key: tuple | None = None
-BATCH = int(os.environ.get("WHISPER_BATCH", "8"))  # 0 = sequential decoding (the original path)
+# batched decoding is ~5x faster but repeated lines on a real podcast ("It's not an option" x6): off unless asked for
+BATCH = int(os.environ.get("WHISPER_BATCH", "0"))
+# The Hinglish-tuned model (settings.whisper_model) writes Roman Hinglish but cannot transcribe plain English (it
+# printed "nan" for a whole English podcast). English and every other language use Whisper large-v3-turbo (MIT).
+GENERAL_MODEL = os.environ.get("WHISPER_GENERAL_MODEL", r"D:\ReelStudio\models\whisper-large-v3-turbo")
+HINGLISH = {"hi", "ur"}  # spoken Hindi/Urdu → the Hinglish model (Roman script, as Mode A expects)
+
+
+def choose_model(audio: Path, language: str | None) -> tuple[str | None, str | None]:
+    """(model name or None for the configured Hinglish model, language to decode with).
+    language: None = detect; "hinglish"/"hi" = Hinglish model; anything else = the general model."""
+    if language in ("hinglish", "hi"):
+        return None, "hi"
+    if not Path(GENERAL_MODEL).is_dir():
+        return None, language  # general model not installed: previous behaviour
+    if language:
+        return GENERAL_MODEL, language
+    from faster_whisper import decode_audio
+
+    model = load(GENERAL_MODEL)
+    lang, prob, _ = model.detect_language(audio=decode_audio(str(audio))[: 16000 * 30 * 4])  # up to 4 windows
+    log.info("detected spoken language %s (%.2f)", lang, prob)
+    return (None, "hi") if lang in HINGLISH else (GENERAL_MODEL, lang)
 
 
 def _add_cuda_dlls() -> None:
@@ -86,9 +108,15 @@ def transcribe(
     hotwords: str = "",
     language: str | None = None,
     on_progress: Callable[[float], None] | None = None,
+    auto_model: bool = False,
 ) -> Result:
-    model = load()
+    """auto_model: pick the speech model for the spoken language (see choose_model); otherwise the configured
+    Hinglish model with `language` (Mode A's original behaviour)."""
     s = get_settings()
+    name = None
+    if auto_model:
+        name, language = choose_model(audio, language)
+    model = load(name)
     args = dict(
         language=language or s.whisper_language or None,
         task="transcribe",  # never "translate": Hinglish stays Hinglish

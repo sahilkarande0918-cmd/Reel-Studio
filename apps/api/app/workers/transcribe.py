@@ -63,10 +63,13 @@ def _run(ctx: JobContext, db, rec: dict, src) -> dict:
         timing = "srt-even"
     else:
         ctx.stage("transcribe", 0.08, "Transcribing speech on the local GPU")
-        lang = {"auto": None, "en": "en", "hi": "hi", "hinglish": "hi"}.get(recipe.get("language", ""), "") if recipe else ""
+        # one-click recipes and link imports: the speech model follows the spoken language (English podcasts need the
+        # general model); plain class uploads keep the verified Hinglish path
+        auto = bool(recipe) or bool((rec.get("probe") or {}).get("import"))
+        lang = {"auto": None, "en": "en", "hi": "hinglish", "hinglish": "hinglish"}.get(recipe.get("language") or "auto")
         result = whisper.transcribe(
             audio, hotwords=gl.hotwords(), on_progress=lambda p: ctx.progress(0.08 + 0.8 * p),
-            **({"language": lang} if lang != "" else {}),  # no recipe: the configured default (Hinglish)
+            **({"language": lang, "auto_model": True} if auto else {}),
         )
         timing = "whisper-dtw"
     elapsed = time.perf_counter() - t0
