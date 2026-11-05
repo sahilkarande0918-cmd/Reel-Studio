@@ -133,7 +133,9 @@ def finalize(rec: dict, user_id: str) -> dict:
             **summary,
             "status": "uploaded",
             "storage_path": str(p.relative_to(p.parents[4])),
-            "probe": info["format"],
+            # a link import keeps where it came from (url, title, channel, licence) next to the probe
+            "probe": {**info["format"], **({"import": (rec.get("probe") or {})["import"]}
+                                          if (rec.get("probe") or {}).get("import") else {})},
         }
     ).eq("id", rec_id).execute()
     job = (

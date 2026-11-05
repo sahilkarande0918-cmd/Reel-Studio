@@ -45,13 +45,21 @@ def download(url: str, dest: Path, max_bytes: int, max_s: int, on_progress=None,
     Raises ValueError with a readable reason (too long, private, unavailable...)."""
     import yt_dlp
 
+    files: dict[str, tuple[int, int]] = {}  # video and audio streams download one after the other
+    shown = [0.0]
+
     def hook(d: dict) -> None:
         if check_cancel:
             check_cancel()
-        if on_progress and d.get("status") == "downloading":
+        if on_progress and d.get("status") in ("downloading", "finished"):
             total = d.get("total_bytes") or d.get("total_bytes_estimate") or 0
-            if total:
-                on_progress(min(d.get("downloaded_bytes", 0) / total, 1.0))
+            done = d.get("downloaded_bytes", 0) if d["status"] == "downloading" else total
+            files[d.get("filename", "")] = (done, total)
+            got, want = sum(f[0] for f in files.values()), sum(f[1] for f in files.values())
+            # the second stream's size is unknown until it starts, so never let the bar move backwards
+            if want:
+                shown[0] = max(shown[0], min(got / want, 1.0) * (0.85 if len(files) == 1 else 1.0))
+                on_progress(shown[0])
 
     def too_long(info, *, incomplete):
         dur = info.get("duration")
