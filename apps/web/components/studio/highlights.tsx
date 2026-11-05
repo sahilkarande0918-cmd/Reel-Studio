@@ -91,7 +91,8 @@ function LectureOutline({ units, clip }: { units: OutlineUnit[]; clip?: Highligh
   return (
     <details className="rounded-[6px] bg-surface p-3 text-[13px]">
       <summary className="cursor-pointer text-muted">
-        Lecture outline · {units.length} teaching steps in {topics} topic{topics === 1 ? "" : "s"}
+        {units.some((u) => u.kind === "answer" || u.kind === "story") ? "Conversation map" : "Lecture outline"} · {units.length}{" "}
+        {units.some((u) => u.kind === "answer" || u.kind === "story") ? "parts" : "teaching steps"} in {topics} topic{topics === 1 ? "" : "s"}
         {units[0]?.source === "lexical" && " (local LLM offline: vocabulary-shift segmentation)"}
       </summary>
       <ol className="mt-3 space-y-1">
