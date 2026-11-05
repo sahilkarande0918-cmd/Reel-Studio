@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { signOut } from "@/app/(auth)/actions";
 import { BackendBadge } from "@/components/app/backend-badge";
+import { UploadTray } from "@/components/app/upload-tray";
 import type { Org } from "@/lib/supabase/server";
 
 export function TopNav({
@@ -38,6 +39,7 @@ export function TopNav({
 
       {/* Right Controls */}
       <div className="flex items-center gap-3.5">
+        <UploadTray />
         <BackendBadge />
 
         <Link

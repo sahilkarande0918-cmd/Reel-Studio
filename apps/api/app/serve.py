@@ -126,19 +126,39 @@ def main() -> None:
         children["tunnel"] = [lambda: starter[args.tunnel](args.port)[0], tunnel]
         os.environ["PUBLIC_API_URL"] = url
         print(f"Tunnel: {url}", flush=True)
+    from app.core import engine_state
+
     if not args.no_worker and Path(__file__).with_name("workers").joinpath("run.py").exists():
         worker = lambda: subprocess.Popen(  # noqa: E731
             [sys.executable, "-m", "app.workers.run"], cwd=Path(__file__).parents[1]
         )
-        children["worker"] = [worker, worker()]
+        children["worker"] = [worker, None if engine_state.paused() else worker()]
 
     stop = threading.Event()
 
     def watchdog() -> None:
-        """A crashed tunnel or worker made the site show 'Engine offline' until a manual restart."""
-        while not stop.wait(10):
+        """A crashed tunnel or worker made the site show 'Engine offline' until a manual restart. The dashboard's
+        engine switch pauses processing: the worker (GPU, renders, AI) is stopped and stays stopped while the
+        API and tunnel keep answering, so the same switch can turn processing back on."""
+        while not stop.wait(3):
+            if "worker" in children:
+                entry = children["worker"]
+                running = entry[1] is not None and entry[1].poll() is None
+                if engine_state.paused():
+                    if running:
+                        print("[serve] processing paused from the dashboard: stopping the worker", flush=True)
+                        if sys.platform == "win32":  # the whole tree: ffmpeg/Chrome children of a running job
+                            subprocess.run(["taskkill", "/PID", str(entry[1].pid), "/T", "/F"], capture_output=True)
+                        entry[1].kill()
+                        engine_state.free_gpu()
+                    entry[1] = None
+                    continue
+                if entry[1] is None:
+                    print("[serve] processing resumed: starting the worker", flush=True)
+                    entry[1] = entry[0]()
+                    continue
             for name, entry in children.items():
-                if entry[1].poll() is not None:
+                if entry[1] is not None and entry[1].poll() is not None:
                     print(f"[serve] {name} exited ({entry[1].returncode}); restarting", flush=True)
                     try:
                         entry[1] = entry[0]()
@@ -161,7 +181,8 @@ def main() -> None:
     finally:
         stop.set()
         for entry in children.values():
-            entry[1].terminate()
+            if entry[1] is not None:
+                entry[1].terminate()
 
 
 if __name__ == "__main__":

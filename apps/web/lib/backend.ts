@@ -5,7 +5,7 @@ import { useSyncExternalStore } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 export type BackendStatus =
-  | { state: "online"; url: string; capabilities: Record<string, boolean> }
+  | { state: "online"; url: string; capabilities: Record<string, boolean>; processing?: boolean }
   | { state: "offline"; reason: string };
 
 const STALE_MS = 90_000;
@@ -17,7 +17,8 @@ const SAME_MACHINE = "http://127.0.0.1:8000";
 async function health(url: string) {
   const r = await fetch(`${url.replace(/\/$/, "")}/health`, { headers: TUNNEL_HEADERS, signal: AbortSignal.timeout(5000) });
   if (!r.ok) throw new Error(`Health check returned ${r.status}.`);
-  return (await r.json()).capabilities ?? {};
+  const body = await r.json();
+  return { capabilities: (body.capabilities ?? {}) as Record<string, boolean>, processing: body.processing !== false };
 }
 
 const REMEMBER = "rs-backend-url";
@@ -42,9 +43,9 @@ async function discover(): Promise<BackendStatus> {
   const candidates = [...new Set([url, SAME_MACHINE])];
   try {
     return await Promise.any(candidates.map(async (candidate) => {
-      const capabilities = await health(candidate);
+      const { capabilities, processing } = await health(candidate);
       try { sessionStorage.setItem(REMEMBER, candidate); } catch { /* storage unavailable */ }
-      return { state: "online" as const, url: candidate, capabilities };
+      return { state: "online" as const, url: candidate, capabilities, processing };
     }));
   } catch {
     return { state: "offline", reason: "Health check did not respond." };

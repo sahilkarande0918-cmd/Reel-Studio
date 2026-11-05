@@ -1,13 +1,12 @@
 "use client";
 
 import { UploadCloud } from "lucide-react";
-import { useRef, useState } from "react";
-import { apiFetch, useBackend } from "@/lib/backend";
+import { useEffect, useRef, useState } from "react";
+import { useBackend } from "@/lib/backend";
+import { dropHandles, enqueue, onUploadDone, useUploads } from "@/lib/uploads";
 
 const ACCEPT = [".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v"];
 const MAX_BYTES = 4 * 1024 ** 3;
-const resumeKey = (projectId: string, f: File) => `rs-upload:${projectId}:${f.name}:${f.size}:${f.lastModified}`;
-
 type State =
   | { phase: "idle" }
   | { phase: "uploading"; name: string; sent: number; total: number; rate: number }
@@ -24,71 +23,26 @@ export function Uploader({ projectId, onDone }: { projectId: string; onDone: () 
   const [drag, setDrag] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const online = backend.data?.state === "online";
-  const base = backend.data?.state === "online" ? backend.data.url : "";
 
-  async function upload(file: File) {
+  // the upload itself runs in the app-wide manager (lib/uploads.ts): it continues while you switch sections
+  const mine = useUploads().find((u) => u.kind === "recording" && u.projectId === projectId && u.status !== "done");
+  useEffect(() => onUploadDone((u) => { if (u.kind === "recording" && u.projectId === projectId) onDone(); }), [projectId, onDone]);
+  // what the drop zone shows: the live upload when there is one, else a local validation message
+  const view: State = !mine ? state
+    : mine.status === "validating" ? { phase: "validating", name: mine.name }
+    : mine.status === "error" ? { phase: "error", message: mine.error ?? "Upload failed" }
+    : mine.status === "paused" ? { phase: "error", message: `Upload of ${mine.name} paused at ${fmtBytes(mine.sent)}. Resume it from the upload button at the top, or drop the same file again.` }
+    : { phase: "uploading", name: mine.name, sent: mine.sent, total: mine.size, rate: 0 };
+
+  function upload(file: File, handle?: Parameters<typeof enqueue>[3]) {
     const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
     if (!ACCEPT.includes(ext)) return setState({ phase: "error", message: `Unsupported type ${ext}. Use ${ACCEPT.join(", ")}.` });
     if (file.size > MAX_BYTES) return setState({ phase: "error", message: "Files up to 4 GB are supported." });
-    try {
-      const key = resumeKey(projectId, file);
-      let id = localStorage.getItem(key);
-      let sent = 0;
-      let chunk = 8 * 1024 * 1024; // matches the API's CHUNK_MAX
-      if (id) {
-        const r = await apiFetch(base, `/recordings/${id}`);
-        if (r.ok && (await r.clone().json()).status === "uploading") sent = (await r.json()).received_bytes;
-        else id = null;
-      }
-      if (!id) {
-        const r = await apiFetch(base, "/recordings", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ project_id: projectId, filename: file.name, size_bytes: file.size }),
-        });
-        if (!r.ok) throw new Error((await r.json()).detail ?? `Upload refused (${r.status})`);
-        const body = await r.json();
-        id = body.id as string;
-        chunk = body.chunk_size;
-        localStorage.setItem(key, id);
-      }
-      const startedAt = performance.now();
-      const startSent = sent;
-      setState({ phase: "uploading", name: file.name, sent, total: file.size, rate: 0 });
-      let failures = 0;
-      while (sent < file.size) {
-        const r = await apiFetch(base, `/recordings/${id}/chunk?offset=${sent}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/octet-stream" },
-          body: file.slice(sent, sent + chunk),
-        }).catch(() => null);
-        if (r?.ok) {
-          sent = (await r.json()).received_bytes;
-          failures = 0;
-        } else if (r?.status === 409) {
-          sent = (await r.json()).detail.received_bytes; // server tells us where to resume
-        } else {
-          if (++failures > 5) throw new Error("Connection to the processing backend keeps failing. Retry to resume.");
-          await new Promise((res) => setTimeout(res, 1000 * 2 ** failures));
-        }
-        const rate = ((sent - startSent) / (performance.now() - startedAt)) * 1000;
-        setState({ phase: "uploading", name: file.name, sent, total: file.size, rate });
-      }
-      setState({ phase: "validating", name: file.name });
-      const done = await apiFetch(base, `/recordings/${id}/complete`, { method: "POST" });
-      if (!done.ok) {
-        const d = (await done.json()).detail;
-        throw new Error(typeof d === "string" ? d : (d?.message ?? "Validation failed"));
-      }
-      localStorage.removeItem(key);
-      setState({ phase: "idle" });
-      onDone();
-    } catch (e) {
-      setState({ phase: "error", message: e instanceof Error ? e.message : String(e) });
-    }
+    setState({ phase: "idle" });
+    enqueue("recording", projectId, file, handle);
   }
 
-  const busy = state.phase === "uploading" || state.phase === "validating";
+  const busy = view.phase === "uploading" || view.phase === "validating";
   return (
     <div className="space-y-3">
       <label
@@ -101,7 +55,8 @@ export function Uploader({ projectId, onDone }: { projectId: string; onDone: () 
           e.preventDefault();
           setDrag(false);
           const f = e.dataTransfer.files[0];
-          if (f && online && !busy) upload(f);
+          const handles = dropHandles(e); // must be read inside the drop event
+          if (f && online && !busy) void handles.then((h) => upload(f, h[0]));
         }}
         className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-[6px] px-6 py-14 text-center transition-colors ${
           drag ? "bg-surface-3" : "bg-surface hover:bg-surface-2"
@@ -129,22 +84,22 @@ export function Uploader({ projectId, onDone }: { projectId: string; onDone: () 
           {backend.data?.state === "offline" && ` ${backend.data.reason}`}
         </p>
       )}
-      {state.phase === "uploading" && (
+      {view.phase === "uploading" && (
         <div className="space-y-1.5" aria-live="polite">
           <div className="flex justify-between text-[13px]">
-            <span className="truncate">{state.name}</span>
+            <span className="truncate">{view.name}</span>
             <span className="tabular-nums text-muted">
-              {fmtBytes(state.sent)} / {fmtBytes(state.total)}
-              {state.rate > 0 && ` · ${fmtBytes(state.rate)}/s`}
+              {fmtBytes(view.sent)} / {fmtBytes(view.total)}
+              {" · continues if you switch sections"}
             </span>
           </div>
-          <progress className="h-2 w-full accent-[var(--accent)]" value={state.sent} max={state.total} />
+          <progress className="h-2 w-full accent-[var(--accent)]" value={view.sent} max={view.total} />
         </div>
       )}
-      {state.phase === "validating" && <p className="text-[14px] text-muted">Checking the file with FFprobe…</p>}
-      {state.phase === "error" && (
+      {view.phase === "validating" && <p className="text-[14px] text-muted">Checking the file with FFprobe…</p>}
+      {view.phase === "error" && (
         <p role="alert" className="text-[14px] text-danger">
-          {state.message}
+          {view.message}
         </p>
       )}
     </div>

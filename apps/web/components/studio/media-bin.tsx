@@ -2,8 +2,9 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Film, ImageIcon, LoaderCircle, Music, Trash2, UploadCloud, Video } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { apiFetch, useBackend } from "@/lib/backend";
+import { dismiss, dropHandles, enqueue, onUploadDone, useUploads } from "@/lib/uploads";
 import { createClient } from "@/lib/supabase/client";
 
 export type Asset = {
@@ -12,12 +13,10 @@ export type Asset = {
   analysis: { tempo_bpm?: number; drops?: number[]; vlm?: { subject?: string; shot?: string } | null; techniques?: string[]; moments?: unknown[]; pacing?: object } | null;
 };
 type Kind = Asset["kind"];
-type Upload = { key: string; name: string; sent: number; total: number; error?: string };
 
 const VIDEO = [".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v"];
 const IMAGE = [".jpg", ".jpeg", ".png", ".webp"];
 const AUDIO = [".mp3", ".mpeg", ".wav", ".m4a", ".aac", ".ogg", ".flac"];
-const PARALLEL = 2; // two files at a time keeps the tunnel busy without starving the machine
 const ext = (n: string) => n.slice(n.lastIndexOf(".")).toLowerCase();
 const mb = (n: number) => (n >= 1024 ** 3 ? `${(n / 1024 ** 3).toFixed(2)} GB` : `${(n / 1024 ** 2).toFixed(1)} MB`);
 
@@ -43,42 +42,6 @@ export function useAssets(projectId: string) {
   });
 }
 
-/** Resumable chunked upload of one file to the processing machine (same protocol as recordings). */
-async function uploadOne(base: string, projectId: string, kind: Kind, file: File, onProgress: (sent: number) => void) {
-  const key = `rs-asset:${projectId}:${kind}:${file.name}:${file.size}:${file.lastModified}`;
-  let id = localStorage.getItem(key);
-  let sent = 0;
-  let chunk = 8 * 1024 * 1024;
-  if (id) {
-    const r = await apiFetch(base, `/assets/${id}`);
-    const body = r.ok ? await r.json() : null;
-    if (body?.status === "uploading") sent = body.received_bytes; else id = null;
-  }
-  if (!id) {
-    const r = await apiFetch(base, "/assets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ project_id: projectId, kind, filename: file.name, size_bytes: file.size }) });
-    if (!r.ok) throw new Error((await r.json()).detail ?? `Upload refused (${r.status})`);
-    const body = await r.json();
-    id = body.id as string;
-    chunk = body.chunk_size;
-    localStorage.setItem(key, id);
-  }
-  let failures = 0;
-  while (sent < file.size) {
-    const r = await apiFetch(base, `/assets/${id}/chunk?offset=${sent}`, { method: "PUT", headers: { "Content-Type": "application/octet-stream" }, body: file.slice(sent, sent + chunk) }).catch(() => null);
-    if (r?.ok) { sent = (await r.json()).received_bytes; failures = 0; }
-    else if (r?.status === 409) sent = (await r.json()).detail.received_bytes;
-    else {
-      if (++failures > 5) throw new Error("The processing machine keeps dropping the connection. Add the file again to resume.");
-      await new Promise((res) => setTimeout(res, 1000 * 2 ** failures));
-    }
-    onProgress(sent);
-  }
-  const done = await apiFetch(base, `/assets/${id}/complete`, { method: "POST" });
-  localStorage.removeItem(key);
-  if (!done.ok) { const d = (await done.json()).detail; throw new Error(typeof d === "string" ? d : (d?.message ?? "Validation failed")); }
-  return (await done.json()) as { duplicate: boolean };
-}
-
 function Thumb({ asset, base }: { asset: Asset; base: string | null }) {
   const urls = useQuery({
     queryKey: ["asset-urls", asset.id, base], enabled: !!base && asset.status === "ready" && asset.kind !== "audio", staleTime: 3 * 3600_000,
@@ -101,43 +64,29 @@ export function MediaBin({ projectId, canEdit }: { projectId: string; canEdit: b
   const base = backend.data?.state === "online" ? backend.data.url : null;
   const qc = useQueryClient();
   const assets = useAssets(projectId);
-  const [uploads, setUploads] = useState<Upload[]>([]);
+  // uploads run in the app-wide manager (lib/uploads.ts, two at a time): they continue while you switch sections
+  const uploads = useUploads().filter((u) => u.projectId === projectId && u.kind !== "recording" && u.status !== "done")
+    .map((u) => ({ key: u.key, name: u.name, sent: u.sent, total: u.size, error: u.status === "error" ? u.error : u.status === "paused" ? "paused — resume from the upload button at the top" : undefined }));
   const [notice, setNotice] = useState<string | null>(null);
   const [drag, setDrag] = useState(false);
-  const queue = useRef<{ kind: Kind; file: File; key: string }[]>([]);
-  const active = useRef(0);
+  useEffect(() => onUploadDone((u) => {
+    if (u.projectId !== projectId || u.kind === "recording") return;
+    if (u.duplicate) setNotice(`${u.name} is already in this project; skipped the duplicate.`);
+    qc.invalidateQueries({ queryKey: ["assets", projectId] });
+  }), [projectId, qc]);
 
-  function pump() {
-    while (base && active.current < PARALLEL && queue.current.length) {
-      const job = queue.current.shift()!;
-      active.current++;
-      uploadOne(base, projectId, job.kind, job.file, (sent) => setUploads((u) => u.map((x) => (x.key === job.key ? { ...x, sent } : x))))
-        .then((r) => {
-          setUploads((u) => u.filter((x) => x.key !== job.key));
-          if (r.duplicate) setNotice(`${job.file.name} is already in this project; skipped the duplicate.`);
-          qc.invalidateQueries({ queryKey: ["assets", projectId] });
-        })
-        .catch((e: Error) => setUploads((u) => u.map((x) => (x.key === job.key ? { ...x, error: e.message } : x))))
-        .finally(() => { active.current--; pump(); });
-    }
-  }
-
-  function add(files: FileList | File[], forced?: Kind) {
+  function add(files: FileList | File[], forced?: Kind, handles: (Parameters<typeof enqueue>[3])[] = []) {
     setNotice(null);
     const list = [...files];
     const rejected: string[] = [];
-    for (const f of list) {
+    list.forEach((f, i) => {
       const e = ext(f.name);
       const kind: Kind | null = forced ?? (VIDEO.includes(e) ? "clip" : IMAGE.includes(e) ? "image" : AUDIO.includes(e) ? "audio" : null);
       const allowed = kind === "reference" ? VIDEO : kind === "audio" ? AUDIO : kind === "image" ? IMAGE : VIDEO;
-      if (!kind || !allowed.includes(e)) { rejected.push(f.name); continue; }
-      const key = `${kind}:${f.name}:${f.size}:${f.lastModified}`;
-      if (uploads.some((u) => u.key === key)) continue;
-      queue.current.push({ kind, file: f, key });
-      setUploads((u) => [...u, { key, name: f.name, sent: 0, total: f.size }]);
-    }
+      if (!kind || !allowed.includes(e)) { rejected.push(f.name); return; }
+      enqueue(kind, projectId, f, handles[i]);
+    });
     if (rejected.length) setNotice(`Not a supported file: ${rejected.join(", ")}`);
-    pump();
   }
 
   async function remove(a: Asset) {
@@ -162,7 +111,7 @@ export function MediaBin({ projectId, canEdit }: { projectId: string; canEdit: b
       </div>
       {canEdit && <label
         onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)}
-        onDrop={(e) => { e.preventDefault(); setDrag(false); if (!disabled) add(e.dataTransfer.files); }}
+        onDrop={(e) => { e.preventDefault(); setDrag(false); const files = [...e.dataTransfer.files]; const h = dropHandles(e); if (!disabled) void h.then((hs) => add(files, undefined, hs)); }}
         className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-line px-6 py-10 text-center transition-colors ${drag ? "bg-surface-3" : "bg-surface hover:bg-surface-2"} ${disabled ? "pointer-events-none opacity-60" : ""}`}>
         <UploadCloud size={26} className="text-muted" aria-hidden />
         <span className="text-[15px]">Drop any number of clips and images here, or choose files</span>
@@ -174,7 +123,7 @@ export function MediaBin({ projectId, canEdit }: { projectId: string; canEdit: b
       {uploads.length > 0 && <ul className="space-y-2" aria-live="polite">{uploads.map((u) => <li key={u.key} className="text-[12px]">
         <div className="flex justify-between gap-3"><span className="truncate">{u.name}</span><span className={`tabular-nums ${u.error ? "text-danger" : "text-muted"}`}>{u.error ?? `${mb(u.sent)} / ${mb(u.total)}`}</span></div>
         {!u.error && <progress className="h-1.5 w-full" value={u.sent} max={u.total} />}
-        {u.error && <button type="button" className="text-muted hover:text-ink" onClick={() => setUploads((x) => x.filter((y) => y.key !== u.key))}>Dismiss</button>}
+        {u.error && <button type="button" className="text-muted hover:text-ink" onClick={() => dismiss(u.key)}>Dismiss</button>}
       </li>)}</ul>}
 
       <div className="grid gap-3 sm:grid-cols-2">
