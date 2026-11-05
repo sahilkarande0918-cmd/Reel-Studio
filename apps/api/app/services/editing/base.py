@@ -7,6 +7,7 @@ memory, partial re-render possible) and joined with `xfade`; audio is never mixe
 rendered separately and muxed, which avoids drift).
 """
 
+import re
 import shutil
 import subprocess
 from dataclasses import dataclass, field, replace
@@ -38,6 +39,41 @@ class Segment:
     effects: list[tuple[str, dict]] = field(default_factory=list)
     transition_out: str = "cut"
     transition_dur: float = 0.0
+    # (x, y, w, h) 0–1 + the picture's pixel aspect: the real picture inside black bars baked into the footage
+    content: tuple[float, ...] | None = None
+
+
+def content_box(path: Path, start: float | None = None, end: float | None = None) -> tuple[float, ...] | None:
+    """The real picture inside letterbox/pillarbox bars baked into a clip (a landscape video inside a portrait frame),
+    from FFmpeg cropdetect at 25/50/75 % of the given range (a shot's own source range: bars often appear in only part
+    of a clip) — the union, so a dark scene is never mistaken for bars. None when there are no meaningful bars (under
+    6 % of the frame) or the clip can't be read."""
+    probe = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height:format=duration",
+                            "-of", "csv=p=0:s=,", str(path)], capture_output=True, text=True, timeout=60).stdout.split()
+    try:
+        w, h = (int(x) for x in probe[0].split(",")[:2])
+        dur = float(probe[1])
+    except (IndexError, ValueError):
+        return None
+    a = max(0.0, start or 0.0)
+    b = min(dur, end) if end else dur
+    boxes = []
+    for f in (0.25, 0.5, 0.75):
+        err = subprocess.run(["ffmpeg", "-v", "info", "-ss", f"{a + (b - a) * f:.2f}", "-i", str(path), "-t", f"{max(0.4, min(1.5, (b - a) / 4)):.2f}", "-an",
+                              "-vf", "cropdetect=limit=24:round=2:reset=0", "-f", "null", "-"],
+                             capture_output=True, text=True, timeout=120).stderr
+        found = re.findall(r"crop=(\d+):(\d+):(\d+):(\d+)", err)
+        if found:
+            cw, ch, cx, cy = (int(v) for v in found[-1])
+            boxes.append((cx, cy, cx + cw, cy + ch))
+    if not boxes:
+        return None
+    x0, y0 = min(b[0] for b in boxes), min(b[1] for b in boxes)
+    x1, y1 = max(b[2] for b in boxes), max(b[3] for b in boxes)
+    # a landscape picture inside a portrait frame can be ~25 % of the height (590×332 in a 590×1280 clip)
+    if (x1 - x0) * (y1 - y0) > 0.94 * w * h or (x1 - x0) < 0.15 * w or (y1 - y0) < 0.15 * h:
+        return None
+    return round(x0 / w, 4), round(y0 / h, 4), round((x1 - x0) / w, 4), round((y1 - y0) / h, 4), round((x1 - x0) / (y1 - y0), 4)
 
 
 def frames(t: float, fps: int) -> int:
@@ -64,12 +100,22 @@ def _frame_filter(s: Segment, w: int, h: int) -> str:
     """Cover-scale to the output aspect around the focus point, then the static zoom."""
     ar = w / h
     z = max(s.zoom, 1.0)
+    pre = ""
+    if s.content:  # cut built-in black bars first; the focus point is re-expressed inside the real picture
+        bx, by, bw, bh, car = s.content
+        pre = f"crop=trunc(iw*{bw:.4f}/2)*2:trunc(ih*{bh:.4f}/2)*2:iw*{bx:.4f}:ih*{by:.4f},"
+        if car > ar * 1.35:  # much wider than the frame: cropping would blow a sliver up ~6x. Full-width picture
+            # over a blurred, enlarged copy of itself (no black bars, no soft sliver) — the standard vertical treatment
+            return (f"{pre}split[lbf][lbb];[lbb]scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},"
+                    f"gblur=sigma=40,eq=brightness=-0.08[lbg];[lbf]scale={w}:-2:flags=lanczos[lbx];"
+                    f"[lbg][lbx]overlay=(W-w)/2:(H-h)/2,setsar=1")
+        s = replace(s, focus_x=min(max((s.focus_x - bx) / bw, 0.0), 1.0), focus_y=min(max((s.focus_y - by) / bh, 0.0), 1.0))
     # crop the largest output-aspect window, shrink it by the zoom, centre it on the focus point, clamp inside
     cw = f"min(iw,ih*{ar:.6f})/{z:.4f}"
     ch = f"min(ih,iw/{ar:.6f})/{z:.4f}"
     cx = f"min(max(iw*{s.focus_x:.4f}-({cw})/2,0),iw-({cw}))"
     cy = f"min(max(ih*{s.focus_y:.4f}-({ch})/2,0),ih-({ch}))"
-    return f"crop=w='{cw}':h='{ch}':x='{cx}':y='{cy}',scale={w}:{h}:flags=lanczos,setsar=1"
+    return f"{pre}crop=w='{cw}':h='{ch}':x='{cx}':y='{cy}',scale={w}:{h}:flags=lanczos,setsar=1"
 
 
 def _speed_pieces(s: Segment, fps: int) -> list[tuple[float, float, float]]:

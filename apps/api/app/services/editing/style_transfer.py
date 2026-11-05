@@ -18,6 +18,22 @@ KIND = {
 }
 
 
+def whole_beat_cycle(values: list[float]) -> tuple[float, ...]:
+    """Half-beat shots only in pairs that land back on a whole beat (0.5+0.5, 1.5+2.5); a lone half beat is rounded
+    (half up for the first, so a 3.5 opener does not push every later cut onto the off-beat — seen: HP Victus edit,
+    every cut 333 ms off at 90 BPM)."""
+    out, i = [], 0
+    while i < len(values):
+        v = values[i]
+        if v % 1 and i + 1 < len(values) and values[i + 1] % 1:
+            out += [v, values[i + 1]]
+            i += 2
+            continue
+        out.append(float(max(1, round(v + 0.01))) if v % 1 else v)
+        i += 1
+    return tuple(out)
+
+
 def from_reference(ref: dict, base: Profile) -> tuple[Profile, list[str]]:
     ev: list[str] = []
     bpm = (ref.get("beat_sync") or {}).get("tempo_bpm") or (ref.get("music") or {}).get("tempo_bpm")
@@ -34,7 +50,7 @@ def from_reference(ref: dict, base: Profile) -> tuple[Profile, list[str]]:
             ev.append(
                 f"Opening shot held {first:.1f} s ({first / dur:.0%} of the reel) until the drop at {drops[0]:.2f} s"
             )
-        cycle = tuple(max(0.5, min(4.0, round(s["duration_s"] / beat * 2) / 2)) for s in shots[1:])
+        cycle = whole_beat_cycle([max(0.5, min(4.0, round(s["duration_s"] / beat * 2) / 2)) for s in shots[1:]])
         if cycle:
             p = replace(p, cut_beats=cycle)
             ev.append(f"Shot lengths after the drop, in beats at {bpm} BPM: {list(cycle)}")

@@ -58,6 +58,7 @@ class _G:  # the director's Graphic shape, for scenes the structure fallback add
         self.template, self.at, self.duration_s, self.fields = template, at, duration_s, fields
 
 
+FOOTAGE_FIRST_MAX_S = 2.5  # a cinematic edit replaced ~5 s of laptop footage with title cards on a plain backdrop
 LISTS = {"info_list": "items", "notifications": "items", "floating_cards": "cards"}
 STEP_NO = re.compile(r"^\s*(?:step\s*)?(\d+)\s*[.):-]\s*", re.IGNORECASE)
 
@@ -167,6 +168,9 @@ def graphics(d, dur: float, clips: list[dict], chosen: list | None = None, brand
             seq.append(("logo_reveal", {}))
         span = dur / len(seq)
         chosen = [_G(t, i * span / dur, span, f) for i, (t, f) in enumerate(seq)]
+    if d.style not in DESIGNED:  # footage-first styles (cinematic, phonk…): designed text sits over the footage, briefly
+        chosen = [_G(g.template, g.at, min(g.duration_s, FOOTAGE_FIRST_MAX_S), dict(g.fields or {})) for g in chosen]
+        return [{**it, "backdrop": "none"} for it in motion.items_from_directive(chosen, dur, 0, 0, media)]
     return motion.items_from_directive(chosen, dur, 0, 0, media)
 
 

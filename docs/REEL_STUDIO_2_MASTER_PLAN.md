@@ -5,42 +5,44 @@ agent must be able to continue from this file and `docs/REEL_STUDIO_2_HANDOFF.md
 Where this file conflicts with 1.0 documents (`MASTER_PROMPT.md`, `PHASES.md`, `ORIGINAL_PS.md`), **this file wins**;
 those stay as history and must not be deleted.
 
-- Part 1: status map (what is VERIFIED / PARTIAL / UNTESTED / NOT IMPLEMENTED), as of 2026-10-24 (second session),
-  HEAD `ac322a5` plus the checkpoint docs commit. Details, evidence and commands: `docs/REEL_STUDIO_2_HANDOFF.md`.
+- Part 1: status map (what is VERIFIED / PARTIAL / UNTESTED / NOT IMPLEMENTED), as of 2026-11-05 (end of the third
+  session; code head `bc4bd81` + checkpoint commit). Details, evidence and commands: `docs/REEL_STUDIO_2_HANDOFF.md`.
 - Part 2: standing owner rules (non-negotiable).
 - Part 3: the owner's master prompt (Appendix A, verbatim), working-directory/authorship addendum (Appendix B), later
   owner instructions (Appendix C) and the 2026-10-24 continuation prompt "finish all remaining features" (Appendix D).
 
 ---
 
-## Part 1 — Status map (2026-10-24, after the second 2.0 session)
+## Part 1 — Status map (2026-11-05, after the third 2.0 session)
 
 Legend: ✅ VERIFIED (code + real run + evidence) · 🟡 PARTIAL (built, some acceptance still open) · ⚪ UNTESTED (code
-exists, not run end to end) · ⬜ NOT IMPLEMENTED. Everything below was run on the LOCAL test stack (local Supabase in
-Docker + local engine on :8001 + web dev on :3000). Production Supabase has NOT received the 2.0 migrations and Vercel
-has NOT been redeployed (see handoff §12).
+exists, not run end to end) · ⬜ NOT IMPLEMENTED. Session 1–2 rows ran on the LOCAL test stack; session 3 also ran on PRODUCTION (Supabase migrated, engine from this
+folder, Vercel live at commit 0981008 — later web commits not yet deployed; engine currently stopped by the owner).
+See handoff §12.
 
 | Requirement | Status | Evidence / what exists | Still open |
 |---|---|---|---|
 | Stage A migration · Stage B restoration | ✅ | `docs/MIGRATION.md`; repo history by the owner only | Production engine + Vercel still point at the old folder/repo |
-| Phase 1 reference analysis + tool audit | ✅ | `REFERENCE_STYLE_ANALYSIS.md`, `OPEN_SOURCE_TOOL_AUDIT.md`, `services/reference/analyzer.py` | ROI shot detection for layout references |
+| Phase 1 reference analysis + tool audit | ✅ | `REFERENCE_STYLE_ANALYSIS.md`, `OPEN_SOURCE_TOOL_AUDIT.md`, `services/reference/analyzer.py`; layout (panel) detection per shot (session 3, unit-checked) | Layout detection not run on Reference 2/3 |
 | Phase A (owner order) — Mode B web app | ✅ | Create page, media bin (multi-file, resumable, parallel, dedupe, limits), direction form, live progress, storyboard stills, QA panel, preview, download, open in editor; edit made entirely in the UI and downloaded (15.000 s 1080×1920 H.264+AAC) | Landing page still advertises Topic → Video in one card |
 | Phase 2 ingestion (unrestricted count) | 🟡 | `media_assets`, `/assets` API, `ingest` job (analysis + thumbnail + VLM tags), project limits 300 files / 40 GB | Acceptance with 1/2/10/30+ clips not all run in one go (2, 8 and 17 clips run) |
-| Phase 3 Reference Style Analyzer in app | ✅ | Reference upload slot in Mode B; analysis stored on the asset; style transfer applied; collapsible style report in the media bin (pacing, beat sync, transitions, flashes, camera, text, palette, cut/beat strip) (session 3) | ROI shot detection for layout references |
+| Phase 3 Reference Style Analyzer in app | ✅ | Reference upload slot in Mode B; analysis stored on the asset; style transfer applied; collapsible style report in the media bin (pacing, beat sync, transitions, flashes, camera, text, palette, cut/beat strip) (session 3) | Layout detection built; not run on a real reference |
 | Phase 4 music/beat sync | ✅ | Beat grid, drops, hook timing, whole-beat pacing; QA cuts on beat; manual beat correction (shift ±500 ms or force BPM) in the direction form → `planner.correct_beats` (session 3) | — |
 | Phase B (owner order) — AI Director | ✅ | `editing/director.py` (local Qwen JSON + optional external endpoint + rule fallback, schema/registry validation, scale normalisation, placeholder filter, intent gates for designed scenes and 3D); same 8 clips + 3 prompts → phonk/fast, cinematic/slow (all QA pass), tech promo with scenes | Model sometimes picks a generic style for promos |
-| Phase C — motion graphics | 🟡 | `rendering/motion.py`: 26 templates, `motion` timeline item, SFX cues; gallery 26/26 animated, Hyperframes lint clean; 24 s Reference-6-style ad rendered (all QA pass) | Ad looked weak (test brand-kit watermark, landscape screenshots); fixes made; re-render `ad2` was running at checkpoint |
-| Phase D — advanced effects, reuse | ✅ | 35 effects + 33 transitions (69/69), minterpolate slow motion, ONNX composites, composite budget, no same-clip back-to-back; eight-clip 20 s edit all QA pass (session 3); export bitrate capped at 20 Mbps (was 53 Mbps on grainy footage) | Two-clip 18 s re-run with the current code not repeated |
+| Phase C — motion graphics | 🟡 | 27 templates (+`tracked_tag`), gallery 26/26; prompt-structured scenes, list merging, placeholder filter, before/after split, footage-first `backdrop:none`, text auto-fit (session 3); Test B4 infographic 20 s (fails only `transitions_visible`), Test E2 before/after 15 s all pass | Not visually reviewed; text auto-fit + footage-first not yet seen in a render; HP Victus re-render pending |
+| Phase D — advanced effects, reuse | ✅ (+🟡 new) | 35 effects + 33 transitions (69/69), minterpolate slow motion, ONNX composites, composite budget, no same-clip back-to-back; eight-clip 20 s edit all QA pass (session 3); export bitrate capped at 20 Mbps (was 53 Mbps on grainy footage); frame-exact segments after any effect/ramp (70/88 → 88/88); six shader-style xfade transitions; tracked labels (OpenCV MIL); black-bar detection + blur-fill (unit test); photo matching to clips (session 3) | New transitions/tracked labels/black bars not yet in a reviewed render |
 | Phase E — Blender + MCP | ✅ (worker) / ⚪ (MCP) | Blender 5.2.3 headless via Store alias; `rendering/blender.py` + `blender_scene.py` (text_3d, product_turntable); 3D edit rendered (3D title + turntable, all QA pass) | Blender MCP configured (`.mcp.json`, add-on enabled) but the live socket session was not exercised |
 | Phase F — voice cloning | ✅ | Voice profile saved through `/voices` with consent; Chatterbox synthesis on CUDA, Perth watermark detected; Hinglish converted to Devanagari before synthesis (guarded); Mode B narrated edits EN/HI/Hinglish 14 s, all QA pass, captions within 0–120 ms of speech, speaker similarity 0.86–0.95 vs 0.72 for another speaker (session 3) | Uses a synthetic consented sample; owner's own consented recording still to be added |
 | Phase G — 100 caption presets + ON/OFF | ✅ | `rendering/caption_presets.py` (100 behaviourally distinct, 23 families), `captionStyle.look`/`enabled`, compiler support, picker in Mode B/Mode A/editor; unit test validates all 100; 23-family render gallery; Mode A render with `phonk-red` and with captions OFF | Pixel-font line-height fix not re-rendered |
 | Phase H — AI clip collections | ✅ (synthetic) | `clip_collections`, `/collections` API, grounded grouping, reorder/rename/remove, batch render, UI panel; series scheduling (`/collections/{id}/schedule`, one post every N days through the normal queue, unfinished exports skipped) (session 3) | Owner's real class not used; scheduling not exercised (publishing nothing) |
-| Phase I — campaign agent | 🟡 | Staged planner, grounding, tracked links, campaign pages, idea → project; near-duplicate hook rejection and per-field language check (session 3) | Copy quality from the 7B model still to be judged on the Test H run |
+| Phase I — campaign agent | 🟡 | Staged planner, grounding, tracked links, campaign pages, idea → project; near-duplicate hooks rejected, repeats dropped (≥ 3 reels kept), leaked format text stripped (session 3); Test H: Hinglish plan → Mode B reel 20 s → campaign caption + tracked link, 0 publish jobs | Hooks still similar from the 7B model; Test H reel fails `no_unplanned_black`; not visually reviewed |
 | Phase J — localisation + tracking | 🟡 | EN/HI/Hinglish prompts, Marathi disabled; `tracked_links`, `link_clicks`, `inquiries`, public `/r/<slug>` + `/i/<slug>`, member-recorded inquiries, results + rule suggestions; pgTAP tests for the RPCs | No real click/inquiry from a visitor yet (deploy needed) |
 | Phase K — Instagram enhancements | 🟡 | Cover frame (`thumb_offset`, `cover_ms`), campaign link per post, caption/hashtag suggestions, existing queue/schedule/retry/dedupe | Never published or scheduled anything (owner: do NOT publish on Instagram) |
-| Phase L — QA + E2E | 🟡 | API 118 passed/6 skipped, ruff clean, web tsc+lint clean, schema 12/12, pgTAP 72/72, db lint clean; measured QA module; phone-width check of new pages (no overflow) | `next build` not run this session; Test B (infographic), Test D re-render, Test H full flow, Test G on a real class |
-| Mode B replaces Topic → Video | ✅ | `/create`, `edit` project mode; `/topics` redirects to old topic projects in the library | Landing card copy |
-| Deploy to Vercel (owner asked: last step) | ✅ | Production Supabase migrated (7 migrations, remote lint clean); production engine runs 2.0 from this folder (task re-pointed); Vercel `dpl_4vYYDteBdvU3tbBvxQ4HXxwuVTpf` (commit 8cf0d62) live on reel-studio-taupe.vercel.app with the same UI (session 3) | Vercel Git link still points at the old repo: deploy new commits via the API (DEPLOYMENT.md) |
+| Phase L — QA + E2E | 🟡 | API 136 passed/6 skipped, ruff clean, web tsc+lint clean, `next build` ✅, schema 12/12, pgTAP 72/72, db lint clean (local + production); Tests B/E/H rendered (session 3); render watchdog + software fallback | Visual review of B/E/H; Test G on a real class; HP Victus re-render |
+| Mode B replaces Topic → Video | ✅ | `/create`, `edit` project mode; `/topics` redirects; landing card now "Prompt → Edit" with a 2.0 screenshot (checkpoint commit) | Landing reel video; not yet deployed |
+| Photos → video in Mode B (owner request 2026-10-27) | 🟡 | Photos always matched to the clips (colour/sharpness/grain/motion); optional "Animate my photos with AI": LTX-Video 2B distilled in `D:\ReelStudio\video-venv`, ~2 min/photo, AI-generated labels + caption disclosure + Terms; smoke test 4.04 s clip in 121 s | Both-ends conditioning not re-tested; not yet used in a real edit; web toggle not deployed |
+| Engine always-on | ✅ | 2-minute windowless ensure task, no idle sleep, Ollama started, render watchdog, software fallback, low-RAM mode | Currently disabled by the owner (2026-11-05) |
+| Deploy to Vercel (owner asked: last step) | ✅ | Production Supabase migrated (7 migrations, remote lint clean); production engine runs 2.0 from this folder (task re-pointed); Vercel `dpl_4UBCg8yyma5FXqu1ofa2EsAPZcWa` (commit 0981008) live on reel-studio-taupe.vercel.app with the same UI (session 3) | Vercel Git link still points at the old repo: deploy new commits via the API (DEPLOYMENT.md) |
 
 ### Generated outputs (local, not in git) — see handoff §14 for the full list
 `C:\Users\Sahil\AppData\Local\reel-studio\data\` → `mode-b-tests\{grind-phonk-ref4,phase-b,phase-c,phase-d,phase-e,app-e2e}`,
@@ -324,6 +326,23 @@ After migration, continue all development, testing, commits and pushes from this
 | ahujasid/mcp-for-blender | MIT | Configured for Claude Code (`.mcp.json`, safe mode, telemetry off); add-on installed/enabled |
 | Herk Edit Kit, Video Director Skill, AIvideokit, free247editor, Vertical Video Editing Skill, Claude Motion Graphics | various (see OPEN_SOURCE_TOOL_AUDIT.md) | Studied for techniques only; nothing copied; techniques reimplemented as templates/effects |
 | Fonts: Archivo, Poppins, Noto Sans, JetBrains Mono, Fira Code, Fraunces, Bebas Neue, Caveat, Press Start 2P | SIL OFL | Bundled for renders and caption previews |
+| LTX-Video 2B 0.9.8 distilled (Lightricks) + T5-XXL bf16 (city96 copy) | LTXV Open Weights License 0.X (free under US$10M revenue; disclose outputs as AI-generated) / Apache-2.0 | Session 3: "Animate my photos" image-to-video in `D:\ReelStudio\video-venv`; chosen over Wan 2.2 TI2V-5B (Apache-2.0, too heavy for 8 GB) |
+| diffusers 0.39, transformers 4.57, accelerate, imageio-ffmpeg | Apache-2.0 / BSD | LTX pipeline in the isolated video environment |
+| OpenCV MIL tracker (opencv-python 5) | Apache-2.0 | Session 3: tracked labels (MediaPipe/SAM 2 still not adopted) |
+| FFmpeg xfade custom expressions | (FFmpeg) | Session 3: six shader-style transitions instead of a GL build of FFmpeg (gl-transitions ideas) |
+
+### Session 3 owner instructions (2026-10-24 → 2026-11-05, paraphrased unless quoted)
+- Move Claude's storage from C: to D: with zero data loss; protect AnswerRank/Tamrivo completely (done, `CLAUDE_STORAGE_MIGRATION.md`).
+- "do not publish on insta anything" (still in force).
+- Deploy on Vercel with the same dashboard UI (done; later web commits need a redeploy).
+- "instead of testing, first build the whole project … dont test it now" — build first, test in one go at the end.
+- The engine "should always be on" (always-on ensure task) — later "stop the engine" (2026-11-05: task disabled).
+- Terminal windows must not pop up (windowless `conhost --headless` check).
+- Mode B: "upload images so it will automatically convert it into video matching with clips uploaded with it … like
+  gemini" — photos matched to clips + optional local AI image-to-video (LTX-Video), ₹0.
+- Fix the HP Victus edit: "auto-fit text so it never clips, keep footage dominant for cinematic prompts, crop built-in
+  black bars, and fix cuts on the beat. Then re-render" (fixes committed; re-render pending).
+- Process rule adopted after the 2026-10-27 hang: never run GPU tests while the owner's edits are rendering.
 
 ## Appendix D — 2026-10-24 continuation prompt (verbatim)
 

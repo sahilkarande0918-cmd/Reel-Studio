@@ -76,7 +76,7 @@ export default function Landing() {
           <div className="mb-14 max-w-[640px]"><Eyebrow>How it works</Eyebrow><H2>Three steps from raw footage to a finished Reel.</H2></div>
           <ol className="grid gap-8 lg:grid-cols-3">
             {[
-              { n: "01", icon: Upload, title: "Bring your content", body: "Upload a class recording, or type the topic you want explained.", src: "/landing/app-uploader.jpg", pos: "57% 38%", zoom: 2.1 },
+              { n: "01", icon: Upload, title: "Bring your content", body: "Upload a class recording, or drop raw clips with music and describe the edit you want.", src: "/landing/app-uploader.jpg", pos: "57% 38%", zoom: 2.1 },
               { n: "02", icon: Wand2, title: "Let intelligence do the groundwork", body: "Hinglish transcription, ranked highlights, code understanding and smart 9:16 reframing.", src: "/landing/app-recording-highlights.jpg", pos: "40% 22%", zoom: 1.75 },
               { n: "03", icon: Film, title: "Make it yours", body: "Edit on a multitrack timeline, apply your brand, export the MP4 and publish.", src: "/landing/app-editor-recording.jpg", pos: "62% 40%", zoom: 1.45 },
             ].map(({ n, icon: Icon, title, body, src, pos, zoom }, i) => <li key={n} data-reveal style={{ "--d": i } as React.CSSProperties} className="group">
@@ -131,11 +131,11 @@ export default function Landing() {
             <div className="grid gap-10 lg:grid-cols-2">
               {[
                 { icon: Mic, title: "Recording → Reels", body: "Upload a class. Get ranked 30–60 s highlights that start and end on complete thoughts, framed for phones, with synced captions.", shot: "/landing/app-recording-highlights.jpg", video: "/landing/reel-hooks.mp4", poster: "/landing/reel-hooks.jpg", cta: "Upload a recording" },
-                { icon: Code2, title: "Topic → Video", body: "Type “JSON vs XML”. Get an editable script, animated code cards, a natural local voiceover and a 9:16 MP4.", shot: "/landing/app-topic-script.jpg", video: "/landing/reel-topic.mp4", poster: "/landing/reel-topic.jpg", cta: "Create from a topic" },
+                { icon: Wand2, title: "Prompt → Edit", body: "Drop clips, music and an optional reference reel, then describe the edit. An AI director cuts on the beat with effects, motion graphics, captions and voice.", shot: "/landing/app-create.jpg", video: "", poster: "", cta: "Start an edit" },
               ].map(({ icon: Icon, title, body, shot, video, poster, cta }, i) => <article key={title} data-reveal style={{ "--d": i } as React.CSSProperties} className="rounded-[26px] bg-[#26301F] p-6 ring-1 ring-white/5 md:p-8">
                 <div className="relative mb-8 pr-[28%]">
                   <div className="overflow-hidden rounded-[14px] ring-1 ring-white/10"><div className="relative aspect-[16/10]"><Image src={shot} alt={`${title} in the app`} fill sizes="(min-width: 1024px) 420px, 80vw" className="object-cover object-left-top" /></div></div>
-                  <Phone video={video} poster={poster} label={`${title} output`} className="absolute -bottom-6 right-0 w-[34%] ring-[5px] ring-[#1D2618]" />
+                  {video && <Phone video={video} poster={poster} label={`${title} output`} className="absolute -bottom-6 right-0 w-[34%] ring-[5px] ring-[#1D2618]" />}
                 </div>
                 <span className="grid h-10 w-10 place-items-center rounded-full bg-[#F6F3EC] text-forest"><Icon size={18} aria-hidden /></span>
                 <h3 className="mt-5 font-serif text-[30px] tracking-[-.02em]">{title}</h3>

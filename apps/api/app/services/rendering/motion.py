@@ -69,7 +69,9 @@ class Scene:
 
     def wrap(self, kind: str, body: str, extra_cls: str = "") -> str:
         """Scene wrapper with entry, slow camera drift and a morph-like exit (scale + blur + fade)."""
-        bg = '<div class="mg-bg"></div><div class="mg-glow"></div>' if kind == SCENE else ""
+        over = kind == SCENE and self.item.get("backdrop") == "none"  # footage-first: the scene's text over the footage
+        bg = '<div class="mg-bg"></div><div class="mg-glow"></div>' if kind == SCENE and not over else ""
+        extra_cls = f"{extra_cls} mg-over" if over else extra_cls
         self.tw(self.sel(), {"opacity": 0, "scale": 1.06, "filter": "blur(18px)"},
                 {"opacity": 1, "scale": 1, "filter": "blur(0px)", "duration": 0.45}, 0)
         self.tw(self.sel(".mg-cam"), {"scale": 1, "rotateX": 0, "y": 0},
@@ -443,6 +445,7 @@ def css(ctx: dict) -> str:
       .mg-price-card b {{ display: block; margin: 24px 0; font: 800 150px/1 "{body}", sans-serif; }} .mg-price-card b:empty {{ display: none; }}
       .mg-price-card ul {{ list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 22px; font: 600 46px/1.2 "{body}", sans-serif; }}
       .mg.overlay .mg-cam {{ justify-content: flex-end; padding-bottom: 360px; }}
+      .mg-over {{ text-shadow: 0 6px 30px rgba(0,0,0,.65), 0 2px 6px rgba(0,0,0,.5); }}
       .mg-pin {{ position: absolute; left: 0; top: 0; width: 0; height: 0; }}
       .mg-pin i {{ position: absolute; left: -14px; top: -14px; width: 28px; height: 28px; border-radius: 50%; background: {accent}; box-shadow: 0 0 0 10px rgba(255,255,255,.25); }}
       .mg-pin span {{ position: absolute; left: 30px; top: -150px; padding: 18px 30px; border-radius: 18px; white-space: nowrap; font: 800 48px/1 "{body}", sans-serif; background: rgba(0,0,0,.66); color: {text}; border-left: 8px solid {accent}; }}

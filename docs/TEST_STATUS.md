@@ -1,4 +1,6 @@
-> **Reel Studio 2.0 (updated 2026-10-24, session 2) — read first:** `docs/REEL_STUDIO_2_MASTER_PLAN.md` (full approved spec + status map) and `docs/REEL_STUDIO_2_HANDOFF.md` (technical handoff). They supersede the 1.0 status below, which is kept as history. Work folder `C:\Users\Sahil\OneDrive\Desktop\Reel Studio 2.0`, repo https://github.com/sahilkarande0918-cmd/Reel-Studio. 2.0 status (second session, HEAD ac322a5+docs): ✅ Mode B web app + AI director, 26 motion templates, 35 effects / 33 transitions + ONNX composites, headless Blender 3D shots, 100 caption presets + ON/OFF, clip collections; 🟡 voice profiles (built, speech not yet synthesised), campaign agent + EN/HI/Hinglish + click/inquiry tracking, Instagram cover/suggestions (nothing published), Phase D/Test B/E/H renders; ⬜ production migrations + Vercel deploy. Next task: handoff §18.
+> **Reel Studio 2.0 (updated 2026-11-05, session 3) — read first:** `docs/REEL_STUDIO_2_MASTER_PLAN.md` (full approved spec + status map) and `docs/REEL_STUDIO_2_HANDOFF.md` (technical handoff). They supersede the 1.0 status below, which is kept as history. Work folder `C:\Users\Sahil\OneDrive\Desktop\Reel Studio 2.0`, repo https://github.com/sahilkarande0918-cmd/Reel-Studio. 2.0 status (second session, HEAD ac322a5+docs): ✅ Mode B web app + AI director, 26 motion templates, 35 effects / 33 transitions + ONNX composites, headless Blender 3D shots, 100 caption presets + ON/OFF, clip collections; 🟡 voice profiles (built, speech not yet synthesised), campaign agent + EN/HI/Hinglish + click/inquiry tracking, Instagram cover/suggestions (nothing published), Phase D/Test B/E/H renders; ⬜ production migrations + Vercel deploy. Next task: handoff §18.
+>
+> **Session 3 checkpoint (2026-11-05):** voice cloning verified (narrated Mode B edits EN/HI/Hinglish); production deployed (Supabase migrated, engine from this folder, Vercel at commit 0981008; later web commits not yet deployed); photos in Mode B matched to clips + optional local AI image-to-video (LTX-Video); engine always-on hardening (windowless check, render watchdog, software fallback); HP Victus fixes (text auto-fit, footage-first, black bars, cuts on beat) committed, re-render pending. Engine STOPPED and its task disabled by the owner. Next task: `REEL_STUDIO_2_HANDOFF.md` §18.
 
 ## Reel Studio 2.0 checks (2026-10-23/24)
 | Test | Result |
@@ -28,7 +30,14 @@
 | Test B infographic (first run) | ❌ list split into one-item scenes out of order, empty gradient scenes, frozen-frame flag, old-UI tour clip → fixed `overlay.merge_lists`; re-render with 2.0 screenshots below |
 | next build (session 3) | ✅ 27 routes, lint + tsc clean |
 | Production deploy | ✅ migrations pushed (remote lint clean), engine on 2.0, Vercel `dpl_4vYYDteBdvU3tbBvxQ4HXxwuVTpf` live; /r /i 404 for unknown slugs, /create /campaigns redirect to login |
-| Tests E (before/after), H (campaign → reel) | ⬜ not run yet |
+| Test B4 infographic (prompt-structured, 4 × 2.0 screenshots, 20 s) | 🟡 rendered 1080×1920; all QA pass except `transitions_visible`; not visually reviewed |
+| Test E2 before/after (2 clips, 15 s) | 🟡 rendered, all 8 QA pass; split screen not visually confirmed |
+| Test H campaign → Mode B reel (Hinglish, no publish) | 🟡 campaign plan (hooks still similar), reel 20 s, suggestion source=campaign + tracked link, 0 publish jobs; QA fails `no_unplanned_black` |
+| Frame-exact segments (owner HP Victus clip, 8 effect/ramp combos) | ✅ 88/88 each (was 70/88) |
+| Audio mix = edit length (owner perfume edit) | ✅ 20.000 s (was 17.6 s) |
+| LTX-Video photo animation smoke test | ✅ 4.04 s 448×800 97 frames in 121 s; subject left frame (both-ends conditioning added, not re-tested) |
+| HP Victus edit (owner, production) | 🟡 20.000 s after Windows restart; QA fails `cuts_on_beat`, `no_unplanned_black`; text clipped, title cards replace footage, built-in bars → fixes committed 2026-11-05, re-render pending |
+| Checkpoint 2026-11-05 suites | ✅ API 136 passed / 6 skipped, ruff clean, schema 12/12, web tsc + eslint clean (new tests: whole-beat cycle, black-bar detect + blur-fill) |
 
 > **2026-10-17: Feature A (context-aware AI editing) verified on the owner's real physics class (production) and the synthetic React fixture (local). Read [CHECKPOINT.md](CHECKPOINT.md) first.** B/C not implemented.
 

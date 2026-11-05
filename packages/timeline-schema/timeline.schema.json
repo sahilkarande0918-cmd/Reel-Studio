@@ -620,6 +620,13 @@
                         "minItems": 3,
                         "maxItems": 3
                       }
+                    },
+                    "backdrop": {
+                      "type": "string",
+                      "enum": [
+                        "scene",
+                        "none"
+                      ]
                     }
                   },
                   "required": [

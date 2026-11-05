@@ -252,3 +252,28 @@ def test_segments_are_frame_exact_with_slow_mo_ramp_and_frame_blending(tmp_path)
         s = base.Segment(asset=src, src_in=2.68, src_out=5.23, duration=88 / 30, effects=effs, speed_ramp=ramp,
                          transition_out="cut", transition_dur=0.0)
         base.render_segment(s, tmp_path / "s.mp4", 270, 480, 30, "looks")  # raises if not exactly 88 frames
+
+
+def test_reference_half_beats_never_shift_later_cuts_off_the_beat():
+    from app.services.editing.style_transfer import whole_beat_cycle
+
+    assert whole_beat_cycle([3.5, 4.0, 4.0, 3.0]) == (4.0, 4.0, 4.0, 3.0)  # lone half beat rounded
+    assert whole_beat_cycle([0.5, 0.5, 1.5, 2.5]) == (0.5, 0.5, 1.5, 2.5)  # pairs that land on a whole beat kept
+
+
+def test_built_in_black_bars_are_detected_and_filled(tmp_path):
+    import subprocess
+
+    from app.services.editing import base
+
+    src = tmp_path / "boxed.mp4"  # a 16:9 picture inside a 9:16 frame with black bars, like re-uploaded phone clips
+    subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "testsrc2=s=360x202:r=30:d=3",
+                    "-vf", "pad=360:640:0:219:black", "-pix_fmt", "yuv420p", str(src)], check=True)
+    box = base.content_box(src)
+    assert box and abs(box[3] - 202 / 640) < 0.03 and box[4] > 1.5
+    s = base.Segment(asset=src, src_in=0.5, src_out=2.5, duration=2.0, content=box, transition_out="cut", transition_dur=0.0)
+    base.render_segment(s, tmp_path / "s.mp4", 270, 480, 30, "draft")  # frame-exact or it raises
+    top = subprocess.run(["ffmpeg", "-v", "info", "-ss", "1", "-i", str(tmp_path / "s.mp4"), "-frames:v", "1",
+                          "-vf", "crop=270:60:0:0,signalstats,metadata=print:key=lavfi.signalstats.YAVG", "-f", "null", "-"],
+                         capture_output=True, text=True).stderr
+    assert float(top.rsplit("YAVG=", 1)[1].split()[0]) > 30  # the top band is blurred picture now, not black

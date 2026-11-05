@@ -99,6 +99,8 @@ export const MotionItem = z.object({
   intensity: z.number().min(0).max(1).default(0.6),
   // subject path for tracked overlays: [seconds from item start, x, y] with x/y as 0–1 of the frame
   track: z.array(z.tuple([z.number().min(0), z.number().min(0).max(1), z.number().min(0).max(1)])).max(900).optional(),
+  // "none": a designed scene drawn over the footage (no backdrop) — footage-first styles like cinematic
+  backdrop: z.enum(["scene", "none"]).optional(),
 });
 
 export const Item = z.discriminatedUnion("type", [VideoItem, CaptionItem, AudioItem, CodeItem, TextItem, MotionItem]);

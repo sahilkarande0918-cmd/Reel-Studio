@@ -71,6 +71,9 @@ def render_plan(
     work.mkdir(parents=True, exist_ok=True)
     segs = to_segments(plan, clip_paths)
     clamp_sources(segs, [clip_durations[s["clip"]] for s in plan["segments"]])
+    for s in segs:  # black bars baked into the footage of this shot are cut off before framing
+        if not s.still:
+            s.content = base.content_box(s.asset, s.src_in, s.src_out)
     picture = base.render_base(segs, work / "picture", plan["width"], plan["height"], plan["fps"], quality)
     dur = plan["duration"]
     synthesized = False

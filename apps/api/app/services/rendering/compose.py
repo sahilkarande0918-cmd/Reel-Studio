@@ -458,6 +458,15 @@ def compile_html(doc: dict) -> str:
       const PUSH = {json.dumps(pushes)};
       const TD = {look["duration"]};
       const tl = gsap.timeline({{ paused: true }});
+      // motion-graphics text never leaves the frame: a word wider than its box (or 88 % of the frame) shrinks until it
+      // fits ("PERFORMANCE" at 150 px was clipped). Layout only; again once the bundled fonts have loaded.
+      const FIT = () => document.querySelectorAll(".mg h1, .mg h2, .mg h3, .mg-h2, .mg-sub, .mg-serif, .mg-wordmark, .mg-tagline, .mg-type, .mg-line span, .mg-num, .mg-center").forEach(el => {{
+        const max = Math.min(el.clientWidth || 1e9, {w} * 0.88);
+        let fs = parseFloat(getComputedStyle(el).fontSize);
+        while (el.scrollWidth > max + 1 && fs > 20) {{ fs *= 0.93; el.style.fontSize = fs + "px"; }}
+      }});
+      FIT();
+      if (document.fonts) document.fonts.ready.then(FIT);
       CAMERAS.forEach(track => track.keys.forEach((k, i) => {{
         const win = {{ y: k.win[0], height: k.win[1] }}, cam = {{ x: k.cam[0], y: k.cam[1], scale: k.cam[2] }};
         if (k.jump) {{ tl.set(track.win, win, k.t); tl.set(track.cam, cam, k.t); return; }}
