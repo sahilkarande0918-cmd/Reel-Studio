@@ -3,3 +3,6 @@ opencv-python-headless==4.*
 scenedetect==0.6.*
 numpy<3
 librosa==0.11.*
+scikit-learn==1.*  # bulk clipping: TF-IDF fallback, speaker clustering (also a librosa dependency)
+fonttools==4.*  # fast renderer: bundled WOFF2 fonts → TTF for libass captions
+brotli==1.*  # WOFF2 decompression for fonttools

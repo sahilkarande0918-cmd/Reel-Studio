@@ -35,6 +35,14 @@ LINGER_S = 0.5  # a page stays this long after its last word when speech pauses
 
 def camera(k: dict, w: int, h: int, center: float = PANEL_CENTER) -> dict:
     """Frame-space placement for one crop keyframe."""
+    if k["layout"] == "split" and k.get("second"):
+        # ponytail: the HTML renderer shows a split as one wide panel holding both speakers; the FFmpeg fast
+        # renderer (rendering/fast.py) stacks them. Upgrade: two <video> layers in the composition.
+        b = k["second"]
+        x0, y0 = min(k["crop_x"], b["crop_x"]), min(k["crop_y"], b["crop_y"])
+        x1 = max(k["crop_x"] + k["crop_width"], b["crop_x"] + b["crop_width"])
+        y1 = max(k["crop_y"] + k["crop_height"], b["crop_y"] + b["crop_height"])
+        k = {**k, "layout": "panel", "crop_x": x0, "crop_y": y0, "crop_width": x1 - x0, "crop_height": y1 - y0}
     if k["layout"] == "panel":
         s = w / k["crop_width"]
         ph = round(k["crop_height"] * s)

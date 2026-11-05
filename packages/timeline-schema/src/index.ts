@@ -17,9 +17,13 @@ export const CropKeyframe = z.object({
   crop_y: px,
   crop_width: z.number().int().positive(),
   crop_height: z.number().int().positive(),
-  layout: z.enum(["crop", "panel"]),
+  /** split: two speakers stacked (this box on top, `second` below), each scaled to half the portrait frame. */
+  layout: z.enum(["crop", "panel", "split"]),
   region: z.string(),
   transition_mode: z.enum(["start", "hold", "ease", "cut", "manual"]),
+  second: z
+    .object({ crop_x: px, crop_y: px, crop_width: z.number().int().positive(), crop_height: z.number().int().positive() })
+    .optional(),
 });
 
 export const Asset = z.object({
@@ -56,6 +60,8 @@ export const CaptionWord = z.object({
   start: seconds,
   end: seconds,
   isCode: z.boolean().default(false),
+  /** Content-chosen emphasis (a number, a strong claim, a contrast, a key term): styled with the preset's accent. */
+  emphasis: z.boolean().default(false),
 });
 
 export const CaptionItem = z.object({

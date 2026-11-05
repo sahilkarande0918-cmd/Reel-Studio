@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import assets, campaigns, collections, editor, edits, health, publishing, recordings, renders, social, topics, voices
+from app.api import assets, batch, campaigns, collections, editor, edits, health, publishing, recordings, renders, social, topics, voices
 from app.core import heartbeat
 from app.core.config import get_settings
 
@@ -47,4 +47,5 @@ app.include_router(assets.router)
 app.include_router(edits.router)
 app.include_router(voices.router)
 app.include_router(collections.router)
+app.include_router(batch.router)
 app.include_router(campaigns.router)

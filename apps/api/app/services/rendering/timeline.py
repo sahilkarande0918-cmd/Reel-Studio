@@ -155,10 +155,17 @@ def build(
     quality: str = "looks",
     kit: dict | None = None,
     logo_src: str | None = None,
+    spans: list[list[float]] | None = None,
+    hook_title: str | None = None,
+    emphasis: bool = False,
 ) -> dict:
-    """`logo_src` is the logo file name the caller wrote into the render directory (see `logo_file`)."""
+    """`logo_src` is the logo file name the caller wrote into the render directory (see `logo_file`).
+    `spans`: source stretches played back to back (speech-aware cuts, an opening teaser); None = the whole clip.
+    `hook_title`: an opening headline text item (first 2.5 s). `emphasis`: content-chosen caption emphasis."""
     start, end = float(highlight["start_s"]), float(highlight["end_s"])
     duration = round(end - start, 3)
+    if spans:
+        duration = round(sum(round(b - a, 3) for a, b in spans), 3)
     title = (highlight.get("title") or "")[:120]
     brand, preset = brand_snapshot(kit, title)
     zone = CAPTION_ZONES[(kit or {}).get("caption_position") or "lower"]
@@ -192,7 +199,34 @@ def build(
                 "transition_mode": "start",
             }
         ]
-    keyframes = [{**k, "t": min(max(float(k["t"]), 0.0), duration)} for k in keyframes]
+    if spans:
+        video_items, cap_words, off = [], [], lead
+        for n, (a, b) in enumerate(spans):
+            d = round(b - a, 3)
+            rel = a - start
+            ks = sorted(keyframes, key=lambda k: float(k["t"]))
+            held = [k for k in ks if float(k["t"]) <= rel + 1e-6][-1:] or ks[:1]
+            inside = [{**k, "t": round(float(k["t"]) - rel, 3)} for k in ks if rel + 1e-6 < float(k["t"]) < rel + d]
+            video_items.append({"id": f"clip-{n}", "type": "video", "assetId": "source", "start": round(off, 3),
+                                "duration": d, "sourceStart": round(a, 3), "sourceEnd": round(round(a, 3) + d, 3),
+                                "volume": 1, "cropKeyframes": [{**held[0], "t": 0.0}, *inside]})
+            off += d
+        from app.services.clips import speech_cuts
+
+        for w in speech_cuts.remap(words, spans):
+            text = (w.get("corrected_text") or "").strip()
+            cap_words.append({"text": text, "start": w["clip_start"], "end": min(w["clip_end"], duration),
+                              "isCode": is_code(text)})
+    else:
+        keyframes = [{**k, "t": min(max(float(k["t"]), 0.0), duration)} for k in keyframes]
+        video_items = [{"id": "clip", "type": "video", "assetId": "source", "start": lead, "duration": duration,
+                        "sourceStart": start, "sourceEnd": round(start + duration, 3), "volume": 1,
+                        "cropKeyframes": keyframes}]
+        cap_words = caption_words(words, start, end)
+    if emphasis:
+        from app.services.rendering import caption_auto
+
+        cap_words = caption_auto.emphasise(cap_words)
     doc = {
         "id": render_id,
         "schemaVersion": 1,
@@ -207,19 +241,7 @@ def build(
             {
                 "id": "video",
                 "kind": "video",
-                "items": [
-                    {
-                        "id": "clip",
-                        "type": "video",
-                        "assetId": "source",
-                        "start": lead,
-                        "duration": duration,
-                        "sourceStart": start,
-                        "sourceEnd": round(start + duration, 3),
-                        "volume": 1,
-                        "cropKeyframes": keyframes,
-                    }
-                ],
+                "items": video_items,
             },
             {
                 "id": "captions",
@@ -230,7 +252,7 @@ def build(
                         "type": "caption",
                         "start": lead,
                         "duration": duration,
-                        "words": caption_words(words, start, end),
+                        "words": cap_words,
                     }
                 ],
             },
@@ -239,6 +261,11 @@ def build(
         "captionStyle": {**CAPTION_STYLE, "preset": preset, "safeTop": zone[0], "safeBottom": zone[1]},
         "renderSettings": {"quality": quality},
     }
+    if hook_title:
+        y = 300 if zone[0] >= H / 2 else 1480
+        doc["tracks"].append({"id": "titles", "kind": "overlay", "items": [
+            {"id": "hook-title", "type": "text", "start": lead, "duration": round(min(2.5, duration), 3),
+             "text": hook_title[:80], "x": W / 2, "y": y, "fontSize": 64, "align": "center", "box": True}]})
     validate(doc)
     return doc
 

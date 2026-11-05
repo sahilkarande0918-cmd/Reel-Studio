@@ -8,6 +8,7 @@ import { apiFetch, useBackend } from "@/lib/backend";
 import { fontFaces, type CaptionPreset } from "@/lib/brand";
 import { useMediaUrl } from "@/lib/media";
 import { createClient } from "@/lib/supabase/client";
+import { BulkClipping, type AnalysisReport } from "./bulk-clipping";
 import { Renders } from "./renders";
 
 export type Keyframe = {
@@ -16,7 +17,7 @@ export type Keyframe = {
   crop_y: number;
   crop_width: number;
   crop_height: number;
-  layout: "crop" | "panel";
+  layout: "crop" | "panel" | "split";
   region: string;
   transition_mode: "start" | "ease" | "hold" | "cut" | "manual";
 };
@@ -36,10 +37,20 @@ type Highlight = {
   crop_overridden: boolean;
   status: "proposed" | "selected" | "rejected";
   boundaries_edited: boolean;
-  features: { components?: Record<Component, number>; context?: ClipContext };
+  features: { components?: Record<string, number>; context?: ClipContext } & TalkFeatures;
 };
 
 type Component = "context" | "educational" | "opening" | "ending" | "engagement";
+/** Talk profiles (apps/api/app/services/highlights/bulk.py): 100-point editorial score with its evidence. */
+type TalkFeatures = {
+  profile?: string; editorial?: { score: number }; topic?: string; hook_quote?: string; ending_quote?: string;
+  limitations?: string[]; recommendations?: string[]; duplicates?: { start_s: number; end_s: number; why: string }[];
+  hook_teaser?: { text: string; start_s: number } | null; llm?: { insight?: string } | null;
+};
+const TALK: [string, string][] = [["hook", "Hook"], ["context", "Standalone context"], ["payoff", "Payoff / ending"],
+  ["value", "Information / story value"], ["delivery", "Delivery"], ["visual", "Visual suitability"], ["relevance", "Topic relevance"]];
+const isTalk = (h: { features?: TalkFeatures }) => !!h.features?.editorial;
+const clipScore = (h: { score: number; features?: TalkFeatures }) => (isTalk(h) ? Math.round(h.features!.editorial!.score) : Math.round(h.score * 100));
 type ClipContext = {
   units: { title: string; kind: string; start_s: number; end_s: number; whole: boolean }[];
   complete: boolean;
@@ -60,10 +71,10 @@ const COMPONENTS: [Component, string, string][] = [
 ];
 const score100 = (s: number) => Math.round(s * 100);
 
-function ScoreBreakdown({ c }: { c: Record<Component, number> }) {
+function ScoreBreakdown({ c, talk }: { c: Record<string, number>; talk?: boolean }) {
   return (
     <dl className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1.5 text-[12.5px]">
-      {COMPONENTS.map(([k, label, hint]) => (
+      {(talk ? TALK.map(([k, l]) => [k, l, l] as [string, string, string]) : COMPONENTS).map(([k, label, hint]) => (
         <div key={k} className="contents" title={hint}>
           <dt className="text-muted">{label}</dt>
           <dd className="h-1.5 overflow-hidden rounded-full bg-surface-3"><span className="block h-full rounded-full bg-accent" style={{ width: `${score100(c[k])}%` }} /></dd>
@@ -224,6 +235,7 @@ function Preview({ h, mediaUrl, srcW, srcH, onOverride }: { h: Highlight; mediaU
         ) : (
           <p className="p-4 text-[13px] text-muted">Preview needs the processing backend online.</p>
         )}
+        {k?.layout === "split" && <span className="absolute left-2 top-2 rounded-[3px] bg-black/70 px-1.5 text-[11px] text-white">split screen in export</span>}
         {k?.layout === "panel" && <span className="absolute left-2 top-2 rounded-[3px] bg-black/70 px-1.5 text-[11px] text-white">code panel</span>}
         {subtitles.data && page && (
           <div aria-live="off" style={{ position: "absolute", left: 48 * S, right: 48 * S, top: subtitles.data.captionStyle.safeTop * S,
@@ -298,7 +310,7 @@ export function Highlights({ recordingId, projectId, srcW, srcH, canEdit, words 
         .order("created_at", { ascending: false })
         .limit(1);
       if (error) throw error;
-      return (data?.[0]?.result ?? null) as { outline?: OutlineUnit[]; limitation?: string | null } | null;
+      return (data?.[0]?.result ?? null) as ({ outline?: OutlineUnit[]; limitation?: string | null } & AnalysisReport) | null;
     },
   });
   useEffect(() => {
@@ -349,6 +361,8 @@ export function Highlights({ recordingId, projectId, srcW, srcH, canEdit, words 
           </button>
         )}
       </div>
+      <BulkClipping recordingId={recordingId} projectId={projectId} canEdit={canEdit} report={analysis.data}
+        selectedIds={items.filter((h) => h.status === "selected").map((h) => h.id)} />
       {error && <p className="text-[13px] text-danger">{error}</p>}
       {items.length === 0 && <p className="text-[14px] text-muted">No highlights yet. They appear after analysis finishes.</p>}
       {analysis.data?.limitation && <p className="rounded-[6px] bg-surface p-3 text-[13px] text-accent">{analysis.data.limitation}</p>}
@@ -363,13 +377,14 @@ export function Highlights({ recordingId, projectId, srcW, srcH, canEdit, words 
                   <div className="flex items-baseline justify-between gap-3">
                     <span className="text-[15px]">{h.title}</span>
                     <span className="shrink-0 text-[13px] font-semibold tabular-nums" title="Weighted score from named signals (see the breakdown); a ranking aid, not a probability">
-                      {score100(h.score)}/100
+                      {clipScore(h)}/100
                     </span>
                   </div>
                   <div className="mt-1 flex flex-wrap gap-x-3 text-[12px] tabular-nums text-muted">
                     <span>{fmt(h.start_s)}–{fmt(h.end_s)}</span>
                     <span>{(h.end_s - h.start_s).toFixed(1)} s</span>
                     {h.features?.context && <span className={h.features.context.complete ? "text-success" : "text-accent"}>{h.features.context.complete ? "complete explanation" : "partial"}</span>}
+                    {h.features?.topic && <span>{h.features.topic}</span>}
                     {h.status !== "proposed" && <span className={h.status === "selected" ? "text-success" : ""}>{h.status}</span>}
                     {h.boundaries_edited && <span>edited</span>}
                   </div>
@@ -382,7 +397,7 @@ export function Highlights({ recordingId, projectId, srcW, srcH, canEdit, words 
               <header className="space-y-1.5">
                 <div className="flex items-baseline justify-between gap-3">
                   <h3 className="font-serif text-[22px] leading-tight">{current.title}</h3>
-                  <span className="shrink-0 text-[20px] font-semibold tabular-nums" title="Weighted score from named signals; a ranking aid, not a probability">{score100(current.score)}<span className="text-[13px] font-normal text-muted">/100</span></span>
+                  <span className="shrink-0 text-[20px] font-semibold tabular-nums" title="Editorial score from named signals; a ranking aid, not a view or virality prediction">{clipScore(current)}<span className="text-[13px] font-normal text-muted">/100</span></span>
                 </div>
                 <p className="text-[12.5px] tabular-nums text-muted">
                   {fmt(current.start_s)}–{fmt(current.end_s)} · {(current.end_s - current.start_s).toFixed(1)} s
@@ -392,6 +407,22 @@ export function Highlights({ recordingId, projectId, srcW, srcH, canEdit, words 
                 {current.features?.context?.limitation && <p className="text-[13px] text-accent">{current.features.context.limitation}</p>}
               </header>
               {current.features?.context && current.features.components && <ScoreBreakdown c={current.features.components} />}
+              {isTalk(current) && current.features.components && (
+                <>
+                  <p className="text-[14px] leading-6">{current.reasons[0]}</p>
+                  {current.features.limitations?.map((l, i) => <p key={i} className="text-[13px] text-accent">{l}</p>)}
+                  <ScoreBreakdown c={current.features.components} talk />
+                  <dl className="grid gap-1 text-[13px] sm:grid-cols-[auto_1fr] sm:gap-x-3">
+                    <dt className="text-muted">Topic</dt><dd>{current.features.topic}</dd>
+                    <dt className="text-muted">Hook</dt><dd>“{current.features.hook_quote}”</dd>
+                    {current.features.llm?.insight && <><dt className="text-muted">Main insight</dt><dd>{current.features.llm.insight}</dd></>}
+                    <dt className="text-muted">Ends with</dt><dd>“{current.features.ending_quote}”</dd>
+                    {current.features.hook_teaser && <><dt className="text-muted">Stronger opening</dt><dd>“{current.features.hook_teaser.text}” (from later in this clip; proposed, not applied)</dd></>}
+                    {!!current.features.duplicates?.length && <><dt className="text-muted">Duplicates</dt><dd>{current.features.duplicates.length} similar moment{current.features.duplicates.length === 1 ? "" : "s"} not used ({current.features.duplicates.map((d) => `${fmt(d.start_s)}: ${d.why}`).join("; ")})</dd></>}
+                  </dl>
+                  {!!current.features.recommendations?.length && <ul className="list-disc space-y-1 pl-5 text-[13px] text-muted">{current.features.recommendations.map((r, i) => <li key={i}>{r}</li>)}</ul>}
+                </>
+              )}
               {current.features?.context && (
                 <dl className="grid gap-1 text-[13px] sm:grid-cols-[auto_1fr] sm:gap-x-3">
                   <dt className="text-muted">Opens with</dt><dd>“{current.features.context.opens_with}”</dd>
@@ -407,7 +438,7 @@ export function Highlights({ recordingId, projectId, srcW, srcH, canEdit, words 
                 }} />
               {current.summary && <p className="text-[13.5px]"><span className="text-muted">Local LLM summary: </span>{current.summary}</p>}
               <ul className="list-disc space-y-1 pl-5 text-[13px] text-muted">
-                {current.reasons.slice(current.features?.context ? 1 : 0).filter((r) => r !== current.features?.context?.limitation).map((r, i) => <li key={i} className={r.startsWith("Check the") ? "text-accent" : ""}>{r}</li>)}
+                {isTalk(current) ? null : current.reasons.slice(current.features?.context ? 1 : 0).filter((r) => r !== current.features?.context?.limitation).map((r, i) => <li key={i} className={r.startsWith("Check the") ? "text-accent" : ""}>{r}</li>)}
               </ul>
               <details className="text-[13px]">
                 <summary className="cursor-pointer text-muted">Transcript of this clip</summary>

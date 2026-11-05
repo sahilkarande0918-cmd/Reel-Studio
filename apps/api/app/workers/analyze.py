@@ -10,16 +10,16 @@ from pathlib import Path
 from app.core.db import service_client, transcript_words
 from app.core.storage import recording_dir, source_path
 from app.services import feedback
-from app.services.highlights import audio_features, candidates, llm, outline
+from app.services.highlights import audio_features, bulk, candidates, llm, outline, profiles
 from app.services.screen_analysis import activity, ocr, reframe
-from app.services.transcription import glossary, whisper
+from app.services.transcription import diarize, glossary, whisper
 from app.workers.jobs import JobContext, Permanent
 
 log = logging.getLogger(__name__)
 OCR_EVERY_S = 6.0
 OCR_MAX_FRAMES = 90
 LLM_BUDGET = 10
-KEEP = 6
+KEEP = 6  # education profile only (original Mode A reels); talk profiles select by quality (bulk.select)
 
 
 def _cached(path: Path, build):
@@ -30,18 +30,160 @@ def _cached(path: Path, build):
     return data
 
 
-def _outline(rdir: Path, texts: list[str], sents, ranker) -> list[outline.Unit]:
-    """Teaching units, cached until the transcript text changes."""
-    key = hashlib.sha1("\n".join(texts).encode()).hexdigest()
-    path = rdir / "outline.json"
+def _outline(rdir: Path, texts: list[str], sents, ranker, profile: str = "education", max_s: float = 60.0,
+             labels: list[str] | None = None) -> list[outline.Unit]:
+    """Teaching units (class) or conversation parts (talk profiles), cached per profile until the transcript text
+    changes, so a new clip count or duration reuses the map instead of asking the LLM again."""
+    if profile == "education":
+        key = hashlib.sha1("\n".join(texts).encode()).hexdigest()  # unchanged key: existing caches stay valid
+        path = rdir / "outline.json"
+    else:
+        key = hashlib.sha1(("\n".join(texts) + f"|{max_s}|{bool(labels)}").encode()).hexdigest()
+        path = rdir / f"outline-{profile}.json"
     if path.exists():
         cached = json.loads(path.read_text())
         if cached.get("key") == key and cached.get("units") and cached.get("source") == "llm":
+            (rdir / "outline-current.json").write_text(path.read_text())
             return [outline.Unit(**u) for u in cached["units"]]
-    units = outline.outline(texts, sents, ranker, llm.units)
+    p = profiles.get(profile)
+    if profile == "education":
+        units = outline.outline(texts, sents, ranker, llm.units)
+    else:
+        units = outline.outline(texts, sents, ranker, lambda lines: llm.units(lines, profile=p, speakers=bool(labels)),
+                                kinds=p["kinds"], max_s=max_s, labels=labels)
     source = units[0].source if units else "none"
-    path.write_text(json.dumps({"key": key, "source": source, "units": [u.to_json() for u in units]}))
+    body = json.dumps({"key": key, "source": source, "profile": profile, "units": [u.to_json() for u in units]})
+    path.write_text(body)
+    (rdir / "outline-current.json").write_text(body)
     return units
+
+
+def _json_cache(path: Path) -> dict:
+    try:
+        return json.loads(path.read_text()) if path.exists() else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _h(*parts) -> str:
+    return hashlib.sha1("|".join(str(p) for p in parts).encode()).hexdigest()[:20]
+
+
+def embeddings(rdir: Path, texts: list[str]) -> list[list[float]]:
+    """Embeddings for texts, cached per text on disk; TF-IDF when the embedding model is not installed."""
+    path = rdir / "embeddings.json"
+    cache = _json_cache(path)
+    missing = [t for t in dict.fromkeys(texts) if _h(t) not in cache]
+    if missing:
+        vecs = llm.embed(missing)
+        if vecs is None:
+            return bulk.tfidf(texts)
+        cache.update({_h(t): [round(x, 4) for x in v] for t, v in zip(missing, vecs, strict=True)})
+        path.write_text(json.dumps(cache))
+    return [cache[_h(t)] for t in texts]
+
+
+def pick_talk(ctx, rdir: Path, fixed: list[dict], opts: dict, duration_s: float, timings: dict,
+              labels: list[str] | None = None, visual=None):
+    """Conversation map → every standalone span → 100-point editorial score → LLM-checked, deduplicated,
+    topic-diverse selection of as many clips as the recording supports (up to the requested count)."""
+    prof_name = opts.get("profile") or "podcast"
+    prof = profiles.get(prof_name)
+    min_s, max_s, ideal = profiles.duration(opts.get("duration"))
+    target = opts.get("count")  # None = auto
+    ctx.stage("outline", 0.55, "Mapping the whole conversation: questions, answers, stories, lessons (local LLM)")
+    t0 = time.perf_counter()
+    db_levels = audio_features.rms_db(rdir / "audio16k.wav")
+    sents = candidates.sentences(fixed)
+    texts = candidates.sentence_texts(fixed, sents)
+    ranker = candidates.pause_ranker(sents)
+    whisper.unload()
+    if labels is None:  # who speaks each sentence (CPU voice clustering), cached with the sentence layout
+        key = _h(len(sents), sents[0].start_s if sents else 0, sents[-1].end_s if sents else 0)
+        lab = _json_cache(rdir / "speakers-audio.json")
+        if lab.get("key") != key:
+            lab = {"key": key, "labels": diarize.label(rdir / "audio16k.wav", [(s.start_s, s.end_s) for s in sents])}
+            (rdir / "speakers-audio.json").write_text(json.dumps(lab))
+        labels = lab["labels"] if len(set(lab["labels"])) > 1 else None
+    units = _outline(rdir, texts, sents, ranker, prof_name, max_s=max(60.0, min(max_s, 90.0)), labels=labels)
+    units = bulk.split_questions(units, texts, sents, labels=labels)
+    bulk.merge_topics(units, lambda names: embeddings(rdir, names))
+    cmap = bulk.conversation_map(units, texts, labels)
+    (rdir / f"conversation-{prof_name}.json").write_text(json.dumps(cmap))
+    timings["outline_s"] = round(time.perf_counter() - t0, 1)
+
+    ctx.stage("highlights", 0.65, "Scoring every complete moment (hook, context, payoff)")
+    t0 = time.perf_counter()
+    brief_terms = outline.content_words(opts.get("brief") or "")
+    scored = {}
+    for a0, b0 in bulk.spans(units, sents, min_s, max_s):
+        a, b = bulk.refine(a0, b0, texts, sents, min_s)
+        if (a, b) in scored or bulk.is_talk_filler(texts[a]):
+            continue
+        s0, s1 = sents[a], sents[b]
+        lead = min(0.25, s0.pause_before / 2, s0.start_s)
+        tail = max(0.0, min(0.35, s1.pause_after / 2))
+        c = candidates.Candidate(s0.start_s - lead, s1.end_s + tail, s0.start, s1.end, " ".join(texts[a : b + 1]))
+        span = [w for w in fixed if s0.start <= w["idx"] <= s1.end and w["corrected_text"]]
+        extras = {**audio_features.energy_profile(db_levels, c.start_s, c.end_s),
+                  "words_per_s": audio_features.speech_rate(span, c.start_s, c.end_s), "brief_terms": brief_terms}
+        if visual:
+            extras["visual"] = visual(c.start_s, c.end_s)
+        f = bulk.features(a, b, units, sents, texts, prof, ideal, extras)
+        f["sentences"] = [a, b]
+        c.features = f
+        c.score = bulk.score(f, prof["weights"])
+        scored[(a, b)] = c
+    cands = list(scored.values())
+    for c, v in zip(cands, embeddings(rdir, [c.text for c in cands]), strict=True):
+        c.features["_vec"] = v
+    timings["scoring_s"] = round(time.perf_counter() - t0, 1)
+
+    ctx.stage("llm_judge", 0.72, "Local LLM checks each clip stands on its own")
+    t0 = time.perf_counter()
+    jpath = rdir / f"judgments-{prof_name}.json"
+    jcache = _json_cache(jpath)
+    outline_txt = "\n".join(f"{candidates._ts(u.start_s)} {u.kind}: {u.title}" for u in units[:80])
+
+    def judge(c) -> bool:
+        ctx.check_cancel()
+        a, b = c.features["sentences"]
+        key = _h(c.text, prof_name)
+        j = jcache.get(key)
+        if j is None:
+            j = llm.judge_talk(c.text, c.duration_s, prof["brief"], before=" ".join(texts[max(0, a - 2) : a]),
+                               after=" ".join(texts[b + 1 : b + 3]), outline=outline_txt)
+            if j is None:
+                return True  # LLM offline: deterministic score only (score_kind says so)
+            if j.get("invalid"):
+                return False  # never accept a clip the check could not read
+            jcache[key] = j
+        c.features["llm"] = j
+        c.features["deterministic_score"] = c.score
+        bulk.blend_llm(c.features, j)
+        c.score = bulk.score(c.features, prof["weights"])
+        if j["value"] < 0.25 or not (j["complete_start"] or j["complete_end"]):
+            return False
+        if not c.features["complete"] and not (j["complete_start"] and j["complete_end"]):
+            return False
+        return c.score >= bulk.MIN_SCORE
+
+    final, report = bulk.select(cands, target, judge, budget=2 * (target or 25) + 8, duration_s=duration_s)
+    jpath.write_text(json.dumps(jcache))
+    llm.unload()
+    timings["llm_judge_s"] = round(time.perf_counter() - t0, 1)
+    for c in final:
+        a, b = c.features["sentences"]
+        c.features["hook_teaser"] = bulk.hook_teaser(a, b, texts, sents)
+        c.features["recommendations"] = bulk.recommendations(c.features, fixed, c.start_s, c.end_s)
+        c.features["editorial"] = bulk.editorial(c.score)
+        c.features["profile"] = prof_name
+        q = texts[a] if outline.open_question(texts[a]) else ""
+        c.features["title"] = bulk.grounded_title((c.features.get("llm") or {}).get("title", ""), c.text,
+                                                  q.rstrip("?")[:80] or units[c.features["core_unit"]].title)
+        c.reasons = [bulk.why(c.features, prof), *c.features["limitations"]]
+    return final, units, {**report, "conversation": cmap["counts"], "profile": prof_name,
+                          "duration_pref": opts.get("duration") or "30-60"}
 
 
 def pick(ctx, rdir: Path, fixed: list[dict], samples: list[dict], seen, org_id: str, timings: dict):
@@ -154,6 +296,9 @@ def run_analyze(ctx: JobContext) -> dict:
     src, rdir = source_path(rec), recording_dir(rec["organization_id"], rec["id"])
     W, H, dur = rec["width"], rec["height"], rec["duration_s"]
     timings: dict[str, float] = {}
+    opts = {k: ctx.payload.get(k) for k in ("profile", "count", "duration", "brief")}
+    if (opts["profile"] or "education") != "education":
+        return _analyze_talk(ctx, db, rec, tr, src, rdir, opts, timings)
 
     ctx.stage("screen_activity", 0.05, "Measuring on-screen activity")
     t0 = time.perf_counter()
@@ -231,3 +376,42 @@ def run_analyze(ctx: JobContext) -> dict:
         "ocr_frames": len(frames),
         **timings,
     }
+
+
+def _analyze_talk(ctx, db, rec: dict, tr: dict, src: Path, rdir: Path, opts: dict, timings: dict) -> dict:
+    """Bulk clipping for podcasts/interviews/talks: no screen OCR (nothing to read), speaker-aware framing, and as
+    many distinct standalone clips as the conversation supports. Every stage reads its cache when it has one."""
+    from app.services.screen_analysis import speakers
+
+    W, H, dur = rec["width"], rec["height"], rec["duration_s"]
+    words = transcript_words(tr["id"])
+    ctx.stage("speakers", 0.1, "Finding faces and who is speaking (local, CPU)")
+    t0 = time.perf_counter()
+    track = _cached(rdir / "faces.json", lambda: speakers.analyze(src, rdir / "audio16k.wav", W, H, dur))
+    timings["faces_s"] = round(time.perf_counter() - t0, 1)
+    final, units, stats = pick_talk(ctx, rdir, words, opts, dur, timings,
+                                    visual=lambda a, b: speakers.visual_score(track, a, b))
+
+    ctx.stage("reframe", 0.88, "Planning speaker-aware 9:16 framing")
+    rows = []
+    for rank, c in enumerate(final, 1):
+        j = c.features.get("llm") or {}
+        core = units[c.features["core_unit"]]
+        rows.append({
+            "organization_id": rec["organization_id"], "project_id": rec["project_id"], "recording_id": rec["id"],
+            "transcript_id": tr["id"], "rank": rank, "start_s": round(c.start_s, 2), "end_s": round(c.end_s, 2),
+            "score": round(c.score / 100, 4),  # 0..1 like the education score; the 100-point view is in features
+            "score_kind": "editorial+llm" if j else "editorial",
+            "title": (c.features.get("title") or core.title or " ".join(c.text.split()[:7]) + "…")[:120],
+            "summary": j.get("insight", ""),
+            "transcript_excerpt": c.text,
+            "reasons": c.reasons,
+            "features": c.features,
+            "llm": j or None,
+            "crop_keyframes": speakers.plan(track, c.start_s, c.end_s, W, H),
+        })
+    db.table("highlight_candidates").delete().eq("recording_id", rec["id"]).eq("status", "proposed").execute()
+    if rows:
+        db.table("highlight_candidates").insert(rows).execute()
+    db.table("projects").update({"status": "highlights ready"}).eq("id", rec["project_id"]).execute()
+    return {"candidates": len(rows), **stats, "outline": [u.to_json() for u in units], **timings}

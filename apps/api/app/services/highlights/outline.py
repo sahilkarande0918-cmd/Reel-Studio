@@ -53,7 +53,8 @@ FILLER_WORDS = set(
     "thik theek hai na bhai ok okay haan achha acha bahut badhiya hmm right so chalo ji kya samajh mein aaya aai"
     " sahi baat".split()
 )
-TAG_QUESTION = re.compile(r"(thik|theek|hai na|samajh|clear|right|ok|okay|na bhai|badhiya)[\w\s]*\?$", re.I)
+# whole words only: "ok" inside "look"/"book" made "What does an investor look for?" a tag question
+TAG_QUESTION = re.compile(r"\b(thik|theek|hai na|samajh|clear|right|ok|okay|na bhai|badhiya)\b[\w\s]*\?$", re.I)
 # a first word that leans on what was just said ("Phir ...", "Isko ...", "Tabhi ...") makes a weak opening
 LEANS_BACK = set(
     """phir fir uske iske isko usko isse usse iska uska same then which minus plus tabhi islie isliye lautkar
@@ -125,7 +126,7 @@ def open_question(text: str) -> bool:
     return text.rstrip().endswith("?") and not TAG_QUESTION.search(text.strip()) and not is_filler(text)
 
 
-def repair(raw: list[dict], lo: int, hi: int, sents, source: str = "llm") -> list[Unit]:
+def repair(raw: list[dict], lo: int, hi: int, sents, source: str = "llm", kinds: tuple = KINDS) -> list[Unit]:
     """LLM units → contiguous, in-order cover of sentences lo..hi (gaps join the next unit)."""
     items = []
     for u in raw:
@@ -140,7 +141,7 @@ def repair(raw: list[dict], lo: int, hi: int, sents, source: str = "llm") -> lis
     for _, last, kind, title, topic in sorted(items):
         if last < nxt:
             continue
-        kind = kind if kind in KINDS else "concept"
+        kind = kind if kind in kinds else ("concept" if "concept" in kinds else "insight")
         out.append(
             Unit(nxt, last, sents[nxt].start_s, sents[last].end_s, kind, title, source, topic or title)
         )
@@ -164,7 +165,7 @@ def boundary_strength(i: int, texts: list[str], sents, ranker) -> float:
     )
 
 
-def split_long(units: list[Unit], texts: list[str], sents, ranker) -> list[Unit]:
+def split_long(units: list[Unit], texts: list[str], sents, ranker, max_s: float = MAX_STEP_S) -> list[Unit]:
     """A step longer than a reel is cut at its strongest internal boundary until every piece fits."""
     out: list[Unit] = []
     todo = list(units)
@@ -175,7 +176,7 @@ def split_long(units: list[Unit], texts: list[str], sents, ranker) -> list[Unit]
             for i in range(u.first, u.last)
             if sents[i].end_s - u.start_s >= MIN_STEP_S and u.end_s - sents[i + 1].start_s >= MIN_STEP_S
         ]
-        if u.duration_s <= MAX_STEP_S or not cuts:
+        if u.duration_s <= max_s or not cuts:
             out.append(u)
             continue
         i = max(cuts, key=lambda i: boundary_strength(i, texts, sents, ranker))
@@ -192,7 +193,13 @@ def split_long(units: list[Unit], texts: list[str], sents, ranker) -> list[Unit]
 
 
 def outline(
-    texts: list[str], sents, ranker, llm_units: Callable[[list[str]], list[dict] | None]
+    texts: list[str],
+    sents,
+    ranker,
+    llm_units: Callable[[list[str]], list[dict] | None],
+    kinds: tuple = KINDS,
+    max_s: float = MAX_STEP_S,
+    labels: list[str] | None = None,
 ) -> list[Unit]:
     """Teaching steps over all sentences. `llm_units` gets numbered, timed lines for one chunk."""
     n = len(texts)
@@ -202,15 +209,16 @@ def outline(
     i = 0
     while i < n:
         j = min(n, i + CHUNK)
-        raw = llm_units([f"[{k}] {_mmss(sents[k].start_s)} {texts[k]}" for k in range(i, j)])
-        us = repair(raw, i, j - 1, sents) if raw else []
+        tag = (lambda k: f" {labels[k]}:") if labels else (lambda k: "")
+        raw = llm_units([f"[{k}] {_mmss(sents[k].start_s)}{tag(k)} {texts[k]}" for k in range(i, j)])
+        us = repair(raw, i, j - 1, sents, kinds=kinds) if raw else []
         if not us:
-            return split_long(lexical(texts, sents, ranker), texts, sents, ranker)
+            return split_long(lexical(texts, sents, ranker), texts, sents, ranker, max_s)
         if j < n and len(us) > 1:
             us = us[:-1]  # the chunk's last unit may continue: read it again at the start of the next chunk
         units += us
         i = us[-1].last + 1
-    return split_long(units, texts, sents, ranker)
+    return split_long(units, texts, sents, ranker, max_s)
 
 
 def lexical(texts: list[str], sents, ranker, k: int = 5, min_s: float = 15.0) -> list[Unit]:

@@ -16,7 +16,7 @@ from app.core.db import service_client
 from app.core.storage import render_dir, source_path
 from app.services import media
 from app.services.generation.narration import _cli as hyperframes_command
-from app.services.rendering import compose, sync, timeline
+from app.services.rendering import compose, fast, sync, timeline
 from app.workers.jobs import Cancelled, JobContext, Permanent
 
 log = logging.getLogger(__name__)
@@ -194,8 +194,17 @@ def run_render(ctx: JobContext) -> dict:
         timeline.validate(doc)
         _update(rid, status="rendering", error=None)
         started = time.monotonic()
-        ctx.stage("compose", 0.02, "Compiling the timeline into a Hyperframes composition")
         project = render_dir(render["organization_id"], rid)
+        engine = ctx.payload.get("engine", "studio")  # jobs queued before the fast renderer existed: Hyperframes
+        why_not = fast.supported(doc) if engine in ("auto", "fast") and rec else "Hyperframes requested"
+        if why_not is None:
+            ctx.stage("render", 0.1, "Rendering with FFmpeg (fast path)")
+            try:
+                fast.render(doc, source_path(rec), project, enhance_audio=ctx.payload.get("enhance_audio", True))
+            except subprocess.CalledProcessError as e:
+                raise RuntimeError(f"ffmpeg render failed: {(e.stderr or b'').decode('utf-8', 'replace')[-1500:]}") from e
+            return _finish(ctx, rid, render, rec, doc, project, started, "fast")
+        ctx.stage("compose", 0.02, "Compiling the timeline into a Hyperframes composition")
         compose.write_project(doc, project)
         if rec:
             _link_source(source_path(rec), project / doc["assets"]["source"]["src"])
@@ -222,59 +231,63 @@ def run_render(ctx: JobContext) -> dict:
 
         ctx.stage("render", RENDER_SPAN[0], "Rendering frames")
         _render(ctx, project, render["quality"])
-
-        ctx.stage("verify", 0.95, "Verifying the MP4")
-        out = project / "out.mp4"
-        apply_fades(out, doc)
-        meta = verify(out, doc["duration"], doc["width"], doc["height"], audible=expects_sound(doc))
-        thumb = project / "thumb.jpg"
-        subprocess.run(
-            [
-                "ffmpeg",
-                "-v",
-                "error",
-                "-y",
-                "-ss",
-                f"{min(doc['duration'] / 3, 10):.2f}",
-                "-i",
-                str(out),
-                "-frames:v",
-                "1",
-                "-vf",
-                "scale=540:-2",
-                str(thumb),
-            ],
-            check=True,
-            timeout=120,
-        )
-        data_dir = get_settings().data_dir
-        fields = {
-            **meta,
-            "status": "ready",
-            "output_path": out.relative_to(data_dir).as_posix(),
-            "thumbnail_path": thumb.relative_to(data_dir).as_posix(),
-            "size_bytes": out.stat().st_size,
-            "render_s": round(time.monotonic() - started, 1),
-        }
-        _update(rid, **fields)
-        ctx.stage("sync_check", 0.98, "Checking caption and audio timing")
-        try:
-            videos = [i for t in doc["tracks"] for i in t["items"] if i["type"] == "video"]
-            timing = (
-                sync.check(source_path(rec), out, doc)
-                if rec and len(videos) == 1
-                else {
-                    "ok": None,
-                    "note": "Recording correlation check does not apply to generated/multiclip audio",
-                }
-            )
-        except Exception as e:  # noqa: BLE001 — a failed check is reported, never discards a good render
-            log.warning("timing check failed: %s", e)
-            timing = {"ok": None, "error": f"{type(e).__name__}: {e}"[:300]}
-        return {"render_id": rid, **fields, "timing": timing}
+        return _finish(ctx, rid, render, rec, doc, project, started, "studio", why_not)
     except Cancelled:
         _update(rid, status="cancelled")
         raise
     except Exception as e:
         _update(rid, status="failed", error=f"{type(e).__name__}: {e}"[:2000])
         raise
+
+
+def _finish(ctx, rid, render, rec, doc, project, started, engine: str, note: str | None = None) -> dict:
+    """Verify the MP4, write the thumbnail, mark the render ready, then check caption/audio timing."""
+    ctx.stage("verify", 0.95, "Verifying the MP4")
+    out = project / "out.mp4"
+    apply_fades(out, doc)
+    meta = verify(out, doc["duration"], doc["width"], doc["height"], audible=expects_sound(doc))
+    thumb = project / "thumb.jpg"
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-v",
+            "error",
+            "-y",
+            "-ss",
+            f"{min(doc['duration'] / 3, 10):.2f}",
+            "-i",
+            str(out),
+            "-frames:v",
+            "1",
+            "-vf",
+            "scale=540:-2",
+            str(thumb),
+        ],
+        check=True,
+        timeout=120,
+    )
+    data_dir = get_settings().data_dir
+    fields = {
+        **meta,
+        "status": "ready",
+        "output_path": out.relative_to(data_dir).as_posix(),
+        "thumbnail_path": thumb.relative_to(data_dir).as_posix(),
+        "size_bytes": out.stat().st_size,
+        "render_s": round(time.monotonic() - started, 1),
+    }
+    _update(rid, **fields)
+    ctx.stage("sync_check", 0.98, "Checking caption and audio timing")
+    try:
+        videos = [i for t in doc["tracks"] for i in t["items"] if i["type"] == "video"]
+        timing = (
+            sync.check(source_path(rec), out, doc)
+            if rec and len(videos) == 1
+            else {
+                "ok": None,
+                "note": "Recording correlation check does not apply to generated/multiclip audio",
+            }
+        )
+    except Exception as e:  # noqa: BLE001 — a failed check is reported, never discards a good render
+        log.warning("timing check failed: %s", e)
+        timing = {"ok": None, "error": f"{type(e).__name__}: {e}"[:300]}
+    return {"render_id": rid, **fields, "timing": timing, "engine": engine, "engine_note": note}

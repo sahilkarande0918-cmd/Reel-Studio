@@ -17,7 +17,8 @@ from app.core.auth import User, current_user
 from app.core.config import get_settings
 from app.core.db import service_client, transcript_words
 from app.core.storage import render_dir
-from app.services.rendering import caption_presets, captions, compose, timeline
+from app.services.clips import speech_cuts
+from app.services.rendering import caption_auto, caption_presets, captions, compose, timeline
 
 router = APIRouter()
 FILES = {"video": "output_path", "thumb": "thumbnail_path"}
@@ -30,8 +31,16 @@ class RenderRequest(BaseModel):
     style: Literal["focus", "energy", "story", "signature"] = "focus"
     # Captions ON/OFF and one of the 100 presets (None = the brand kit's caption look)
     captions: bool = True
-    caption_preset: str | None = Field(default=None, pattern=r"^[a-z0-9-]{2,40}$")
+    caption_preset: str | None = Field(default=None, pattern=r"^[a-z0-9-]{2,40}$")  # "auto" = chosen per clip
     caption_overrides: caption_presets.Overrides = Field(default_factory=caption_presets.Overrides)
+    # renderer: "fast" = one FFmpeg/NVENC pass (talk clips, bulk), "studio" = Hyperframes, "auto" = fast when it can
+    engine: Literal["auto", "fast", "studio"] = "auto"
+    # speech-aware cuts (non-destructive timeline spans); "original" keeps the clip as spoken
+    pace: Literal["original", "natural", "engaging", "fast"] = "original"
+    emphasis: bool = False  # content-chosen caption emphasis (numbers, claims, contrasts)
+    hook_title: bool = False  # opening headline from the clip's own (grounded) title
+    hook_teaser: bool = False  # open on the clip's proposed authentic quote (labelled, reversible)
+    enhance_audio: bool = True  # fast renderer: high-pass, mild denoise, compression, -14 LUFS
 
 
 def _brand_kit(org_id: str, kit_id: str | None) -> dict | None:
@@ -109,12 +118,24 @@ def enqueue_highlight_render(h: dict, body: RenderRequest, user_id: str) -> dict
             logo = timeline.logo_file(kit["logo"])
         except ValueError as e:
             raise HTTPException(422, f"Brand kit logo: {e}") from e
-    doc = timeline.build(h, rec, words, render_id, body.quality, kit=kit, logo_src=logo[0] if logo else None)
+    feats = h.get("features") or {}
+    spans = None
+    if body.pace != "original":
+        spans = speech_cuts.plan(words, float(h["start_s"]), float(h["end_s"]), body.pace)["spans"]
+    teaser = feats.get("hook_teaser") if body.hook_teaser else None
+    if teaser:
+        spans = [[teaser["start_s"], teaser["end_s"]], *(spans or [[float(h["start_s"]), float(h["end_s"])]])]
+    doc = timeline.build(h, rec, words, render_id, body.quality, kit=kit, logo_src=logo[0] if logo else None,
+                         spans=spans, hook_title=(h.get("title") if body.hook_title else None), emphasis=body.emphasis)
     doc["stylePreset"] = body.style
+    preset = body.caption_preset
+    if preset == "auto":
+        preset = caption_auto.auto_preset(feats.get("profile"), None if body.pace == "original" else body.pace,
+                                          (kit or {}).get("caption_preset"))
     if not body.captions:
         doc["captionStyle"] = {**doc["captionStyle"], "enabled": False}
-    elif body.caption_preset:
-        doc["captionStyle"] = caption_presets.style_for(body.caption_preset, doc["captionStyle"], doc["height"],
+    elif preset:
+        doc["captionStyle"] = caption_presets.style_for(preset, doc["captionStyle"], doc["height"],
                                                         doc["brand"]["colors"], body.caption_overrides.model_dump(exclude_none=True))
     digest = timeline.timeline_hash(doc)
 
@@ -157,7 +178,7 @@ def enqueue_highlight_render(h: dict, body: RenderRequest, user_id: str) -> dict
                 "organization_id": h["organization_id"],
                 "project_id": h["project_id"],
                 "job_type": "render",
-                "payload": {"render_id": render_id},
+                "payload": {"render_id": render_id, "engine": body.engine, "enhance_audio": body.enhance_audio},
                 "created_by": user_id,
                 "current_stage": "queued",
             }

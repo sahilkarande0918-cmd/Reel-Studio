@@ -13,6 +13,7 @@ from app.core.config import get_settings
 log = logging.getLogger(__name__)
 _model = None
 _model_key: tuple | None = None
+BATCH = int(os.environ.get("WHISPER_BATCH", "8"))  # 0 = sequential decoding (the original path)
 
 
 def _add_cuda_dlls() -> None:
@@ -88,8 +89,7 @@ def transcribe(
 ) -> Result:
     model = load()
     s = get_settings()
-    seg_iter, info = model.transcribe(
-        str(audio),
+    args = dict(
         language=language or s.whisper_language or None,
         task="transcribe",  # never "translate": Hinglish stays Hinglish
         beam_size=5,
@@ -99,6 +99,20 @@ def transcribe(
         condition_on_previous_text=False,  # avoids repetition loops on long lectures
         hotwords=hotwords or None,
     )
+    seg_iter = info = None
+    if BATCH and _model_key[1] == "cuda":
+        # same model, same beam, Silero-VAD chunks decoded 8 at a time: ~3-4x faster on long recordings (faster-whisper
+        # benchmark: 1m03s → 17s); falls back to sequential decoding if the GPU runs out of memory
+        from faster_whisper import BatchedInferencePipeline
+
+        try:
+            seg_iter, info = BatchedInferencePipeline(model=model).transcribe(str(audio), batch_size=BATCH, **args)
+            seg_iter = list(seg_iter)
+        except RuntimeError as e:  # CUDA out of memory
+            log.warning("batched transcription failed (%s); decoding sequentially", e)
+            seg_iter = info = None
+    if seg_iter is None:
+        seg_iter, info = model.transcribe(str(audio), **args)
     segments, words = [], []
     last = 0.0
     for seg in seg_iter:

@@ -5,6 +5,7 @@ GET /recordings/{id} reports received bytes, so a client resumes from where the 
 """
 
 import time
+from typing import Literal
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -179,9 +180,20 @@ def retranscribe(rec_id: str, user: User = Depends(current_user)) -> dict:
     return {"job_id": job["id"]}
 
 
+class AnalyzeOptions(BaseModel):
+    """Bulk clipping options. profile "education" (default) is the original class-reel analysis."""
+
+    profile: Literal["education", "business", "podcast", "motivational", "general"] = "education"
+    count: int | None = Field(default=None, ge=1, le=60)  # None = auto: every strong, distinct clip
+    duration: Literal["auto", "15-30", "30-45", "45-60", "30-60", "60-90", "90-180"] = "30-60"
+    brief: str = Field(default="", max_length=2000)  # editing prompt / campaign topic: guides relevance only
+
+
 @router.post("/{rec_id}/analyze")
-def reanalyze(rec_id: str, user: User = Depends(current_user)) -> dict:
-    """Re-run highlight detection and reframing (keeps selected highlights)."""
+def reanalyze(rec_id: str, body: AnalyzeOptions | None = None, user: User = Depends(current_user)) -> dict:
+    """Re-run highlight detection and reframing (keeps selected highlights). Transcript, conversation map,
+    embeddings and LLM checks are cached, so a new count or duration does not redo them."""
+    opts = (body or AnalyzeOptions()).model_dump()
     rec = get_owned("source_recordings", rec_id, user, write=True)
     if rec["status"] != "ready":
         raise HTTPException(409, "Transcribe the recording first")
@@ -204,7 +216,7 @@ def reanalyze(rec_id: str, user: User = Depends(current_user)) -> dict:
                 "organization_id": rec["organization_id"],
                 "project_id": rec["project_id"],
                 "job_type": "analyze",
-                "payload": {"recording_id": rec_id},
+                "payload": {"recording_id": rec_id, **opts},
                 "created_by": user.id,
                 "current_stage": "queued",
             }

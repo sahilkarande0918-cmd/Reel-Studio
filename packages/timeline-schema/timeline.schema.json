@@ -222,7 +222,8 @@
                             "type": "string",
                             "enum": [
                               "crop",
-                              "panel"
+                              "panel",
+                              "split"
                             ]
                           },
                           "region": {
@@ -236,6 +237,37 @@
                               "ease",
                               "cut",
                               "manual"
+                            ]
+                          },
+                          "second": {
+                            "type": "object",
+                            "properties": {
+                              "crop_x": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "crop_y": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "crop_width": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "crop_height": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "crop_x",
+                              "crop_y",
+                              "crop_width",
+                              "crop_height"
                             ]
                           }
                         },
@@ -300,6 +332,10 @@
                             "minimum": 0
                           },
                           "isCode": {
+                            "default": false,
+                            "type": "boolean"
+                          },
+                          "emphasis": {
                             "default": false,
                             "type": "boolean"
                           }
