@@ -30,7 +30,8 @@ def run_import_url(ctx: JobContext) -> dict:
     safe = "".join(c if c.isalnum() or c in " -_" else " " for c in title).strip()[:120] or "youtube-import"
     size = dest.stat().st_size
     patch = {"filename": f"{safe}.mp4", "size_bytes": size, "received_bytes": size,
-             "probe": {"import": {"url": ctx.payload["url"], **meta}}}
+             # keep the one-click recipe stored at import time (it decides how the clips are found and rendered)
+             "probe": {**(rec.get("probe") or {}), "import": {"url": ctx.payload["url"], **meta}}}
     db.table("source_recordings").update(patch).eq("id", rid).execute()
     rec = {**rec, **patch}
     if source_path(rec) != dest:  # the file name follows the (new) filename's extension, still .mp4
