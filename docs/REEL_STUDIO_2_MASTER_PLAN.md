@@ -42,6 +42,8 @@ See handoff §12.
 | Mode B replaces Topic → Video | ✅ | `/create`, `edit` project mode; `/topics` redirects; landing card now "Prompt → Edit" with a 2.0 screenshot (checkpoint commit) | Landing reel video; not yet deployed |
 | Photos → video in Mode B (owner request 2026-10-27) | 🟡 | Photos always matched to the clips (colour/sharpness/grain/motion); optional "Animate my photos with AI": LTX-Video 2B distilled in `D:\ReelStudio\video-venv`, ~2 min/photo, AI-generated labels + caption disclosure + Terms; smoke test 4.04 s clip in 121 s | Both-ends conditioning not re-tested; not yet used in a real edit; web toggle not deployed |
 | Engine always-on | ✅ | 2-minute windowless ensure task, no idle sleep, Ollama started, render watchdog, software fallback, low-RAM mode | Currently disabled by the owner (2026-11-05) |
+| Bulk AI clipping (podcast/interview → many Shorts, session 4) | 🟡 | Conversation map, speaker labels, 5 profiles + 100-pt editorial score, quality-first diverse selection with shortfall report, speaker framing, pace presets, fast FFmpeg/NVENC renderer, caption emphasis/auto style, hook styles, auto zoom/colour/SFX, layouts, range, batch render + ZIP, campaign brief (`docs/BULK_CLIPPING.md`) | Synthetic fixture only; real footage, Hindi/Hinglish, 60-min, production engine/UI run not yet verified |
+| OpusClip parity extras | ❌ | — | AI B-roll, AI emojis, voice dubbing, caption translation, SRT upload, 1:1/16:9 not built |
 | Deploy to Vercel (owner asked: last step) | ✅ | Production Supabase migrated (7 migrations, remote lint clean); production engine runs 2.0 from this folder (task re-pointed); Vercel `dpl_4UBCg8yyma5FXqu1ofa2EsAPZcWa` (commit 0981008) live on reel-studio-taupe.vercel.app with the same UI (session 3) | Vercel Git link still points at the old repo: deploy new commits via the API (DEPLOYMENT.md) |
 
 ### Generated outputs (local, not in git) — see handoff §14 for the full list
@@ -332,6 +334,8 @@ After migration, continue all development, testing, commits and pushes from this
 | FFmpeg xfade custom expressions | (FFmpeg) | Session 3: six shader-style transitions instead of a GL build of FFmpeg (gl-transitions ideas) |
 
 ### Session 3 owner instructions (2026-10-24 → 2026-11-05, paraphrased unless quoted)
+- Session 4 (2026-11-05): "PROFESSIONAL AI PODCAST CLIPPING & BULK SHORTS ENGINE" (phases 1–11: conversation understanding, user-controlled bulk clipping with count as a target, hook/context/payoff, business/podcast ranking profiles, multi-speaker framing, speech cuts natural/engaging/fast, premium subtitles, polish, one upload → 10+ Shorts, campaign briefs, benchmarking). Then: "take reference how opusclips make ... all features ... add them to our platform" (screenshots: recipe, clip length, moments prompt, captions styles, auto hook headline Editorial/Statement/Classic, motion graphics, AI emojis, auto B-roll, speech cleanup, enhance audio, auto SFX, auto zoom, auto transitions, auto colour correction, voice dubbing, caption translation, adjust range, layouts, upload SRT) and "dont use any paid tools or api keys, use free ones only"; "fast generation without reducing quality". Never publish without approval.
+
 - Move Claude's storage from C: to D: with zero data loss; protect AnswerRank/Tamrivo completely (done, `CLAUDE_STORAGE_MIGRATION.md`).
 - "do not publish on insta anything" (still in force).
 - Deploy on Vercel with the same dashboard UI (done; later web commits need a redeploy).

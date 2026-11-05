@@ -1,3 +1,5 @@
+> **Session 4 (2026-11-05): bulk AI clipping for podcasts/interviews** (OpusClip-style, local and free): commits `e0e552e` + `e445899`. Design, options, evidence and gaps: `docs/BULK_CLIPPING.md`. Verified on a SYNTHETIC two-voice interview only (10/10 clean single-exchange clips; honest shortfall when fewer exist; 4–6 s fast renders). Not yet run on real footage or through the production engine/UI. Engine re-enabled and running (owner, 2026-11-05).
+>
 > **Reel Studio 2.0 (updated 2026-11-05, session 3) — read first:** `docs/REEL_STUDIO_2_MASTER_PLAN.md` (full approved spec + status map) and `docs/REEL_STUDIO_2_HANDOFF.md` (technical handoff). They supersede the 1.0 status below, which is kept as history. Work folder `C:\Users\Sahil\OneDrive\Desktop\Reel Studio 2.0`, repo https://github.com/sahilkarande0918-cmd/Reel-Studio. 2.0 status (second session, HEAD ac322a5+docs): ✅ Mode B web app + AI director, 26 motion templates, 35 effects / 33 transitions + ONNX composites, headless Blender 3D shots, 100 caption presets + ON/OFF, clip collections; 🟡 voice profiles (built, speech not yet synthesised), campaign agent + EN/HI/Hinglish + click/inquiry tracking, Instagram cover/suggestions (nothing published), Phase D/Test B/E/H renders; ⬜ production migrations + Vercel deploy. Next task: handoff §18.
 >
 > **Session 3 checkpoint (2026-11-05):** voice cloning verified (narrated Mode B edits EN/HI/Hinglish); production deployed (Supabase migrated, engine from this folder, Vercel at commit 0981008; later web commits not yet deployed); photos in Mode B matched to clips + optional local AI image-to-video (LTX-Video); engine always-on hardening (windowless check, render watchdog, software fallback); HP Victus fixes (text auto-fit, footage-first, black bars, cuts on beat) committed, re-render pending. Engine STOPPED and its task disabled by the owner. Next task: `REEL_STUDIO_2_HANDOFF.md` §18.
@@ -9,7 +11,12 @@ Reviewed 2026-10-16 via GitHub API (licence SPDX, archived flag, last push). Re-
 ## Integrated / planned runtime dependencies
 
 | Project | Licence | Status | Use in Reel Studio |
-|---------|---------|--------|--------------------|
+|---|---|---|---|
+| opencv/opencv_zoo YuNet face detector (`face_detection_yunet_2023mar.onnx`, 0.2 MB, local `D:\ReelStudio\models\yunet`) | MIT | active | Speaker-aware framing for bulk clipping (session 4) |
+| nomic-embed-text (Ollama) | Apache-2.0 | active | Clip near-duplicate detection, topic merging (session 4) |
+| fonttools | MIT | active | Bundled WOFF2 fonts → TTF for libass captions (fast renderer) |
+| brotli (Python) | MIT | active | WOFF2 decompression for fonttools |
+| scikit-learn | BSD-3-Clause | active | Speaker clustering, TF-IDF fallback (also a librosa dependency) |
 | heygen-com/hyperframes (CLI v0.8.164, `@hyperframes/player`) | Apache-2.0 | active | Principal renderer; editor preview player; local Kokoro TTS (`hyperframes tts`) |
 | SYSTRAN/faster-whisper | MIT | active | Speech recognition with word timestamps |
 | m-bain/whisperX | BSD-2-Clause | active | Word-level forced alignment (where reliable) |

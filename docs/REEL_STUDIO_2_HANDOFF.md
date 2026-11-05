@@ -6,8 +6,10 @@ owner prompts verbatim) without any chat history. These two files take precedenc
 git: session 1 `git show 6b29ec7:docs/REEL_STUDIO_2_HANDOFF.md`, session 2 `git show 12108d7:docs/REEL_STUDIO_2_HANDOFF.md`.
 **Trust the code over this text if they ever disagree.** Nothing below is called "verified" unless it was run.
 
-> **State at this checkpoint:** the production engine is **STOPPED** and its Windows task **DISABLED** (owner asked,
-> 2026-11-05). The live site shows "Engine offline" until `Enable-ScheduledTask -TaskName "Reel Studio Engine"`.
+> **Session 4 update:** engine task re-enabled and running (owner chose it, 2026-11-05); the HP Victus re-render was
+> cancelled at the owner's request ("dont make any video ... keep on engine").
+> **Session 4 (2026-11-05): bulk AI clipping for podcasts/interviews** (OpusClip-style, local and free): commits `e0e552e` + `e445899`. Design, options, evidence and gaps: `docs/BULK_CLIPPING.md`. Verified on a SYNTHETIC two-voice interview only (10/10 clean single-exchange clips; honest shortfall when fewer exist; 4–6 s fast renders). Not yet run on real footage or through the production engine/UI. Engine re-enabled and running (owner, 2026-11-05).
+> (Session 3 state below.) The production engine was stopped and its task disabled on 2026-11-05 before session 4.
 > Owner rules: publish NOTHING on Instagram; never run GPU tests while the owner's edits are rendering.
 
 ## 1. What the project is
@@ -221,6 +223,9 @@ Not run: HP Victus re-render, LTX both-ends re-test, transitions gallery for the
 real edit, real-browser check of the landing card.
 
 ## 17. Remaining work (priority order)
+0. **Bulk clipping (session 4):** run once on an authorised REAL two-person podcast through the production engine/UI
+   (face framing, speaker switches, split screen, batch ZIP); then caption translation, SRT upload, AI B-roll from
+   uploads, other aspect ratios. Details `docs/BULK_CLIPPING.md` § Not verified.
 1. Re-render the owner's HP Victus edit with this commit's four fixes and check: text inside the frame, footage visible
    behind titles, no black bars (blur-fill), cuts on beat. (Engine must be re-enabled by the owner.)
 2. Visually review Test B4/E2/H outputs; fix `transitions_visible` for designed scenes and the Test H black frames.
