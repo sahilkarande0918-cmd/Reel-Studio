@@ -8,6 +8,7 @@ import { JobProgress } from "./job-progress";
 import { Collections } from "./collections";
 import { Highlights } from "./highlights";
 import { TranscriptView, loadWords } from "./transcript-view";
+import { ClipGallery } from "./clip-gallery";
 import { Uploader } from "./uploader";
 
 type Recording = {
@@ -99,6 +100,7 @@ export function RecordingStudio({ projectId, canEdit }: { projectId: string; can
         </>
       )}
       {!rec && !canEdit && <p className="text-muted">No recording uploaded yet.</p>}
+      {rec && rec.status !== "failed" && <ClipGallery recordingId={rec.id} />}
       {rec && (
         <dl className="flex flex-wrap gap-x-6 gap-y-1 text-[13px] text-muted">
           <div><dt className="inline">File </dt><dd className="inline text-ink">{rec.filename}</dd></div>

@@ -18,13 +18,13 @@ const FONT_FILES: Record<string, string> = {
   "Fira Code": "fira-code-600.woff2", Fraunces: "fraunces-600.woff2", "Bebas Neue": "bebas-neue-400.ttf", Caveat: "caveat-700.ttf",
   "Press Start 2P": "press-start-2p-400.ttf",
 };
-const FONT_CSS = Object.entries(FONT_FILES).map(([f, file]) => `@font-face{font-family:"cap-${f}";src:url(/caption-fonts/${file});font-display:swap}`).join("");
+export const FONT_CSS = Object.entries(FONT_FILES).map(([f, file]) => `@font-face{font-family:"cap-${f}";src:url(/caption-fonts/${file});font-display:swap}`).join("");
 const BRAND = { accent: "#C8E06B", text: "#FFFFFF", bg: "#141810" };
 const tok = (c?: string) => (c === "accent" ? BRAND.accent : c === "text" ? BRAND.text : c === "bg" ? BRAND.bg : c);
 const SHADOW = { none: "", soft: "0 2px 12px rgba(0,0,0,.75)", hard: "4px 4px 0 rgba(0,0,0,.85)", long: "5px 5px 0 rgba(0,0,0,.6), 10px 10px 0 rgba(0,0,0,.3)" };
 
 /** Live preview: the second word is "being spoken", styled with the preset's highlight; brand tokens use sample colours. */
-function Sample({ look, size = 22 }: { look: Look; size?: number }) {
+export function Sample({ look, size = 22, words = ["Make", "it", "move"] }: { look: Look; size?: number; words?: string[] }) {
   const active = tok(look.active)!, color = tok(look.color)!;
   const shadows = [SHADOW[look.shadow ?? "soft"], look.glow ? `0 0 ${look.glow / 3}px ${active}` : ""].filter(Boolean).join(",") || "none";
   const base: React.CSSProperties = {
@@ -37,7 +37,7 @@ function Sample({ look, size = 22 }: { look: Look; size?: number }) {
   const on: React.CSSProperties = hi === "chip" ? { background: tok(look.chip) ?? active, color: "#111" }
     : hi === "underline" ? { boxShadow: `inset 0 -0.16em 0 ${active}` } : hi === "scale" ? { color: active, transform: "scale(1.15)" }
     : hi === "none" ? {} : { color: active };
-  const words = ["Make", "it", "move"];
+
   return <span className={`flex flex-wrap justify-center gap-x-1 ${look.box ? "rounded-lg bg-black/70 px-2 py-1" : ""}`}>
     {words.map((w, i) => <span key={w} style={{ ...base, ...(i === 1 || (hi === "karaoke" && i < 1) ? on : {}) }}
       className={look.entrance && look.entrance !== "none" && i === 2 ? "animate-pulse" : ""}>{w}</span>)}

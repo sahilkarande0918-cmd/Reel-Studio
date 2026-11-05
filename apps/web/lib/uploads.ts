@@ -19,6 +19,8 @@ export type UploadItem = {
   key: string; kind: UploadKind; projectId: string; name: string; size: number; lastModified: number;
   sent: number; status: "queued" | "uploading" | "validating" | "done" | "error" | "paused";
   error?: string; id?: string; duplicate?: boolean; hasHandle?: boolean;
+  /** Recording uploads only: the one-click clipping recipe and optional subtitles, sent when the upload is created. */
+  extra?: { recipe?: unknown; srt?: string };
 };
 type Live = UploadItem & { file?: File };
 
@@ -101,12 +103,13 @@ export function onUploadDone(cb: (it: UploadItem) => void) {
   return () => { doneListeners.delete(cb); };
 }
 
-export function enqueue(kind: UploadKind, projectId: string, file: File, handle?: Handle | null): string {
+export function enqueue(kind: UploadKind, projectId: string, file: File, handle?: Handle | null,
+                        extra?: UploadItem["extra"]): string {
   const key = uploadKey(kind, projectId, file);
   const prev = items.get(key);
   if (prev && (prev.status === "uploading" || prev.status === "queued" || prev.status === "validating")) return key;
   items.set(key, { key, kind, projectId, name: file.name, size: file.size, lastModified: file.lastModified, sent: prev?.sent ?? 0,
-    id: prev?.id, status: "queued", file, hasHandle: !!handle || prev?.hasHandle });
+    id: prev?.id, status: "queued", file, hasHandle: !!handle || prev?.hasHandle, extra: extra ?? prev?.extra });
   if (handle) void idb("readwrite", (s) => s.put(handle, key));
   persist();
   emit();
@@ -188,7 +191,7 @@ async function run(it: Live) {
       const r = await apiFetch(base, path, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(isRecording(it.kind)
-          ? { project_id: it.projectId, filename: file.name, size_bytes: file.size }
+          ? { project_id: it.projectId, filename: file.name, size_bytes: file.size, ...(it.extra ?? {}) }
           : { project_id: it.projectId, kind: it.kind, filename: file.name, size_bytes: file.size }),
       });
       if (!r.ok) throw new Error((await r.json()).detail ?? `Upload refused (${r.status})`);
