@@ -94,7 +94,12 @@ export function ClipStudio({ canEdit, kits }: { canEdit: boolean; kits: { id: st
   const presets = useQuery({
     // the catalog is the same on every route to the engine (tunnel or same machine): one cache entry, retried
     queryKey: ["caption-presets"], enabled: !!base, staleTime: 3600_000, retry: 3,
-    queryFn: async () => { const r = await apiFetch(base!, "/captions/presets"); if (!r.ok) throw new Error(String(r.status)); return (await r.json()) as Preset[]; },
+    // public catalog (no sign-in needed): a plain request with a timeout, so it can never wait on anything else
+    queryFn: async () => {
+      const r = await fetch(`${base!.replace(/\/$/, "")}/captions/presets`, { headers: { "X-Tunnel-Skip-AntiPhishing-Page": "true" }, signal: AbortSignal.timeout(15000) });
+      if (!r.ok) throw new Error(String(r.status));
+      return (await r.json()) as Preset[];
+    },
   });
   const families = [...new Set((presets.data ?? []).map((p) => p.family))];
   const current = presets.data?.find((p) => p.id === caption.preset);
