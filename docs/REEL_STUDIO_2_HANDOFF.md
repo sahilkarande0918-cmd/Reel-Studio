@@ -1,4 +1,5 @@
 # Reel Studio 2.0 — Technical Handoff (updated 2026-11-05, end of the third 2.0 session)
+> **Session 4 final state (2026-11-05, code head `635b111`) — read `docs/PROFESSIONAL_AI_CLIPPING_MASTER_PLAN.md` right after the 2.0 handoff.** Bulk AI clipping for podcasts/interviews/business videos is built (OpusClip-style workflow, local, free): conversation map, Q→A links, 5 scoring profiles, quality-first dedup selection with honest shortfall, speaker labels + face framing, speech cleanup presets, fast FFmpeg/NVENC renderer, 100 caption presets + auto style, hooks, zooms, emojis, motion graphics, transitions, 4 aspect ratios, caption translation, dubbing, B-roll, SRT upload, YouTube link import, one-click recipe, batch render + ZIP, campaign brief, dashboard engine switch, resumable uploads. `KEEP = 6` now applies to the education profile only. Verified on a SYNTHETIC interview; real test in progress on the owner's 85-min English podcast (project `5dfc9504-…`). Engine ON (owner re-enabled it this session and asked to keep it on). Active Supabase project = `adjwycjsxtxvjockxtan` (repo link, `apps/api/.env`, live site cookie); `pwcbacurvlxzhbaxjjjb` is referenced nowhere and not reachable — no migrations this session (new data lives in jsonb). Vercel production at `27a7c89` (later commits are API-only).
 
 Standalone: a new session can continue from this file plus `docs/REEL_STUDIO_2_MASTER_PLAN.md` (full spec, status map,
 owner prompts verbatim) without any chat history. These two files take precedence over every 1.0 document
@@ -252,16 +253,18 @@ real edit, real-browser check of the landing card.
 5. Galleries for the six new transitions and `tracked_tag`; owner's consented voice sample; campaign copy quality.
 
 ## 18. Precise next task
-**Re-render HP Victus edit `a57b7786-b5a0-44b6-8093-25143d02c656` (production project) with the checkpoint fixes.**
-Files: `apps/api/app/services/editing/{base,render,overlay,style_transfer}.py`, `app/services/rendering/{compose,motion}.py`.
-Steps: owner enables the engine task; confirm `/health`; requeue the edit's job (`status=queued, attempts=1`); wait for
-`ready`; contact sheet + QA. Acceptance: 20.000 s 1080×1920; no clipped text; titles over footage (no plain backdrop),
-each ≤ 2.5 s; opening shot without black bars; QA `cuts_on_beat` and `no_unplanned_black` pass. Never run GPU tests
-during the render.
+**Finish and review the real 10-clip run on the owner's 85-min English podcast** (session 4).
+Project `5dfc9504-6494-4843-ac31-0819e66f15a6`, recording `d4b42b3b-77ea-4c9a-a062-f4628209ca89` (YouTube import),
+re-analysis job `180e2344-c842-4781-8711-4bc4b231e8eb` (recipe: count 10, auto_render). Files:
+`app/workers/analyze.py` (`_analyze_talk`, `_auto_render`), `app/services/highlights/{bulk,outline,llm}.py`,
+`app/services/rendering/fast.py`, `app/services/screen_analysis/speakers.py`. Acceptance: ≥ 8 distinct complete clips or an
+honest shortfall; every MP4 1080×1920 H.264/AAC, no clipped sentences, speakers framed, captions readable; ZIP downloads.
+Then `docs/PROFESSIONAL_AI_CLIPPING_MASTER_PLAN.md` Part 3 items 2–5. The old HP Victus re-render (`a57b7786-…`) was
+cancelled by the owner and stays postponed.
 
 ## 19. Git
-Branch `main`, remote `origin` = https://github.com/sahilkarande0918-cmd/Reel-Studio.git. Session-3 code head before
-this checkpoint `bc4bd81`; the checkpoint commit follows it (see final report). `source` remote = Open_PS04_ (fetch
+Branch `main`, remote `origin` = https://github.com/sahilkarande0918-cmd/Reel-Studio.git. Session-4 code head `635b111`
+(session 3 `bc4bd81`); the checkpoint commit follows it (see final report). `source` remote = Open_PS04_ (fetch
 only). Identity `sahilkarande0918-cmd <sahilkarande0918@gmail.com>`; never AI authors/co-authors/trailers.
 
 ## 20. Environment variable names (values never in git)

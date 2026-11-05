@@ -7,7 +7,7 @@ Two modes, one pipeline: **Recording → Reels** (class recording → 30–60 s 
 Repo: https://github.com/sahilkarande0918-cmd/Reel-Studio (public, `main`).
 
 ## Mandatory reading order (new or compacted session)
-00. **`docs/REEL_STUDIO_2_MASTER_PLAN.md`** then **`docs/REEL_STUDIO_2_HANDOFF.md`** (Reel Studio 2.0: authoritative spec, status, commands). Work only in `C:\Users\Sahil\OneDrive\Desktop\Reel Studio 2.0` → https://github.com/sahilkarande0918-cmd/Reel-Studio.
+00. **`docs/REEL_STUDIO_2_MASTER_PLAN.md`** then **`docs/REEL_STUDIO_2_HANDOFF.md`**, then **`docs/PROFESSIONAL_AI_CLIPPING_MASTER_PLAN.md`** (current priority: bulk AI clipping) (Reel Studio 2.0: authoritative spec, status, commands). Work only in `C:\Users\Sahil\OneDrive\Desktop\Reel Studio 2.0` → https://github.com/sahilkarande0918-cmd/Reel-Studio.
 0. **`docs/CHECKPOINT.md`**, then **`docs/IDE_HANDOFF.md`** and **`docs/CURRENT_TASK.md`** (backlog A/B/C) — latest state, rules, next steps.
 1. `CLAUDE.md` (this file)
 2. `docs/MASTER_PROMPT.md` (+ `docs/MASTER_PROMPT_SUPABASE_ADDENDUM.md`)
@@ -25,7 +25,7 @@ Repo: https://github.com/sahilkarande0918-cmd/Reel-Studio (public, `main`).
 Trust repo docs and git history over remembered assumptions.
 
 ## Current next work
-**Reel Studio 2.0** (supersedes the 1.0 note below). Session 4 added bulk AI clipping (`docs/BULK_CLIPPING.md`; next: verify on authorised real podcast footage through the engine/UI). Status: master plan Part 1. **Older next task: `docs/REEL_STUDIO_2_HANDOFF.md` §18 (re-render the owner's HP Victus edit with the session-3 checkpoint fixes; the engine is stopped and its task disabled until the owner re-enables it).** Never run GPU tests while the owner's edits render. Owner rule: publish NOTHING on Instagram. Old 1.0 note:
+**Reel Studio 2.0** (supersedes the 1.0 note below). **Current priority (session 4+): Professional AI clipping / bulk Shorts — next task in `docs/PROFESSIONAL_AI_CLIPPING_MASTER_PLAN.md` Part 3 and handoff §18. Engine is ON (owner re-enabled it 2026-11-05).** Session 4 added bulk AI clipping (`docs/BULK_CLIPPING.md`; next: verify on authorised real podcast footage through the engine/UI). Status: master plan Part 1. **Older next task: `docs/REEL_STUDIO_2_HANDOFF.md` §18 (re-render the owner's HP Victus edit with the session-3 checkpoint fixes; the engine is stopped and its task disabled until the owner re-enables it).** Never run GPU tests while the owner's edits render. Owner rule: publish NOTHING on Instagram. Old 1.0 note:
 Feature A (context-aware AI editing) is done and verified (`docs/CURRENT_TASK.md`). Features B (five caption
 personalities) and C (AI clip collections) are approved but postponed until the owner explicitly asks. Start or stop the engine with the desktop button "Reel Studio Engine (on-off)" (`apps/api/engine-switch.ps1`), or start it with
 `apps/api/start-engine.cmd` (also a Windows logon task).

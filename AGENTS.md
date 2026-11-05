@@ -1,6 +1,6 @@
 # AGENTS.md — Reel Studio engineering rules
 
-> **Reel Studio 2.0 — start here instead:** `docs/REEL_STUDIO_2_MASTER_PLAN.md`, then `docs/REEL_STUDIO_2_HANDOFF.md` (standalone; next task in §18). Never publish anything on Instagram (owner, 2026-10-24). Never run GPU tests while the owner's edits are rendering (2026-10-27 hang). Work only in `C:\Users\Sahil\OneDrive\Desktop\Reel Studio 2.0` (repo Reel-Studio). Commits only as `sahilkarande0918-cmd`; never AI authors, co-authors or `Co-Authored-By` trailers.
+> **Reel Studio 2.0 — start here instead:** `docs/REEL_STUDIO_2_MASTER_PLAN.md`, then `docs/REEL_STUDIO_2_HANDOFF.md` (standalone; next task in §18), then `docs/PROFESSIONAL_AI_CLIPPING_MASTER_PLAN.md` (bulk clipping spec + status; current priority). Never publish anything on Instagram (owner, 2026-10-24). Never run GPU tests while the owner's edits are rendering (2026-10-27 hang). Work only in `C:\Users\Sahil\OneDrive\Desktop\Reel Studio 2.0` (repo Reel-Studio). Commits only as `sahilkarande0918-cmd`; never AI authors, co-authors or `Co-Authored-By` trailers.
 >
 > (1.0) **Start here:** read `docs/IDE_HANDOFF.md` (complete current state, rules, commands, next task), then `docs/CHECKPOINT.md`.
 > Never publish a real Reel without the owner's explicit approval of account, video and caption. YouTube is postponed.
