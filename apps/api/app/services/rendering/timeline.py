@@ -328,6 +328,12 @@ def build(
             rel = a - start
             ks = sorted(keyframes, key=lambda k: float(k["t"]))
             held = [k for k in ks if float(k["t"]) <= rel + 1e-6][-1:] or ks[:1]
+            nxt = next((k for k in ks if float(k["t"]) > rel + 1e-6), None)
+            if held and nxt and nxt["transition_mode"] == "ease" and nxt["layout"] == held[0]["layout"] == "crop":
+                # the span starts in the middle of a camera pan: begin where the pan is at that moment
+                p = (rel - float(held[0]["t"])) / max(float(nxt["t"]) - float(held[0]["t"]), 1e-6)
+                held = [{**held[0], **{c: int(round(held[0][c] + (nxt[c] - held[0][c]) * p)) // 2 * 2
+                                       for c in ("crop_x", "crop_y")}}]
             inside = [{**k, "t": round(float(k["t"]) - rel, 3)} for k in ks if rel + 1e-6 < float(k["t"]) < rel + d]
             video_items.append({"id": f"clip-{n}", "type": "video", "assetId": "source", "start": round(off, 3),
                                 "duration": d, "sourceStart": round(a, 3), "sourceEnd": round(round(a, 3) + d, 3),

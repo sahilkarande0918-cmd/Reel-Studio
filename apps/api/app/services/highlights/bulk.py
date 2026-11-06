@@ -19,7 +19,7 @@ from collections import Counter
 
 from app.services.highlights import outline as ol
 from app.services.highlights import profiles as pf
-from app.services.highlights.candidates import Candidate, Sentence, _quote, _ts
+from app.services.highlights.candidates import NON_FINAL, continues, Candidate, Sentence, _quote, _ts
 
 WORD = re.compile(r"[\w']+", re.U)
 # openers that lean on what was just said ("Yeah, exactly.", "As I was saying...", "And that's why...")
@@ -231,19 +231,27 @@ def merge_topics(units: list[ol.Unit], embed=None, threshold: float = 0.83) -> N
 # ---------------------------------------------------------------- 2. spans
 
 
-def spans(units: list[ol.Unit], sents: list[Sentence], min_s: float, max_s: float) -> list[tuple[int, int]]:
+def spans(units: list[ol.Unit], sents: list[Sentence], min_s: float, max_s: float,
+          texts: list[str] | None = None) -> list[tuple[int, int]]:
     """(first, last) sentence ranges: runs of whole parts within min..max; a part longer than max_s contributes its
-    sentence windows instead, so a long story still yields its strongest complete stretch."""
+    sentence windows instead, so a long story still yields its strongest complete stretch. With texts, a run whose
+    last part ends on a dangling fragment of the next sentence ("… Power. | Do") is also offered without it."""
     out = set()
     for i in range(len(units)):
         if units[i].kind in pf.LOW_VALUE:
             continue  # never open on a sponsor read, tangent or chit-chat
         for j in range(i, len(units)):
-            d = units[j].end_s - units[i].start_s
-            if d > max_s:
+            last = units[j].last
+            while texts and last > units[j].first and last + 1 < len(texts) and                     sents[last].end_s - sents[last].start_s <= 1.5 and _glued(texts[last], texts[last + 1]):
+                last -= 1
+            if units[i].start_s > sents[last].end_s - min_s:
+                continue
+            if sents[last].end_s - units[i].start_s > max_s and units[j].end_s - units[i].start_s > max_s:
                 break
-            if d >= min_s and units[j].kind not in pf.LOW_VALUE:
-                out.add((units[i].first, units[j].last))
+            for b in {units[j].last, last}:
+                d = sents[b].end_s - units[i].start_s
+                if min_s <= d <= max_s and units[j].kind not in pf.LOW_VALUE:
+                    out.add((units[i].first, b))
         u = units[i]
         if u.duration_s > max_s:
             for a in range(u.first, u.last + 1):
@@ -269,6 +277,25 @@ def refine(a: int, b: int, texts: list[str], sents: list[Sentence], min_s: float
 # ---------------------------------------------------------------- 3. features + score
 
 
+END_PUNCT = re.compile(r"[.?!।]$")
+
+
+def _glued(left: str, right: str) -> bool:
+    """Two neighbouring sentences that read as one: no closing punctuation and a lowercase continuation, or a left
+    side ending on a word a sentence never ends on."""
+    lw, rw = left.split(), right.split()
+    return bool(lw and rw) and continues(lw[-1], rw[0])
+
+
+def _clean_start(a: int, texts: list[str], sents: list[Sentence]) -> bool:
+    return a > 0 and (bool(END_PUNCT.search(texts[a - 1])) or sents[a].pause_before >= 0.6)
+
+
+def _clean_end(b: int, texts: list[str], sents: list[Sentence]) -> bool:
+    last = texts[b].split()[-1].lower() if texts[b].split() else ""
+    return bool(END_PUNCT.search(texts[b])) or (sents[b].pause_after >= 0.6 and last not in NON_FINAL)
+
+
 def features(a: int, b: int, units: list[ol.Unit], sents: list[Sentence], texts: list[str], profile: dict,
              ideal_s: float, extras: dict) -> dict:
     """The seven editorial components (0..1) with the evidence behind each, quotes verbatim."""
@@ -278,6 +305,26 @@ def features(a: int, b: int, units: list[ol.Unit], sents: list[Sentence], texts:
     dur = max(sents[b].end_s - sents[a].start_s, 1e-6)
     start_whole = a == units[ua].first or all(is_talk_filler(texts[k]) for k in range(units[ua].first, a))
     end_whole = b == units[ub].last or all(is_talk_filler(texts[k]) for k in range(b + 1, units[ub].last + 1))
+    # a part may end on a short fragment that really opens the next sentence ("Power. | Do … see if you can"): the
+    # part's real end is the sentence before it
+    last_u = units[ub].last
+    if not end_whole and b < last_u and all(
+            sents[k].end_s - sents[k].start_s <= 1.5 and k + 1 < len(texts) and _glued(texts[k], texts[k + 1])
+            for k in range(b + 1, last_u + 1)):
+        end_whole = True
+    # the recogniser may split one sentence over a pause ("Do … see if you can"): never start or stop inside it
+    if a > 0 and _glued(texts[a - 1], texts[a]):
+        start_whole = False
+    if b + 1 < len(texts) and _glued(texts[b], texts[b + 1]):
+        end_whole = False
+    # a part longer than one Short (a long answer, a monologue, a film speech): a window inside it is whole when it
+    # starts after a real sentence end or pause and stops on one; otherwise no window of it could ever be a clip
+    long_max = extras.get("max_s", 90)
+    part_of = None
+    if not start_whole and units[ua].duration_s > long_max and _clean_start(a, texts, sents):
+        start_whole, part_of = True, units[ua]
+    if not end_whole and units[ub].duration_s > long_max and _clean_end(b, texts, sents):
+        end_whole, part_of = True, units[ub]
     prev = units[ua - 1] if ua > 0 else None
     # an answer without its question (or a lesson without the story it closes) needs the earlier part
     orphan_answer = units[ua].kind == "answer" and start_whole and prev is not None and prev.kind == "question"
@@ -288,7 +335,7 @@ def features(a: int, b: int, units: list[ol.Unit], sents: list[Sentence], texts:
                      len(units) - 1)
     # the rule only holds for a real exchange that fits in one Short: with no question before the clip (a monologue,
     # or a map without question marks) or a long answer, each part of the answer is judged on its own
-    fits = gq is not None and units[group_end].end_s - units[gq].start_s <= extras.get("max_s", 90) * 1.5
+    fits = gq is not None and units[group_end].end_s - units[gq].start_s <= extras.get("max_s", 90)
     mid_start = fits and gq < ua - 1 and units[ua].kind not in pf.LOW_VALUE
     mid_end = fits and ub < group_end and any(units[i].kind not in pf.LOW_VALUE for i in range(ub + 1, group_end + 1))
     if mid_start:
@@ -345,6 +392,8 @@ def features(a: int, b: int, units: list[ol.Unit], sents: list[Sentence], texts:
         limits.append(f"Ends on a question answered only after the clip: “{_quote(last, 80)}”")
     if before_lesson:
         limits.append(f"Stops before the {nxt_unit.kind} at {_ts(nxt_unit.start_s)} that concludes it")
+    if part_of is not None:
+        limits.append(f"Part of a longer {part_of.kind} ({_ts(part_of.start_s)}–{_ts(part_of.end_s)})")
     if len(subjects) > 1:
         limits.append(f"Covers {len(subjects)} subjects ({', '.join(subjects[:3])}); a Short usually lands one idea")
     return {

@@ -1,6 +1,8 @@
 """Bulk clipping: conversation map, hook/payoff features, quality-first diverse selection, speech cuts, speaker
 smoothing, caption emphasis, campaign checks and the fast renderer's ASS captions."""
 
+import subprocess
+
 import numpy as np
 
 from app.services.clips import campaign_brief, speech_cuts
@@ -159,18 +161,87 @@ def test_speaker_smoothing_ignores_syllable_flicker():
     assert switches == 1 and out[0] == 0 and out[-1] == 1
 
 
-def test_speaker_plan_cuts_between_two_seats_and_falls_back_without_faces():
+def _track(faces, cuts_s=(), speech=None):
+    n = len(faces)
+    return {"version": speakers.VERSION, "step": 1 / 6, "W": 1920, "H": 1080, "frames": n, "cuts": [],
+            "cuts_s": list(cuts_s), "faces": faces, "speech": speech or "1" * n}
+
+
+def _x_at(ks, t):
+    prev = ks[0]
+    for k in ks[1:]:
+        if k["t"] > t:
+            if k["transition_mode"] == "ease":
+                p = (t - prev["t"]) / (k["t"] - prev["t"])
+                return prev["crop_x"] + (k["crop_x"] - prev["crop_x"]) * p
+            return prev["crop_x"]
+        prev = k
+    return prev["crop_x"]
+
+
+def test_face_tracking_follows_the_speaker_in_a_two_shot():
     W, H = 1920, 1080
-    track = {"step": 1 / 6, "slots": [{"cx": 480, "cy": 400, "w": 160, "h": 200, "share": .9},
-                                     {"cx": 1440, "cy": 400, "w": 160, "h": 200, "share": .9}],
-             "present": ["11"] * 120, "active": "0" * 60 + "1" * 60}
-    ks = speakers.plan(track, 0, 20, W, H)
-    assert [k["region"] for k in ks] == ["speaker-0", "speaker-1"]
-    assert ks[1]["transition_mode"] == "cut" and ks[0]["crop_x"] < ks[1]["crop_x"]
-    assert all(k["crop_width"] == 608 and k["crop_x"] + 608 <= W for k in ks)
-    assert speakers.plan({"slots": []}, 0, 10, W, H) == []
-    rapid = {**track, "active": ("0" * 8 + "1" * 8) * 8}
-    assert any(k["layout"] == "split" and k.get("second") for k in speakers.plan(rapid, 0, 20, W, H))
+    talk = lambda k: 6.0 if k % 2 else 0.5  # noqa: E731 (a moving mouth alternates open/closed)
+    faces = [[[480, 400, 160, 200, talk(k) if k < 60 else 0.5], [1440, 400, 160, 200, 0.5 if k < 60 else talk(k)]]
+             for k in range(120)]
+    ks = speakers.plan(_track(faces), 0, 20, W, H)
+    assert ks[0]["crop_x"] < 480 < ks[0]["crop_x"] + 608  # the left person talks first
+    cut = next(k for k in ks if k["transition_mode"] == "cut")
+    assert 9 <= cut["t"] <= 11.5 and cut["crop_x"] < 1440 < cut["crop_x"] + 608
+    assert ks[0]["region"] != cut["region"]  # a virtual camera cut may get a transition
+    assert all(k["crop_width"] == 608 and 0 <= k["crop_x"] <= W - 608 for k in ks)
+
+
+def test_face_tracking_keeps_a_moving_face_inside_and_cuts_with_the_film():
+    W, H = 1920, 1080
+    walk = [[[400 + 12 * k, 500, 220, 260, 1.0]] for k in range(90)]  # walks right for 15 s
+    ks = speakers.plan(_track(walk), 0, 15, W, H)
+    assert any(k["transition_mode"] == "ease" for k in ks)
+    for k in range(90):  # the face box never leaves the crop
+        x = _x_at(ks, k / 6)
+        cx = 400 + 12 * k
+        assert x - 1 <= cx - 110 and cx + 110 <= x + 608 + 1, (k, x, cx)
+    # an exact source cut at 7.25 s: the crop jumps there (no smoothing across shots)
+    shots = [[[500, 500, 220, 260, 1.0]] if k < 44 else [[1500, 500, 220, 260, 1.0]] for k in range(90)]
+    ks = speakers.plan(_track(shots, cuts_s=[7.25]), 0, 15, W, H)
+    assert [k["t"] for k in ks] == [0.0, 7.25] and ks[1]["transition_mode"] == "cut"
+    assert ks[0]["region"] == ks[1]["region"]  # the film's own cut: no extra fade on top
+    assert ks[1]["crop_x"] < 1500 < ks[1]["crop_x"] + 608
+    assert speakers.plan(_track([[] for _ in range(60)]), 0, 10, W, H) == []
+    assert speakers.plan({"slots": [], "present": []}, 0, 10, W, H) == []  # old cache format → rebuilt elsewhere
+
+
+def test_face_tracking_rapid_back_and_forth_becomes_split_screen():
+    talk = lambda k, on: 6.0 if on and k % 2 else 0.5  # noqa: E731
+    faces = [[[400, 400, 160, 200, talk(k, (k // 12) % 2 == 0)], [1500, 400, 160, 200, talk(k, (k // 12) % 2 == 1)]]
+             for k in range(120)]
+    ks = speakers.plan(_track(faces), 0, 20, 1920, 1080)
+    assert any(k["layout"] == "split" and k.get("second") for k in ks)
+
+
+def test_shot_cuts_are_exact_and_ignore_gradual_motion():
+    rng = np.random.default_rng(0)
+    a, b = rng.integers(0, 255, (36, 64)), rng.integers(0, 255, (36, 64))
+    frames = [np.clip(a + k, 0, 255) for k in range(30)] + [b] * 30  # slow brightening, then a cut at frame 30
+    assert speakers.shot_cuts(np.array(frames, np.uint8), 60 / 30) == [1.0]
+
+
+def test_fast_renderer_pans_with_a_crop_expression(tmp_path):
+    item = {"type": "video", "start": 0, "duration": 2, "sourceStart": 0, "sourceEnd": 2, "volume": 1,
+            "cropKeyframes": [{"t": 0, "crop_x": 0, "crop_y": 0, "crop_width": 90, "crop_height": 160, "layout": "crop",
+                               "region": "speaker-0", "transition_mode": "start"},
+                              {"t": 1, "crop_x": 0, "crop_y": 0, "crop_width": 90, "crop_height": 160, "layout": "crop",
+                               "region": "speaker-0", "transition_mode": "ease"},
+                              {"t": 2, "crop_x": 100, "crop_y": 0, "crop_width": 90, "crop_height": 160,
+                               "layout": "crop", "region": "speaker-0", "transition_mode": "ease"}]}
+    from app.services.rendering import fast
+    pieces = fast._pieces(item)
+    assert "pan_to" not in pieces[0][2] and pieces[1][2]["pan_to"] == (100, 0)
+    expr = fast._crop(pieces[1][2], pieces[1][0])
+    out = tmp_path / "pan.mp4"
+    r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "testsrc=size=320x160:rate=30:duration=1",
+                        "-vf", f"{expr},scale=90:160", str(out)], capture_output=True, text=True)
+    assert r.returncode == 0 and out.stat().st_size > 0, r.stderr
 
 
 def test_caption_emphasis_is_content_based_and_rate_limited():

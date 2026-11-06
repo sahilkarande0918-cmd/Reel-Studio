@@ -50,19 +50,74 @@ class Candidate:
         return self.end_s - self.start_s
 
 
-def sentences(words: list[dict], pause_split_s: float = 0.9) -> list[Sentence]:
-    """Split on terminal punctuation, or on a long pause even without punctuation."""
+MAX_TALK_SENT_S = 12.0
+
+
+NON_FINAL = {"i", "a", "an", "the", "and", "or", "but", "to", "of", "in", "on", "at", "for", "with", "from", "my",
+             "your", "his", "her", "their", "our", "its", "he", "she", "they", "we", "do", "is", "are", "was", "were", "if", "when", "because", "that"}
+
+
+def continues(text: str, nxt: str) -> bool:
+    """The next word carries on the same sentence ("I … heard a song", "your … Grace"): no closing punctuation, and a
+    lowercase next word or a word an English sentence never ends on."""
+    return not re.search(r"[,.?!;:।]$", text) and (nxt[:1].islower() or text.lower() in NON_FINAL)
+
+
+def sentences(words: list[dict], pause_split_s: float = 0.9, talk: bool = False) -> list[Sentence]:
+    """Split on terminal punctuation, or on a long pause even without punctuation.
+    talk=True (podcasts, interviews, films; the talk profiles): a pause before a word that clearly continues the
+    sentence only splits when it is very long, and a "sentence" the recogniser left without punctuation that runs
+    longer than 12 s is split at its longest internal pauses, so every stretch can still start or end a Short."""
     ws = [w for w in words if w.get("corrected_text", w["raw_text"])]
     out, s = [], 0
     for i, w in enumerate(ws):
         nxt = ws[i + 1] if i + 1 < len(ws) else None
         gap = (nxt["start_s"] - w["end_s"]) if nxt else 9.0
         text = (w.get("corrected_text") or w["raw_text"]).strip()
-        if SENT_END.search(text) or gap >= pause_split_s or nxt is None:
+        pause = gap >= pause_split_s
+        if pause and talk and nxt and gap < 1.8 and continues(text, (nxt.get("corrected_text") or nxt["raw_text"]).strip()):
+            pause = False
+        if SENT_END.search(text) or pause or nxt is None:
             before = ws[s]["start_s"] - ws[s - 1]["end_s"] if s > 0 else 9.0
-            out.append(Sentence(ws[s]["idx"], w["idx"], ws[s]["start_s"], w["end_s"], before, gap))
+            if talk:
+                out += _split_long(ws, s, i, before, gap)
+            else:
+                out.append(Sentence(ws[s]["idx"], w["idx"], ws[s]["start_s"], w["end_s"], before, gap))
             s = i + 1
     return out
+
+
+def _txt(w: dict) -> str:
+    return (w.get("corrected_text") or w["raw_text"]).strip()
+
+
+def _pause_after(ws: list[dict], k: int) -> float:
+    """Silence after word k: the gap, plus the part of the word the recogniser stretched over the pause
+    (Whisper often gives the last word before a pause the whole silence: "I" lasting 0.9 s)."""
+    w = ws[k]
+    stretch = max(0.0, (w["end_s"] - w["start_s"]) - max(0.35, 0.09 * len(_txt(w))))
+    return ws[k + 1]["start_s"] - w["end_s"] + stretch
+
+
+def _split_long(ws: list[dict], a: int, b: int, before: float, after: float) -> list[Sentence]:
+    """Sentence(s) for words ws[a..b]: split at the longest pause until each part is <= 12 s. A pause before a
+    capitalised word (a new sentence the recogniser did not punctuate) counts more, one before a word that carries
+    on the sentence ("I … heard") much less; with no pause at all, at the capitalised word nearest the middle."""
+    if ws[b]["end_s"] - ws[a]["start_s"] <= MAX_TALK_SENT_S or b == a:
+        return [Sentence(ws[a]["idx"], ws[b]["idx"], ws[a]["start_s"], ws[b]["end_s"], before, after)]
+    best, bg = None, 0.0
+    for k in range(a, b):
+        g = _pause_after(ws, k)
+        nt = _txt(ws[k + 1])
+        g_eff = g * (1.5 if nt[:1].isupper() and nt != "I" else 1.0) * (0.05 if _txt(ws[k]).lower() in NON_FINAL else 0.25 if continues(_txt(ws[k]), nt) else 1.0)
+        if g >= 0.2 and g_eff > bg:
+            best, bg = k, g_eff
+    if best is None:
+        mid = (ws[a]["start_s"] + ws[b]["end_s"]) / 2
+        caps = [k for k in range(a, b) if _txt(ws[k + 1])[:1].isupper() and _txt(ws[k + 1]) != "I"]
+        best = min(caps or range(a, b), key=lambda k: abs(ws[k]["end_s"] - mid))
+    g = ws[best + 1]["start_s"] - ws[best]["end_s"]
+    return _split_long(ws, a, best, before, g) + _split_long(ws, best + 1, b, g, after)
 
 
 def sentence_texts(words: list[dict], sents: list[Sentence]) -> list[str]:

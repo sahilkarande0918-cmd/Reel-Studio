@@ -22,9 +22,11 @@ LLM_BUDGET = 10
 KEEP = 6  # education profile only (original Mode A reels); talk profiles select by quality (bulk.select)
 
 
-def _cached(path: Path, build):
+def _cached(path: Path, build, valid=lambda d: True):
     if path.exists():
-        return json.loads(path.read_text())
+        data = json.loads(path.read_text())
+        if valid(data):
+            return data
     data = build()
     path.write_text(json.dumps(data))
     return data
@@ -116,7 +118,7 @@ def pick_talk(ctx, rdir: Path, fixed: list[dict], opts: dict, duration_s: float,
     ctx.stage("outline", 0.55, "Mapping the whole conversation: questions, answers, stories, lessons (local LLM)")
     t0 = time.perf_counter()
     db_levels = audio_features.rms_db(rdir / "audio16k.wav")
-    sents = candidates.sentences(fixed)
+    sents = candidates.sentences(fixed, talk=True)
     texts = candidates.sentence_texts(fixed, sents)
     ranker = candidates.pause_ranker(sents)
     whisper.unload()
@@ -140,7 +142,7 @@ def pick_talk(ctx, rdir: Path, fixed: list[dict], opts: dict, duration_s: float,
     t0 = time.perf_counter()
     brief_terms = outline.content_words(opts.get("brief") or "")
     scored = {}
-    for a0, b0 in bulk.spans(units, sents, min_s, max_s):
+    for a0, b0 in bulk.spans(units, sents, min_s, max_s, texts):
         a, b = bulk.refine(a0, b0, texts, sents, min_s)
         if (a, b) in scored or bulk.is_talk_filler(texts[a]):
             continue
@@ -427,7 +429,8 @@ def _analyze_talk(ctx, db, rec: dict, tr: dict, src: Path, rdir: Path, opts: dic
         opts["profile"] = _genre(rdir, words)
     ctx.stage("speakers", 0.1, "Finding faces and who is speaking (local, CPU)")
     t0 = time.perf_counter()
-    track = _cached(rdir / "faces.json", lambda: speakers.analyze(src, rdir / "audio16k.wav", W, H, dur))
+    track = _cached(rdir / "faces.json", lambda: speakers.analyze(src, rdir / "audio16k.wav", W, H, dur),
+                    valid=lambda d: d.get("version") == speakers.VERSION)
     timings["faces_s"] = round(time.perf_counter() - t0, 1)
     final, units, stats = pick_talk(ctx, rdir, words, opts, dur, timings,
                                     visual=lambda a, b: speakers.visual_score(track, a, b))

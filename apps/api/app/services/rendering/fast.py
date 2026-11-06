@@ -6,8 +6,8 @@ paginated by `compose.paginate` (identical pages to the preview), the caption pr
 shadow, box, case, highlight of the spoken word, entrance, content emphasis) as ASS rendered by libass, and text items
 (hook titles). Docs with intro/outro cards, logos, watermarks, code or motion items use the Hyperframes renderer.
 
-ponytail: crop keyframes are held until the next keyframe (cuts); eased pans between keyframes are not interpolated
-here. Talk framing only cuts; screen-recording reels with eased pans stay on the Hyperframes path.
+Crop keyframes cut, or pan (an "ease" keyframe: the crop moves linearly from the previous keyframe's position,
+like the Hyperframes preview) when both are plain crops of the same size; other eased changes use Hyperframes.
 """
 
 import shutil
@@ -37,8 +37,9 @@ def supported(doc: dict) -> str | None:
         for i in t["items"]:
             if i["type"] not in ("video", "caption", "text"):
                 return f"{i['type']} items"
-            if i["type"] == "video" and any(k["transition_mode"] == "ease" for k in i["cropKeyframes"][1:]):
-                return "eased camera pans"
+            ks = sorted(i.get("cropKeyframes", []), key=lambda k: k["t"]) if i["type"] == "video" else []
+            if any(k["transition_mode"] == "ease" and not _pannable(p, k) for p, k in zip(ks, ks[1:], strict=False)):
+                return "eased zoom/layout changes"
     return None
 
 
@@ -253,21 +254,38 @@ def _motion(item: dict, W: int, H: int) -> str:
 # ------------------------------------------------------------------ video graph
 
 
+def _pannable(a: dict, b: dict) -> bool:
+    return a["layout"] == b["layout"] == "crop" and (a["crop_width"], a["crop_height"]) == (b["crop_width"], b["crop_height"])
+
+
 def _pieces(item: dict) -> list[tuple[float, float, dict]]:  # (source start, source end, keyframe)
-    """(source start, source end, keyframe) for each stretch of one video item held on one crop keyframe."""
+    """(source start, source end, keyframe) for each stretch of one video item on one crop keyframe. A stretch that
+    ends in an eased keyframe pans towards it: its keyframe carries "pan_to" (target x/y) and "pan_s" (length)."""
     ks = sorted(item["cropKeyframes"], key=lambda k: k["t"])
     out = []
     for i, k in enumerate(ks):
         a = item["sourceStart"] + max(0.0, k["t"])
         b = item["sourceStart"] + (ks[i + 1]["t"] if i + 1 < len(ks) else item["duration"])
         b = min(b, item["sourceEnd"])
+        nxt = ks[i + 1] if i + 1 < len(ks) else None
+        if nxt and nxt["transition_mode"] == "ease" and _pannable(k, nxt) and                 (nxt["crop_x"], nxt["crop_y"]) != (k["crop_x"], k["crop_y"]):
+            # the full keyframe interval, even when a speech cut ends this item early: same speed as the preview
+            k = {**k, "pan_to": (nxt["crop_x"], nxt["crop_y"]), "pan_s": max(nxt["t"] - k["t"], 1e-3),
+                 "pan_from_s": item["sourceStart"] + k["t"]}
         if b - a > 1 / 60:
             out.append((a, b, k))
     return out or [(item["sourceStart"], item["sourceEnd"], ks[0])]
 
 
-def _crop(k: dict) -> str:
-    return f"crop={k['crop_width']}:{k['crop_height']}:{k['crop_x']}:{k['crop_y']}"
+def _crop(k: dict, a: float | None = None) -> str:
+    """crop filter; a pan is a per-frame expression of the piece clock t (the piece starts at source time a)."""
+    if "pan_to" not in k or a is None:
+        return f"crop={k['crop_width']}:{k['crop_height']}:{k['crop_x']}:{k['crop_y']}"
+    off = a - k["pan_from_s"]  # where this piece starts inside the pan (a speech cut may split one pan in pieces)
+    p = f"clip((t+{off:.4f})/{k['pan_s']:.4f},0,1)"
+    ease = p  # linear, exactly like the Hyperframes preview's tween
+    (x0, y0), (x1, y1) = (k["crop_x"], k["crop_y"]), k["pan_to"]
+    return f"crop={k['crop_width']}:{k['crop_height']}:x='{x0}+({x1 - x0})*{ease}':y='{y0}+({y1 - y0})*{ease}'"
 
 
 XFADE = {"auto": "fade", "fade": "fade", "slide": "slideleft", "flash": "fadewhite"}
@@ -323,7 +341,7 @@ def graph(doc: dict, t0: float) -> tuple[str, int]:
             parts.append(f"[pb{i}]scale={pw}:{ph}[fg{i}]")
             parts.append(f"[bg{i}][fg{i}]overlay=(W-w)/2:{y},{norm}[v{i}]")
         else:
-            parts.append(f"{trim},{_crop(k)},scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},{norm}[v{i}]")
+            parts.append(f"{trim},{_crop(k, a)},scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},{norm}[v{i}]")
     for i, it in enumerate(items):  # audio per span, 8 ms fades so joins inside silence never click
         d = it["sourceEnd"] - it["sourceStart"]
         parts.append(f"[r{i}]atrim=start={it['sourceStart'] - t0:.4f}:end={it['sourceEnd'] - t0:.4f},asetpts=PTS-STARTPTS,"

@@ -74,7 +74,8 @@ def main() -> None:
     v = next(s for s in info["streams"] if s.get("width"))
     W, H, dur = v["width"], v["height"], float(info["format"]["duration"])
     t0 = time.perf_counter()
-    track = analyze._cached(rdir / "faces.json", lambda: speakers.analyze(src, wav, W, H, dur))
+    track = analyze._cached(rdir / "faces.json", lambda: speakers.analyze(src, wav, W, H, dur),
+                            valid=lambda d: d.get("version") == speakers.VERSION)
     timings["faces_s"] = round(time.perf_counter() - t0, 1)
     opts = {"profile": a.profile, "count": a.count, "duration": a.duration, "brief": ""}
     final, units, report = analyze.pick_talk(Ctx(), rdir, words, opts, dur, timings,
