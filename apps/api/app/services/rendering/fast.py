@@ -365,6 +365,23 @@ def graph(doc: dict, t0: float) -> tuple[str, int]:
 
 # auto colour correction: temporally smoothed auto levels (no flicker), then a gentle contrast/saturation lift
 COLOR_CHAIN = "normalize=blackpt=black:whitept=white:smoothing=48:independence=0.4:strength=0.5,eq=contrast=1.04:saturation=1.08"
+def hdr_cc(inp: str, out: str, height: int) -> str:
+    """CapCut's "4K HDR CC" grade (the AV Solutions tutorial), layer for layer:
+    1. a copy of the picture with every curve inverted (a negative) and blurred,
+    2. laid over the picture in "Color burn" at 29 % (local contrast: large areas flatten, detail pops),
+    3. a white layer in "Overlay" at 83 % (lifts shadows, colours glow),
+    4. adjustment: saturation +18, brightness +7, shadows -9, tint +12, red/orange hue +15, sharpen.
+    CapCut mixes a layer's opacity towards the layer BELOW; FFmpeg's blend opacity mixes towards the top input, so the
+    colour burn is written out as an expression on the original (A) and the blurred negative (B)."""
+    sigma = max(2.0, round(18 * height / 960, 1))  # CapCut's Blur effect at its default, scaled to the frame
+    burn = r"A+(if(eq(B\,0)\,0\,max(0\,255-(255-A)*255/B))-A)*0.29"
+    white = r"if(lt(val\,128)\,2*val\,255)*0.83+val*0.17"
+    return (f"[{inp}]format=gbrp,split=2[{out}o][{out}n];[{out}n]negate,gblur=sigma={sigma}[{out}b];"
+            f"[{out}o][{out}b]blend=all_expr='{burn}',lutrgb=r='{white}':g='{white}':b='{white}',"
+            "eq=saturation=1.18:brightness=0.02,curves=all='0/0 0.25/0.215 1/1',"
+            f"huesaturation=hue=12:colors=r+y:strength=1,format=yuv420p[{out}]")
+
+
 SPEECH_CHAIN = ("highpass=f=70,afftdn=nf=-28,acompressor=threshold=-20dB:ratio=2.5:attack=8:release=150,"
                 "loudnorm=I=-14:TP=-1.5:LRA=11")
 
@@ -418,6 +435,9 @@ def render(doc: dict, source: Path, project: Path, enhance_audio: bool = True, t
         g += f";{prep},fade=t=in:st={a:.3f}:d=0.12,fade=t=out:st={a + d - 0.12:.3f}:d=0.12[br{n}]"
         g += f";[{cur}][br{n}]overlay=0:0:enable='between(t,{a:.3f},{a + d:.3f})':eof_action=pass[vb{n}]"
         cur = f"vb{n}"
+    if rs.get("hdrGrade"):  # CapCut-style "HDR CC" look (the 4K enhancer's HDR option)
+        g += ";" + hdr_cc(cur, "vh", H)
+        cur = "vh"
     stickers = []
     for e in rs.get("emojis") or []:  # AI emojis: Noto 3D PNGs above the caption block, fading in and out
         from app.services.rendering import emoji

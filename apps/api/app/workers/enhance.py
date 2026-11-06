@@ -5,9 +5,9 @@ CapCut-style "Enhance quality → UHD" done locally and free:
    audio) rendered at the source's own pixel density (a 720p source gives 404×720, never an already-stretched image),
    capped at a quarter of the 4K size;
 2. Real-ESRGAN (realesr-general-x4v3 + denoise blend, BSD-3) ×4 on the GPU (upscale_worker.py, torch env);
-3. captions, hook titles, progress bar and emojis drawn fresh at 4K (vector text, not upscaled pixels), optional
-   "vivid" look (CapCut's "HDR" look: a little contrast and colour; the file stays SDR BT.709 — no fake HDR), light
-   adaptive sharpening, H.264 High ~45 Mbps (YouTube's 4K SDR recommendation), AAC.
+3. captions, hook titles, progress bar and emojis drawn fresh at 4K (vector text, not upscaled pixels), light
+   adaptive sharpening. Optional "HDR CC" (payload vivid): CapCut's 4K HDR CC grade (fast.hdr_cc) applied to the base
+   before the upscale; the file stays SDR BT.709 (no fake HDR metadata), H.264 High ~45 Mbps (YouTube's 4K SDR recommendation), AAC.
 A reel the fast renderer cannot rebuild (intro/outro cards, logos) is upscaled as it is, text included.
 """
 
@@ -53,7 +53,7 @@ def target_size(w: int, h: int) -> tuple[int, int]:
     return w * 2, h * 2
 
 
-def base_doc(doc: dict, src_h: int, src_fps: float | None = None) -> dict:
+def base_doc(doc: dict, src_h: int, src_fps: float | None = None, hdr: bool = False) -> dict:
     """The reel's picture without text, at the source's native pixel density (≤ a quarter of the 4K size)."""
     W, H = doc["width"], doc["height"]
     crops = [k["crop_height"] for t in doc["tracks"] for i in t["items"] if i["type"] == "video"
@@ -68,18 +68,18 @@ def base_doc(doc: dict, src_h: int, src_fps: float | None = None) -> dict:
         t["items"] = [i for i in t["items"] if i["type"] == "video"]
     rs = b.setdefault("renderSettings", {})
     rs["emojis"], rs["progressBar"] = [], False
+    rs["hdrGrade"] = hdr  # graded before the upscale, like the tutorial (grade, then export in 4K)
     return b
 
 
-def overlay_args(doc: dict, project: Path, W: int, H: int, vivid: bool) -> list[str]:
-    """FFmpeg arguments after the upscaled picture (input 0): the reel's text and emojis at 4K, look, encode."""
+def overlay_args(doc: dict, project: Path, W: int, H: int) -> list[str]:
+    """FFmpeg arguments after the upscaled picture (input 0): the reel's text and emojis at 4K, sharpening, encode."""
     (project / "captions.ass").write_text(fast.ass(doc), encoding="utf-8")  # PlayRes 1080×1920: libass scales it
     fdir = project / "fonts"
     fdir.mkdir(exist_ok=True)
     for f in fast.fonts_dir().iterdir():
         shutil.copyfile(f, fdir / f.name)
-    look = "eq=contrast=1.06:saturation=1.14:gamma=0.98," if vivid else ""
-    g = f"[0:v]fps={doc['fps']},{look}cas=strength=0.4,subtitles=captions.ass:fontsdir=fonts"
+    g = f"[0:v]fps={doc['fps']},cas=strength=0.4,subtitles=captions.ass:fontsdir=fonts"
     args = ["-i", "base/out.mp4"]
     stickers = []
     for e in (doc.get("renderSettings") or {}).get("emojis") or []:
@@ -161,20 +161,21 @@ def run_enhance(ctx: JobContext) -> dict:
                     shutil.copyfile(pdir / name, base / name)
             vs = next(x for x in media.probe(source_path(rec))["streams"] if x["codec_type"] == "video")
             num, den = (int(x) for x in vs["r_frame_rate"].split("/"))
-            b = base_doc(doc, rec["height"], num / max(den, 1))
+            b = base_doc(doc, rec["height"], num / max(den, 1), hdr=bool(ctx.payload.get("vivid")))
             try:
                 fast.render(b, source_path(rec), base, enhance_audio=ctx.payload.get("enhance_audio", True), master=True)
             except subprocess.CalledProcessError as e:
                 raise RuntimeError(f"ffmpeg base render failed: {(e.stderr or b'').decode('utf-8', 'replace')[-1500:]}") from e
-            encode = overlay_args(doc, project, W4, H4, bool(ctx.payload.get("vivid")))
+            encode = overlay_args(doc, project, W4, H4)
         else:  # text is already in the picture: upscale the finished reel as it is
             ctx.stage("base", 0.03, "Preparing the finished reel for upscaling")
             bw, bh = _even(W4 / 4), _even(H4 / 4)
-            subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(pdir / "out.mp4"), "-vf",
-                            f"scale={bw}:{bh}:flags=lanczos", "-c:v", "libx264", "-crf", "12", "-preset", "veryfast",
+            g = f"[0:v]scale={bw}:{bh}:flags=lanczos[s]" + (";" + fast.hdr_cc("s", "v", bh) if ctx.payload.get("vivid")
+                                                              else ";[s]null[v]")
+            subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(pdir / "out.mp4"), "-filter_complex", g,
+                            "-map", "[v]", "-map", "0:a?", "-c:v", "libx264", "-crf", "12", "-preset", "veryfast",
                             "-c:a", "copy", str(base / "out.mp4")], check=True, capture_output=True, timeout=1800)
-            look = "eq=contrast=1.06:saturation=1.14:gamma=0.98," if ctx.payload.get("vivid") else ""
-            encode = ["-i", "base/out.mp4", "-filter_complex", f"[0:v]{look}cas=strength=0.4,format=yuv420p[vout]",
+            encode = ["-i", "base/out.mp4", "-filter_complex", "[0:v]cas=strength=0.4,format=yuv420p[vout]",
                       "-map", "[vout]", "-map", "1:a?", *ENCODE_4K, *COLOR_TAGS, "-c:a", "copy",
                       "-t", f"{doc['duration']:.3f}", "-movflags", "+faststart", "out.mp4"]
         ctx.stage("upscale", 0.1, "AI upscaling every frame to 4K on the GPU (Real-ESRGAN)")

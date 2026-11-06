@@ -291,7 +291,7 @@ def enhance_render(render_id: str, body: EnhanceRequest | None = None, user: Use
     if why := enhance.available():
         raise HTTPException(503, f"4K enhancement is unavailable on this engine: {why}")
     db = service_client()
-    digest = f"4k:{'vivid' if body.vivid else 'natural'}:{r['timeline_hash']}"
+    digest = f"4k:{'hdrcc' if body.vivid else 'natural'}:{r['timeline_hash']}"
     previous = db.table("render_jobs").select("id,job_id,status").eq("parent_render_id", render_id) \
         .eq("timeline_hash", digest).in_("status", ["queued", "rendering", "ready"]).limit(1).execute().data
     if previous:

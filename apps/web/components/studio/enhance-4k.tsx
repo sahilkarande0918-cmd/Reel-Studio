@@ -80,8 +80,8 @@ export function Enhance4K({ base, reelId, hd, name, onQueued, compact = false }:
           className={`inline-flex items-center gap-1.5 rounded-lg border border-accent px-2.5 py-1.5 ${text} font-semibold text-accent hover:bg-surface-2 disabled:opacity-50`}>
           <Sparkles size={13} />Enhance to 4K
         </button>
-        <label className={`flex items-center gap-1 ${text} text-muted`} title="A little more contrast and colour, like CapCut's HDR look (the file stays standard SDR)">
-          <input type="checkbox" checked={vivid} onChange={(e) => setVivid(e.target.checked)} className="accent-[var(--accent)]" />HDR look
+        <label className={`flex items-center gap-1 ${text} text-muted`} title="CapCut's 4K HDR CC grade: blurred-negative colour burn, white overlay, colour boost and sharpening (the file stays standard SDR)">
+          <input type="checkbox" checked={vivid} onChange={(e) => setVivid(e.target.checked)} className="accent-[var(--accent)]" />HDR CC
         </label>
       </div>
       {hd?.status === "failed" && <p className={`${text} text-danger`}>4K failed: {hd.error?.slice(0, 160)}</p>}

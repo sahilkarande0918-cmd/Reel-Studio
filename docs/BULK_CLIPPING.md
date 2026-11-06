@@ -143,6 +143,14 @@ through the production engine. Honest limit: it removes compression blocks/noise
 recover detail a 720p crop never had. Platforms always re-compress; a high-bitrate 4K upload gets YouTube's better
 VP9/AV1 encodes, Instagram downsizes to 1080 wide. Not built: face restoration (GFPGAN, Apache-2.0) — next candidate.
 OpenCut-app/OpenCut was evaluated: a browser editor with no upscaling (its export is being rewritten), so nothing to reuse.
+**HDR CC option** = the AV Solutions "4K HDR CC Tutorial in CapCut" recipe, read frame by frame from the owner's copy of
+the video and rebuilt as one FFmpeg graph (`fast.hdr_cc`, applied to the base before the upscale): (1) adjustment layer
+with luma/R/G/B curves all inverted + Blur effect → blurred negative; (2) that layer in Color burn at 29 %; (3) a white
+image in Overlay at 83 %; (4) adjustment Hue/tint +12, Saturation +18, Brightness +7, Shadow −9, Sharpen +12, HSL red hue
++16, orange hue +15 / sat +17. CapCut's opacity mixes towards the layer below, FFmpeg's blend opacity towards the top
+input, so the colour burn is an explicit expression. The tutorial does no real upscaling — "4K" there is only the export
+size; our 4K adds Real-ESRGAN. OpenCut cannot do it: blend modes only on text, its "curves" are keyframe easing, no
+adjustment layers or video blur. Measured: 13.6 s 1080p reel, HDR CC 4K in 80 s through the engine.
 
 ## Not verified / not built (honest)
 - **Real footage**: no authorised real podcast was available; face framing, active-speaker switching and split screen are
