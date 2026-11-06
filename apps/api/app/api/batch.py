@@ -88,18 +88,33 @@ def render_batch(rec_id: str, body: BatchRequest, user: User = Depends(current_u
     return {"renders": out, "skipped": skipped, "settings": settings}
 
 
+def _hd(r: dict | None, jobs: dict) -> dict | None:
+    """A reel's 4K version for the gallery: its state, the job's stage and progress, size when finished."""
+    if not r:
+        return None
+    j = jobs.get(r.get("job_id")) or {}
+    return {"id": r["id"], "status": r["status"], "error": r["error"], "width": r.get("width"), "height": r.get("height"),
+            "size_bytes": r.get("size_bytes"), "render_s": r.get("render_s"), "stage": j.get("current_stage"),
+            "progress": j.get("progress")}
+
+
 @router.get("/{rec_id}/batch")
 def batch_status(rec_id: str, user: User = Depends(current_user)) -> dict:
     """Each clip with its latest render and that render's job (stage, progress, error), straight from the database."""
     get_owned("source_recordings", rec_id, user)
     db = service_client()
     clips = _clips(rec_id, None)
-    renders = db.table("render_jobs").select("id,highlight_id,job_id,status,error,duration_s,size_bytes,render_s,created_at") \
+    renders = db.table("render_jobs").select("id,highlight_id,job_id,status,error,duration_s,size_bytes,render_s,created_at,"
+                                             "width,height,timeline_hash,parent_render_id") \
         .eq("recording_id", rec_id).order("created_at", desc=True).execute().data
     latest: dict[str, dict] = {}
+    hd: dict[str, dict] = {}  # newest 4K version of a reel, by the reel's id
     for r in renders:
-        latest.setdefault(r["highlight_id"], r)
-    job_ids = [r["job_id"] for r in latest.values() if r.get("job_id")]
+        if (r.get("timeline_hash") or "").startswith("4k:"):
+            hd.setdefault(r["parent_render_id"], r)
+        else:
+            latest.setdefault(r["highlight_id"], r)
+    job_ids = [r["job_id"] for r in [*latest.values(), *hd.values()] if r.get("job_id")]
     jobs = {j["id"]: j for j in (db.table("jobs").select("id,status,current_stage,progress,attempts,error")
                                  .in_("id", job_ids).execute().data if job_ids else [])}
     items = []
@@ -109,7 +124,7 @@ def batch_status(rec_id: str, user: User = Depends(current_user)) -> dict:
         f = c.get("features") or {}
         items.append({"highlight_id": c["id"], "title": c["title"], "start_s": c["start_s"], "end_s": c["end_s"],
                       "status": c["status"], "score": f.get("editorial", {}).get("score"), "topic": f.get("topic"),
-                      "render": r, "job": j})
+                      "render": r, "job": j, "hd": _hd(hd.get(r["id"]) if r else None, jobs)})
     counts: dict[str, int] = {}
     for i in items:
         s = (i["render"] or {}).get("status", "not rendered")

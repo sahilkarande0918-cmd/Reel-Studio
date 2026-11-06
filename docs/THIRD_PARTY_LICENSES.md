@@ -22,6 +22,7 @@ Reviewed 2026-10-16 via GitHub API (licence SPDX, archived flag, last push). Re-
 | heygen-com/hyperframes (CLI v0.8.164, `@hyperframes/player`) | Apache-2.0 | active | Principal renderer; editor preview player; local Kokoro TTS (`hyperframes tts`) |
 | SYSTRAN/faster-whisper | MIT | active | Speech recognition with word timestamps |
 | Whisper large-v3-turbo, CTranslate2 conversion (mobiuslabsgmbh/faster-whisper-large-v3-turbo, ~1.6 GB in D:\ReelStudio\models) | MIT | active | English and other non-Hinglish speech: the Hinglish model cannot transcribe English |
+| Real-ESRGAN realesr-general-x4v3 + realesr-general-wdn-x4v3 weights (xinntao/Real-ESRGAN v0.2.5.0, 4.9 MB each, D:\ReelStudio\models\realesrgan) and the SRVGGNetCompact layer layout re-implemented in `upscale_worker.py` | BSD-3-Clause | active | "Enhance to 4K": AI upscale on the GPU (torch env) |
 | m-bain/whisperX | BSD-2-Clause | active | Word-level forced alignment (where reliable) |
 | Breakthrough/PySceneDetect | BSD-3-Clause | active | Scene-change detection |
 | OpenCV (opencv-python) | Apache-2.0 | active | Frame analysis, motion, region tracking |

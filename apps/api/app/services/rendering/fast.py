@@ -376,8 +376,10 @@ def nvenc() -> bool:
     return r.returncode == 0
 
 
-def render(doc: dict, source: Path, project: Path, enhance_audio: bool = True, timeout: int = 1800) -> Path:
-    """Write project/out.mp4 for the doc. Raises CalledProcessError with FFmpeg's message on failure."""
+def render(doc: dict, source: Path, project: Path, enhance_audio: bool = True, timeout: int = 1800,
+           master: bool = False) -> Path:
+    """Write project/out.mp4 for the doc. Raises CalledProcessError with FFmpeg's message on failure.
+    master=True: a near-lossless intermediate (the 4K enhancer's input), not a delivery file."""
     project.mkdir(parents=True, exist_ok=True)
     (project / "captions.ass").write_text(ass(doc), encoding="utf-8")
     fdir = project / "fonts"
@@ -454,10 +456,15 @@ def render(doc: dict, source: Path, project: Path, enhance_audio: bool = True, t
     if speech == "[dub]":
         g += ";[ac]anullsink"  # the original voice is not used
     (project / "graph.txt").write_text(g, encoding="utf-8")
-    enc = (["-c:v", "h264_nvenc", "-preset", "p5", "-tune", "hq", "-rc", "vbr", "-cq", "21", "-b:v", "0",
-            "-maxrate", "14M", "-bufsize", "28M"] if nvenc() else ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20"])
+    if master:
+        enc = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "10"]
+    elif nvenc():
+        enc = ["-c:v", "h264_nvenc", "-preset", "p5", "-tune", "hq", "-rc", "vbr", "-cq", "21", "-b:v", "0",
+               "-maxrate", "14M", "-bufsize", "28M"]
+    else:
+        enc = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20"]
     cmd = ["ffmpeg", "-v", "error", "-y", "-ss", f"{t0:.3f}", "-t", f"{t1 - t0:.3f}", "-i", str(source), *extra,
            "-filter_complex_script", "graph.txt", "-map", "[vout]", "-map", "[aout]", *enc, "-profile:v", "high",
-           "-c:a", "aac", "-b:a", "192k", "-t", f"{doc['duration']:.3f}", "-movflags", "+faststart", "out.mp4"]
+           "-c:a", "aac", "-b:a", "320k" if master else "192k", "-t", f"{doc['duration']:.3f}", "-movflags", "+faststart", "out.mp4"]
     subprocess.run(cmd, cwd=project, check=True, capture_output=True, timeout=timeout, stdin=subprocess.DEVNULL)
     return project / "out.mp4"

@@ -1,14 +1,16 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, LoaderCircle, Play } from "lucide-react";
 import { useState } from "react";
 import { apiFetch, useBackend } from "@/lib/backend";
+import { Enhance4K, type Hd } from "./enhance-4k";
 
 type Clip = {
   highlight_id: string; title: string; start_s: number; end_s: number; status: string; score: number | null; topic: string | null;
   render: { id: string; status: string; error: string | null; duration_s: number | null } | null;
   job: { status: string; current_stage: string | null; progress?: number | null } | null;
+  hd: Hd | null;
 };
 
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
@@ -21,7 +23,8 @@ async function save(url: string, name: string) {
   URL.revokeObjectURL(a.href);
 }
 
-function Card({ c, base }: { c: Clip; base: string }) {
+function Card({ c, base, recordingId }: { c: Clip; base: string; recordingId: string }) {
+  const qc = useQueryClient();
   const [play, setPlay] = useState(false);
   const ready = c.render?.status === "ready";
   const urls = useQuery({
@@ -55,6 +58,8 @@ function Card({ c, base }: { c: Clip; base: string }) {
         <p className="text-[11px] text-muted">{fmt(c.start_s)}–{fmt(c.end_s)}{c.topic ? ` · ${c.topic}` : ""}</p>
         {ready && urls.data && <button type="button" onClick={() => save(urls.data!.download, `${c.title.slice(0, 40).replace(/[^\w -]/g, "")}.mp4`)}
           className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-[11px] font-semibold text-accent hover:bg-surface-2"><Download size={13} />Download</button>}
+        {ready && <Enhance4K base={base} reelId={c.render!.id} hd={c.hd} compact name={c.title.slice(0, 40).replace(/[^\w -]/g, "")}
+          onQueued={() => qc.invalidateQueries({ queryKey: ["batch", recordingId] })} />}
       </div>
     </li>
   );
@@ -68,7 +73,7 @@ export function ClipGallery({ recordingId }: { recordingId: string }) {
   const batch = useQuery({
     queryKey: ["batch", recordingId, base], enabled: !!base,
     queryFn: async () => (await (await apiFetch(base!, `/recordings/${recordingId}/batch`)).json()) as { clips: Clip[] },
-    refetchInterval: (q) => (q.state.data?.clips.some((c) => c.render && ["queued", "rendering"].includes(c.render.status)) ? 4000 : 15000),
+    refetchInterval: (q) => (q.state.data?.clips.some((c) => [c.render?.status, c.hd?.status].some((s) => s === "queued" || s === "rendering")) ? 4000 : 15000),
   });
   const clips = (batch.data?.clips ?? []).filter((c) => c.render).sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
   if (!base || !clips.length) return null;
@@ -88,7 +93,7 @@ export function ClipGallery({ recordingId }: { recordingId: string }) {
           <Download size={14} />Download all (ZIP)</button>
       </div>
       {error && <p className="text-[12px] text-danger">{error}</p>}
-      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">{clips.map((c) => <Card key={c.highlight_id} c={c} base={base} />)}</ul>
+      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">{clips.map((c) => <Card key={c.highlight_id} c={c} base={base} recordingId={recordingId} />)}</ul>
     </section>
   );
 }

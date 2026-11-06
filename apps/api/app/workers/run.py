@@ -25,6 +25,7 @@ from app.workers.transcribe import run_transcribe
 from app.workers.voice import run_voice_preview
 from app.workers.campaign import run_campaign
 from app.workers.import_url import run_import_url
+from app.workers.enhance import run_enhance
 
 log = logging.getLogger("worker")
 HANDLERS = {
@@ -39,6 +40,7 @@ HANDLERS = {
     "voice_preview": run_voice_preview,
     "campaign": run_campaign,
     "import_url": run_import_url,
+    "enhance": run_enhance,
 }
 WORKER_ID = f"{socket.gethostname()}-{int(time.time())}"
 POLL_S = 2

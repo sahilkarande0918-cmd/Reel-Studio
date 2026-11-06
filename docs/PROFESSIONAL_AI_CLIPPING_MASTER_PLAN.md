@@ -38,6 +38,7 @@ Legend: ✅ verified by test + real output · 🟡 built, verified only on the S
 | One-click recipe (link/upload → transcribe → clips → renders) | 🟡 | `Recipe` (recordings.py), `_auto_render`; first live run exposed and fixed 4 bugs (see handoff §15) |
 | Batch render, per-clip status, retry, ZIP, campaign brief | 🟡 | `api/batch.py`, `clips/campaign_brief.py`; ZIP not yet downloaded in a live test |
 | Web: Clip video page, gallery, bulk panel, engine switch, resumable uploads | 🟡 | `/clip`, `ClipGallery`, `BulkClipping`, `EngineSwitch` (owner-verified), `lib/uploads.ts` |
+| Enhance to 4K (Real-ESRGAN x4 on GPU, text redrawn at 4K, ~50 Mbps H.264) | ✅ two real reels (1080p + 720p sources) through the engine | `workers/enhance.py`, `services/upscale_worker.py`, `Enhance4K` button |
 | Benchmark vs professional clippers (Phase 11), Hindi/Hinglish podcasts, 60-min benchmark | ❌ | not run |
 | Multi-speaker diarization with pyannote/WhisperX, AI B-roll from text, lip-sync dubbing, voice clone of speakers | ❌ | deliberately not built (consent / heavy models); see Part 2 |
 

@@ -270,3 +270,46 @@ def render_captions(
         media_type="text/vtt" if format == "vtt" else "application/x-subrip",
         headers={"Content-Disposition": f'attachment; filename="reel-{render_id[:8]}.{format}"'},
     )
+
+
+class EnhanceRequest(BaseModel):
+    vivid: bool = False  # CapCut-style "HDR" look: a little more contrast and colour (still SDR, BT.709)
+
+
+@router.post("/renders/{render_id}/enhance", status_code=202)
+def enhance_render(render_id: str, body: EnhanceRequest | None = None, user: User = Depends(current_user)) -> dict:
+    """Queue a 4K (2160×3840 for 9:16) AI-upscaled version of a finished reel, linked to it as a child render.
+    The same request for the same reel reuses the running or finished 4K version."""
+    from app.workers import enhance
+
+    body = body or EnhanceRequest()
+    r = get_owned("render_jobs", render_id, user, write=True)
+    if r["status"] != "ready":
+        raise HTTPException(409, "Finish the reel first")
+    if (r.get("width") or 0) >= 2160 or (r.get("height") or 0) >= 2160:
+        raise HTTPException(409, "This reel is already 4K")
+    if why := enhance.available():
+        raise HTTPException(503, f"4K enhancement is unavailable on this engine: {why}")
+    db = service_client()
+    digest = f"4k:{'vivid' if body.vivid else 'natural'}:{r['timeline_hash']}"
+    previous = db.table("render_jobs").select("id,job_id,status").eq("parent_render_id", render_id) \
+        .eq("timeline_hash", digest).in_("status", ["queued", "rendering", "ready"]).limit(1).execute().data
+    if previous:
+        return {"render_id": previous[0]["id"], "job_id": previous[0]["job_id"], "cached": True}
+    parent_job = (db.table("jobs").select("payload").eq("id", r["job_id"]).limit(1).execute().data or [{}])[0] \
+        if r.get("job_id") else {}
+    new_id = str(uuid.uuid4())
+    db.table("render_jobs").insert({
+        "id": new_id, "organization_id": r["organization_id"], "project_id": r["project_id"],
+        "recording_id": r.get("recording_id"), "highlight_id": r.get("highlight_id"), "brand_kit_id": r.get("brand_kit_id"),
+        "created_by": user.id, "quality": "delivery", "timeline": r["timeline"], "timeline_hash": digest,
+        "parent_render_id": render_id,
+    }).execute()
+    job = db.table("jobs").insert({
+        "organization_id": r["organization_id"], "project_id": r["project_id"], "job_type": "enhance",
+        "payload": {"render_id": new_id, "vivid": body.vivid,
+                    "enhance_audio": (parent_job.get("payload") or {}).get("enhance_audio", True)},
+        "created_by": user.id, "current_stage": "queued",
+    }).execute().data[0]
+    db.table("render_jobs").update({"job_id": job["id"]}).eq("id", new_id).execute()
+    return {"render_id": new_id, "job_id": job["id"], "cached": False}

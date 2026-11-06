@@ -243,8 +243,15 @@ def _punch(items: list[dict], at: float) -> None:
             continue
         ks = sorted(it["cropKeyframes"], key=lambda k: k["t"])
         k = [x for x in ks if x["t"] <= rel][-1]
-        nxt = next((x["t"] for x in ks if x["t"] > rel), it["duration"])
+        nk = next((x for x in ks if x["t"] > rel), None)
+        nxt = nk["t"] if nk else it["duration"]
         if k["layout"] == "split" or k.get("region") == "zoom":
+            return
+        # only while the camera holds still: a punch inside a face-tracking pan (or one that would still be zoomed when
+        # the next framing starts) breaks the pan and forces the slow renderer
+        if nk and nk["transition_mode"] == "ease" and (nk["crop_x"], nk["crop_y"]) != (k["crop_x"], k["crop_y"]):
+            return
+        if nk and rel + ZOOM_S > nxt - 0.2:
             return
         w, h = int(k["crop_width"] / ZOOM) // 2 * 2, int(k["crop_height"] / ZOOM) // 2 * 2
         x = int(k["crop_x"] + (k["crop_width"] - w) / 2) // 2 * 2

@@ -129,6 +129,21 @@ clipped); windows inside parts longer than one Short can be whole; a part's dang
 ("… Power | Do") is dropped. Film scene, 5 × 15–30 s requested: 2 → 4 clips (honest shortfall for the 37-s
 unpunctuated overlapping opening).
 
+## Enhance to 4K (session 4)
+Each finished reel has "Enhance to 4K" (+ optional "HDR look") in the clip gallery and the reel panel →
+`POST /renders/{id}/enhance` → child render (`parent_render_id`, `timeline_hash` "4k:…") → `enhance` job
+(`workers/enhance.py`): (1) the reel's picture WITHOUT text rebuilt by the fast renderer at the source's own pixel density
+(720p source → 404×720; capped at 540×960 = a quarter of 4K), near-lossless; (2) Real-ESRGAN realesr-general-x4v3 with
+0.75 denoise blend, fp16 + channels-last on the GPU in the torch env (`services/upscale_worker.py`, frames piped, YUV
+conversion on the GPU, repeated frames reused); (3) captions / hook / progress bar / emojis drawn fresh at 2160×3840 by
+libass, CAS sharpening, optional vivid look (SDR BT.709 — no fake HDR), H.264 High ~45–55 Mbps (YouTube 4K SDR
+recommendation 35–45), AAC. Reels the fast renderer cannot rebuild are upscaled with their text. The ZIP takes the 4K
+version when it exists. Measured: 13.6 s reel from 1080p in 67 s (8.2 fps); 43.3 s reel from 720p in 123 s (12.9 fps)
+through the production engine. Honest limit: it removes compression blocks/noise and gives crisp text and edges; it cannot
+recover detail a 720p crop never had. Platforms always re-compress; a high-bitrate 4K upload gets YouTube's better
+VP9/AV1 encodes, Instagram downsizes to 1080 wide. Not built: face restoration (GFPGAN, Apache-2.0) — next candidate.
+OpenCut-app/OpenCut was evaluated: a browser editor with no upscaling (its export is being rewritten), so nothing to reuse.
+
 ## Not verified / not built (honest)
 - **Real footage**: no authorised real podcast was available; face framing, active-speaker switching and split screen are
   unit-tested only. Needs one authorised two-person interview (owner to provide or approve a CC-licensed download).

@@ -8,6 +8,7 @@ import { apiFetch, useBackend } from "@/lib/backend";
 import { CaptionPicker, type CaptionChoice } from "./caption-picker";
 import { StylePicker, type StylePreset } from "./style-picker";
 import { createClient } from "@/lib/supabase/client";
+import { Enhance4K } from "./enhance-4k";
 
 type Render = {
   id: string;
@@ -19,6 +20,10 @@ type Render = {
   render_s: number | null;
   error: string | null;
   created_at: string;
+  width: number | null;
+  height: number | null;
+  timeline_hash: string;
+  parent_render_id: string | null;
   job: { progress: number; current_stage: string | null; status: string; result: { timing?: Timing } | null } | null;
 };
 
@@ -69,10 +74,10 @@ export function Renders({ highlightId, projectId, selected, canEdit, onSelect }:
     queryFn: async () => {
       const { data, error } = await createClient()
         .from("render_jobs")
-        .select("id, status, quality, job_id, duration_s, size_bytes, render_s, error, created_at, job:jobs(progress, current_stage, status, result)")
+        .select("id, status, quality, job_id, duration_s, size_bytes, render_s, error, created_at, width, height, timeline_hash, parent_render_id, job:jobs(progress, current_stage, status, result)")
         .eq("highlight_id", highlightId)
         .order("created_at", { ascending: false })
-        .limit(3);
+        .limit(8);
       if (error) throw error;
       return data as unknown as Render[];
     },
@@ -88,7 +93,9 @@ export function Renders({ highlightId, projectId, selected, canEdit, onSelect }:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [highlightId, projectId]);
 
-  const latest = renders.data?.[0];
+  // the reel itself; its 4K versions (timeline_hash "4k:…") show as an action on it, never replace it
+  const latest = renders.data?.find((r) => !r.timeline_hash?.startsWith("4k:"));
+  const hd = renders.data?.find((r) => r.parent_render_id === latest?.id && r.timeline_hash?.startsWith("4k:"));
   const urls = useQuery({
     queryKey: ["render-urls", latest?.id, base],
     enabled: !!base && latest?.status === "ready",
@@ -182,7 +189,7 @@ export function Renders({ highlightId, projectId, selected, canEdit, onSelect }:
           )}
           <div className="space-y-2 text-[13px]">
             <p className="tabular-nums text-muted">
-              1080×1920 · {latest.duration_s?.toFixed(1)} s · {((latest.size_bytes ?? 0) / 1024 ** 2).toFixed(1)} MB · {QUALITY[latest.quality as keyof typeof QUALITY] ?? latest.quality}
+              {latest.width ?? 1080}×{latest.height ?? 1920} · {latest.duration_s?.toFixed(1)} s · {((latest.size_bytes ?? 0) / 1024 ** 2).toFixed(1)} MB · {QUALITY[latest.quality as keyof typeof QUALITY] ?? latest.quality}
               {latest.render_s ? ` · rendered in ${Math.round(latest.render_s)} s` : ""}
             </p>
             {urls.data && (
@@ -197,6 +204,8 @@ export function Renders({ highlightId, projectId, selected, canEdit, onSelect }:
                     {f}
                   </button>
                 ))}
+                <Enhance4K base={base!} reelId={latest.id} name={`reel-${latest.id.slice(0, 8)}`} onQueued={() => qc.invalidateQueries({ queryKey: key })}
+                  hd={hd ? { id: hd.id, status: hd.status, error: hd.error, size_bytes: hd.size_bytes, stage: hd.job?.current_stage, progress: hd.job?.progress } : null} />
                 <Link href={`/editor/${latest.id}`} className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 font-semibold text-accent-ink hover:brightness-110">
                   <Clapperboard size={14} aria-hidden /> Open in editor
                 </Link>
