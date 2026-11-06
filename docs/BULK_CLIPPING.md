@@ -46,10 +46,16 @@ through the live website with a real podcast.
 
 1. **Words** of the latest transcript (optionally only the adjusted range). Transcription itself is now batched
    (`whisper.BATCH=8`, faster-whisper `BatchedInferencePipeline`, sequential fallback; `WHISPER_BATCH=0` disables).
-2. **Speakers / faces** (`screen_analysis/speakers.py`, cached `faces.json`): YuNet face boxes every 0.5 s at 480 px,
-   seats by 1-D k-means, active speaker = slot with most mouth motion while there is speech, 1 s majority + 2 s
-   minimum shot (hysteresis). Model `D:\ReelStudio\models\yunet\face_detection_yunet_2023mar.onnx` (`FACE_MODEL`
-   env), Haar fallback.
+2. **Face tracking** (`screen_analysis/speakers.py`, cached `faces.json` v3, session 4 rewrite `ee32513`): one decode —
+   YuNet faces on every frame at 6 fps / 480 px (a missed detection holds the box ≤ 1 s, never across a cut) and a
+   64x36 thumbnail of EVERY source frame for exact camera cuts. Per clip and shot: faces linked into tracks, the speaker
+   = smoothed (1 s) mouth motion while there is speech, weighted to the nearer/larger face, hysteresis + 1.5 s minimum
+   turn; a dead-zone camera follows a moving person with eased pans (fast renderer: FFmpeg crop expressions), cuts on
+   the film's own cuts (no extra fade) and on a speaker change; people who fit one 9:16 window are framed together;
+   rapid 2-s turns between two distant people → split screen. Verified visually on a real edited film scene (3 min,
+   36 cuts): every close-up/over-the-shoulder shot framed, face box inside the crop, crop switches on the cut frame.
+   v1 (fixed median "seat" per person for the whole video) put half the face out of frame in edited footage.
+   Model `D:\ReelStudio\models\yunet\face_detection_yunet_2023mar.onnx` (`FACE_MODEL` env), Haar fallback.
 3. **Voice labels** per sentence (`transcription/diarize.py`, cached `speakers-audio.json`): MFCC statistics + Ward
    clustering, k by silhouette. CPU, no download. Upgrade path: pyannote (gated model).
 4. **Conversation map** (`highlights/outline.py` + `llm.units(profile=…)`, cached `outline-<profile>.json`; LLM asked
@@ -114,6 +120,14 @@ sponsor read, cricket tangent, repeated advice; `--short`: 5 insights) on labell
   fit layout).
 - Unit tests: `tests/test_bulk_clipping.py` (15). Full API suite 150 passed / 6 skipped; ruff clean; web tsc/eslint clean;
   schema 12/12.
+
+## Clip count fixes (session 4, `ee32513`, talk profiles only)
+Unpunctuated ASR "sentences" > 12 s are split at real pauses (incl. silence Whisper hides inside a stretched last
+word); a pause no longer splits a sentence when the next word continues it ("I … heard", "Your … Grace"); a Q&A
+exchange must be whole only when it fits one Short (was 1.5× max — exchanges between 1× and 1.5× could never be
+clipped); windows inside parts longer than one Short can be whole; a part's dangling fragment of the next sentence
+("… Power | Do") is dropped. Film scene, 5 × 15–30 s requested: 2 → 4 clips (honest shortfall for the 37-s
+unpunctuated overlapping opening).
 
 ## Not verified / not built (honest)
 - **Real footage**: no authorised real podcast was available; face framing, active-speaker switching and split screen are

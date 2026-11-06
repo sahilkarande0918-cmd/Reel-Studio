@@ -21,7 +21,7 @@ Legend: ✅ verified by test + real output · 🟡 built, verified only on the S
 | Quality-first diverse selection, embeddings dedup, honest shortfall report | 🟡 | `bulk.select`; nomic-embed-text (Ollama) + TF-IDF fallback; fixture 10/10, 15→11, 5-insight→5 |
 | LLM standalone check | 🟡 | `llm.judge_talk` (reasoning-first schema, grammar-bounded, invalid answers rejected), cached |
 | Caching / count change reuse | ✅ | 5.5 s re-run on the fixture; per-profile outline, embeddings, judgments, faces, speakers caches |
-| Speaker-aware 9:16 framing, split screen, hysteresis | 🟡 unit-tested only | `screen_analysis/speakers.py` (YuNet MIT); **not yet visually verified on real two-person footage** |
+| Face tracking: per-frame faces, exact shot cuts, active speaker, dead-zone camera with eased pans, split screen | ✅ real film scene (visual check of crops + rendered MP4s); 🟡 two-person podcast split screen | `screen_analysis/speakers.py` v3 (`ee32513`), fast-renderer pans |
 | Speech cleanup natural/engaging/fast | 🟡 | `clips/speech_cuts.py`; three fixture renders at exact length |
 | Fast renderer (FFmpeg/NVENC, ASS captions = preview pages) | ✅ on fixture; 🟡 real | `rendering/fast.py`; 4–22 s per Short; 6 real podcast clips rendered (not yet visually reviewed) |
 | Captions: 100 presets, auto style, emphasis, short-form grouping, SRT/VTT | 🟡 | `caption_presets.py`, `caption_auto.py`, `timeline.SOCIAL_CAPTIONS`; fonts renamed "RS <family>" for libass |
@@ -72,7 +72,7 @@ Legend: ✅ verified by test + real output · 🟡 built, verified only on the S
    `d4b42b3b-…`, re-analysis job `180e2344-…` was running at checkpoint): target 10 clips; check every MP4 (framing of the
    two speakers, captions, hook, endings), ZIP download, gallery. Acceptance: ≥ 8 distinct complete clips or an honest
    shortfall; 1080×1920 H.264/AAC; no clipped sentences; speakers framed.
-2. Real two-person framing check (split screen, switches) and tuning of `speakers.py`.
+2. Split-screen check on a real two-camera podcast (face tracking itself verified on a film scene, `ee32513`).
 3. Phase 11 benchmark set (60-min podcast, 20-min/5-insight interview, Hinglish podcast) with the metrics in Appendix A.
 4. Speed: text-only LLM (owner approval), outline time (~1–2 min per 10 min of audio).
 5. B-roll with the owner's Pexels key; Hindi/Hinglish podcast test; dubbing/translation quality review.
