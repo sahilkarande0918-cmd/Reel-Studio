@@ -28,6 +28,9 @@ from app.workers.jobs import Cancelled, JobContext, Permanent
 
 MODELS = Path(os.environ.get("UPSCALE_MODEL_DIR", r"D:\ReelStudio\models\realesrgan"))
 WEIGHTS = [MODELS / "realesr-general-x4v3.pth", MODELS / "realesr-general-wdn-x4v3.pth"]
+GFPGAN = Path(os.environ.get("GFPGAN_MODEL", r"D:\ReelStudio\models\gfpgan\GFPGANv1.4.pth"))
+YUNET = Path(os.environ.get("FACE_MODEL", r"D:\ReelStudio\models\yunet\face_detection_yunet_2023mar.onnx"))
+GRAIN = "noise=c0s=3:c0f=t"  # a little temporal luma grain: cleaned-up skin and walls never look plastic
 WORKER = Path(__file__).parents[1] / "services" / "upscale_worker.py"
 ENCODE_4K = ["-c:v", "h264_nvenc", "-preset", "p6", "-tune", "hq", "-rc", "vbr", "-cq", "16", "-b:v", "45M",
              "-maxrate", "60M", "-bufsize", "120M", "-profile:v", "high", "-pix_fmt", "yuv420p"]
@@ -69,6 +72,7 @@ def base_doc(doc: dict, src_h: int, src_fps: float | None = None, hdr: bool = Fa
     rs = b.setdefault("renderSettings", {})
     rs["emojis"], rs["progressBar"] = [], False
     rs["hdrGrade"] = hdr  # graded before the upscale, like the tutorial (grade, then export in 4K)
+    rs["finishGrade"] = not hdr
     return b
 
 
@@ -79,7 +83,7 @@ def overlay_args(doc: dict, project: Path, W: int, H: int) -> list[str]:
     fdir.mkdir(exist_ok=True)
     for f in fast.fonts_dir().iterdir():
         shutil.copyfile(f, fdir / f.name)
-    g = f"[0:v]fps={doc['fps']},cas=strength=0.4,subtitles=captions.ass:fontsdir=fonts"
+    g = f"[0:v]fps={doc['fps']},cas=strength=0.4,{GRAIN},subtitles=captions.ass:fontsdir=fonts"
     args = ["-i", "base/out.mp4"]
     stickers = []
     for e in (doc.get("renderSettings") or {}).get("emojis") or []:
@@ -175,13 +179,15 @@ def run_enhance(ctx: JobContext) -> dict:
             subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(pdir / "out.mp4"), "-filter_complex", g,
                             "-map", "[v]", "-map", "0:a?", "-c:v", "libx264", "-crf", "12", "-preset", "veryfast",
                             "-c:a", "copy", str(base / "out.mp4")], check=True, capture_output=True, timeout=1800)
-            encode = ["-i", "base/out.mp4", "-filter_complex", "[0:v]cas=strength=0.4,format=yuv420p[vout]",
+            encode = ["-i", "base/out.mp4", "-filter_complex", f"[0:v]cas=strength=0.4,{GRAIN},format=yuv420p[vout]",
                       "-map", "[vout]", "-map", "1:a?", *ENCODE_4K, *COLOR_TAGS, "-c:a", "copy",
                       "-t", f"{doc['duration']:.3f}", "-movflags", "+faststart", "out.mp4"]
         ctx.stage("upscale", 0.1, "AI upscaling every frame to 4K on the GPU (Real-ESRGAN)")
         base_fps = b["fps"] if rebuild else doc["fps"]
         stats = upscale(ctx, {"input": str(base / "out.mp4"), "width": W4, "height": H4, "fps": base_fps,
                               "models": [str(w) for w in WEIGHTS], "denoise": DENOISE, "encode": encode,
+                              "faces": {"gfpgan": str(GFPGAN), "yunet": str(YUNET), "strength": 0.65}
+                              if GFPGAN.is_file() and YUNET.is_file() and ctx.payload.get("faces", True) else None,
                               "cwd": str(project)}, project, (0.1, 0.93))
         shutil.rmtree(base, ignore_errors=True)  # the master is only an intermediate
         out = rw._finish(ctx, rid, render, rec, {**doc, "width": W4, "height": H4}, project, started, "enhance-4k")

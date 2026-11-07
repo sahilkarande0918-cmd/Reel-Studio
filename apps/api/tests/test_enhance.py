@@ -30,6 +30,7 @@ def test_base_uses_native_density_capped_at_a_quarter_of_4k():
     assert enhance.base_doc(_doc(720, 30), 720, 23.976)["fps"] == 23.976  # only the film's real frames
     assert enhance.base_doc(_doc(720, 30), 720, 30)["fps"] == 30
     assert enhance.base_doc(_doc(720), 720, hdr=True)["renderSettings"]["hdrGrade"] is True
+    assert enhance.base_doc(_doc(720), 720)["renderSettings"]["finishGrade"] is True  # natural finish when no look
 
 
 def test_overlay_args_redraw_text_at_4k_and_encode_for_upload(tmp_path, monkeypatch):

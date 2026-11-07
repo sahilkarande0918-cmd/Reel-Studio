@@ -23,6 +23,8 @@ Reviewed 2026-10-16 via GitHub API (licence SPDX, archived flag, last push). Re-
 | SYSTRAN/faster-whisper | MIT | active | Speech recognition with word timestamps |
 | Whisper large-v3-turbo, CTranslate2 conversion (mobiuslabsgmbh/faster-whisper-large-v3-turbo, ~1.6 GB in D:\ReelStudio\models) | MIT | active | English and other non-Hinglish speech: the Hinglish model cannot transcribe English |
 | Real-ESRGAN realesr-general-x4v3 + realesr-general-wdn-x4v3 weights (xinntao/Real-ESRGAN v0.2.5.0, 4.9 MB each, D:\ReelStudio\models\realesrgan) and the SRVGGNetCompact layer layout re-implemented in `upscale_worker.py` | BSD-3-Clause | active | "Enhance to 4K": AI upscale on the GPU (torch env) |
+| GFPGAN v1.4 weights (TencentARC/GFPGAN release v1.3.0, 349 MB, D:\ReelStudio\models\gfpgan) and the GFPGANv1Clean / StyleGAN2GeneratorClean architecture vendored in apps/api/app/services/gfpgan_arch.py (basicsr imports removed) | Apache-2.0 | active | Enhance to 4K: face restoration on the upscaled frames (65 % blend) |
+| opencv-python-headless 5.0 in the AI video environment (D:\ReelStudio\video-venv) | Apache-2.0 | active | YuNet face landmarks and face alignment inside the 4K upscale worker |
 | m-bain/whisperX | BSD-2-Clause | active | Word-level forced alignment (where reliable) |
 | Breakthrough/PySceneDetect | BSD-3-Clause | active | Scene-change detection |
 | OpenCV (opencv-python) | Apache-2.0 | active | Frame analysis, motion, region tracking |

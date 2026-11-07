@@ -143,6 +143,18 @@ through the production engine. Honest limit: it removes compression blocks/noise
 recover detail a 720p crop never had. Platforms always re-compress; a high-bitrate 4K upload gets YouTube's better
 VP9/AV1 encodes, Instagram downsizes to 1080 wide. Not built: face restoration (GFPGAN, Apache-2.0) — next candidate.
 OpenCut-app/OpenCut was evaluated: a browser editor with no upscaling (its export is being rewritten), so nothing to reuse.
+**Quality pass v2 (2026-11-07, after the owner found 4K/HDR "dull")** — measured on the owner's own HDR CC Tyrion reel: the
+tutorial recipe pushed saturation +20-50 % (skin orange) and crushed the darkest 5 % to black in dark film scenes, and the
+upscale alone added no sharpness at phone size. Fixes: (1) GFPGAN v1.4 face restoration (Apache-2.0, vendored clean
+arch, run under autocast — pure fp16 turns faces grey and hazy) on every frame with a face (YuNet landmarks, smoothed
+over time, FFHQ alignment, feathered 65 % blend): eyes, lashes, hair strands and skin structure come back; (2) HDR CC v2:
+colour burn 22 %, white overlay 50 %, shadow guard, vibrance instead of saturation, clarity — local contrast +44-48 %,
+saturation only +12-16 %, shadows lifted not crushed; (3) natural finish for the plain option (clarity + vibrance +
+shadow guard); (4) decode of the intermediate as BT.709 (FFmpeg assumed BT.601 → dulled reds/greens); (5) light temporal
+grain at 4K so cleaned skin never looks plastic. Tyrion 33.8 s reel: 233 s (5.5 fps), 786 of 1014 frames with a restored
+face; face-area frame-to-frame change 4.8 vs 3.7 in the original (no visible flicker). Not used: CodeFormer
+(non-commercial licence), RealESRGAN_x4plus (far too slow for video on 8 GB), OpenCut (no colour tools).
+
 **HDR CC option** = the AV Solutions "4K HDR CC Tutorial in CapCut" recipe, read frame by frame from the owner's copy of
 the video and rebuilt as one FFmpeg graph (`fast.hdr_cc`, applied to the base before the upscale): (1) adjustment layer
 with luma/R/G/B curves all inverted + Blur effect → blurred negative; (2) that layer in Color burn at 29 %; (3) a white
